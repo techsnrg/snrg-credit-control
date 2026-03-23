@@ -269,150 +269,151 @@ def _throw_credit_error(doc, cur, today_date):
     total_ar      = _get_total_outstanding(doc.customer, doc.company)
     effective_ar  = max(total_ar, 0)
     advances      = _get_advance_balance(doc.customer, doc.company)
-    limit_breach  = bool(credit_limit and (effective_ar + order_amount) > credit_limit)
 
-    # ── shared styles ────────────────────────────────────────────────────────
-    S = {
-        "card":   "border-radius:8px;padding:10px 14px;margin-bottom:10px;",
-        "label":  "font-size:11px;text-transform:uppercase;letter-spacing:0.5px;opacity:0.55;margin-bottom:3px;",
-        "value":  "font-weight:600;font-size:14px;",
-        "th":     "padding:8px 10px;font-weight:600;opacity:0.65;font-size:12px;text-transform:uppercase;letter-spacing:0.4px;background:transparent;",
-        "td":     "padding:9px 10px;background:transparent;vertical-align:middle;",
-        "divider":"border:none;border-top:1px solid rgba(128,128,128,0.15);margin:12px 0;",
-        "next":   "margin-top:14px;padding:10px 14px;border-left:3px solid #3b82f6;"
-                  "border-radius:0 6px 6px 0;background:rgba(59,130,246,0.08);font-size:13px;",
-    }
+    # ── Shared style tokens ──────────────────────────────────────────────────
+    LBL  = "font-size:10px;font-weight:700;letter-spacing:1.1px;text-transform:uppercase;opacity:0.45;margin-bottom:5px;"
+    TD   = "padding:9px 12px;vertical-align:middle;border-bottom:1px solid rgba(128,128,128,0.12);"
+    TH   = "padding:8px 12px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;opacity:0.4;"
+    NEXT = ("background:rgba(59,130,246,0.09);border:1px solid rgba(59,130,246,0.22);"
+            "border-radius:8px;padding:12px 14px;margin-top:14px;font-size:13px;")
 
-    def summary_card(bg_css, label, value, value_css=""):
+    # ── Two-column summary (TABLE-based — works in all Frappe dialog contexts) ─
+    def summary_row(left_html, right_html):
         return (
-            f'<div style="{S["card"]}{bg_css}">'
-            f'  <div style="{S["label"]}">{label}</div>'
-            f'  <div style="{S["value"]}{value_css}">{value}</div>'
-            f'</div>'
+            f'<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:14px;">'
+            f'<tr>'
+            f'<td width="49%" style="background:rgba(255,255,255,0.05);'
+            f'border:1px solid rgba(255,255,255,0.1);border-radius:8px;'
+            f'padding:12px 14px;vertical-align:top;">{left_html}</td>'
+            f'<td width="2%"></td>'
+            f'<td width="49%" style="background:rgba(239,68,68,0.1);'
+            f'border:1px solid rgba(239,68,68,0.28);border-radius:8px;'
+            f'padding:12px 14px;vertical-align:top;">{right_html}</td>'
+            f'</tr></table>'
         )
 
+    # ── Next-step panel ──────────────────────────────────────────────────────
+    next_step = (
+        f'<div style="{NEXT}">'
+        f'<div style="font-size:10px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;'
+        f'color:#60a5fa;margin-bottom:4px;">Next Step</div>'
+        f'Use <b>Credit Control &#8594; Request Approval</b> to notify the Credit Approver team. '
+        f'The order can be submitted once approved.</div>'
+    )
+
     if count > 0:
-        # ── OVERDUE INVOICES layout ──────────────────────────────────────────
-        rows_html = ""
+        # ── OVERDUE INVOICES ─────────────────────────────────────────────────
+        left = (
+            f'<div style="{LBL}">Customer</div>'
+            f'<div style="font-size:14px;font-weight:700;margin-bottom:2px;">{_esc(doc.customer_name)}</div>'
+            f'<div style="font-size:11px;opacity:0.4;">{_esc(doc.customer)}</div>'
+        )
+        right = (
+            f'<div style="{LBL}color:#f87171;">Overdue</div>'
+            f'<div style="font-size:22px;font-weight:800;color:#ef4444;letter-spacing:-.5px;">'
+            f'{fmt_money(total_overdue, currency=cur)}</div>'
+            f'<div style="font-size:11px;color:#f87171;margin-top:3px;">'
+            f'{count} invoice{"s" if count != 1 else ""} past {threshold} days</div>'
+        )
+
+        # Invoice rows
+        inv_rows = ""
         for i, r in enumerate(rows[:15]):
-            age  = (today_date - getdate(r.posting_date)).days
-            bg   = "background:rgba(128,128,128,0.04);" if i % 2 == 0 else "background:transparent;"
-            age_color = "color:#ef4444;font-weight:700;" if age > 90 else "color:#f97316;font-weight:600;"
-            rows_html += (
-                f'<tr>'
-                f'<td style="{S["td"]}{bg}">'
-                f'  <a href="#Form/Sales%20Invoice/{r.name}" target="_blank"'
-                f'     style="color:#3b82f6;text-decoration:none;font-weight:600;">'
-                f'    {_esc(r.name)}</a>'
-                f'</td>'
-                f'<td style="{S["td"]}{bg}text-align:center;{age_color}">{age}d</td>'
-                f'<td style="{S["td"]}{bg}text-align:right;font-weight:600;">'
-                f'  {fmt_money(r.outstanding_amount, currency=cur)}'
-                f'</td>'
+            age     = (today_date - getdate(r.posting_date)).days
+            age_clr = "#ef4444" if age > 90 else ("#f97316" if age > 75 else "inherit")
+            row_bg  = "rgba(255,255,255,0.025)" if i % 2 == 0 else "transparent"
+            inv_rows += (
+                f'<tr style="background:{row_bg};">'
+                f'<td style="{TD}">'
+                f'<a href="#Form/Sales%20Invoice/{r.name}" '
+                f'style="color:#60a5fa;text-decoration:none;font-weight:600;">'
+                f'{_esc(r.name)}</a></td>'
+                f'<td style="{TD}text-align:center;font-weight:700;color:{age_clr};">{age}d</td>'
+                f'<td style="{TD}text-align:right;font-weight:600;">'
+                f'{fmt_money(r.outstanding_amount, currency=cur)}</td>'
                 f'</tr>'
             )
         if count > 15:
-            rows_html += (
-                f'<tr><td colspan="3" style="{S["td"]}text-align:center;opacity:0.5;">'
-                f'… and {count - 15} more invoice(s)</td></tr>'
+            inv_rows += (
+                f'<tr><td colspan="3" style="padding:8px 12px;text-align:center;'
+                f'opacity:0.35;font-size:12px;">… and {count - 15} more</td></tr>'
             )
 
-        html = f"""
-<div style="font-size:13px;line-height:1.5;">
-  <!-- Summary cards -->
-  <div style="display:flex;gap:10px;margin-bottom:4px;">
-    {summary_card("background:rgba(128,128,128,0.07);", "Customer",
-                  f'{_esc(doc.customer_name)}<br><span style="font-size:12px;opacity:0.6;">'
-                  f'{_esc(doc.customer)}</span>')}
-    {summary_card("background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);",
-                  "Overdue Invoices",
-                  f'{count} invoice{"s" if count != 1 else ""} &nbsp;·&nbsp; '
-                  f'{fmt_money(total_overdue, currency=cur)}',
-                  "color:#ef4444;")}
-  </div>
+        inv_table = (
+            f'<div style="font-size:10px;opacity:0.35;letter-spacing:.5px;'
+            f'text-transform:uppercase;margin-bottom:8px;">'
+            f'Cutoff date: {formatdate(cutoff)}</div>'
+            f'<table width="100%" cellpadding="0" cellspacing="0" '
+            f'style="border-collapse:collapse;border:1px solid rgba(128,128,128,0.15);border-radius:8px;">'
+            f'<thead><tr style="background:rgba(255,255,255,0.04);">'
+            f'<th style="{TH}text-align:left;">Invoice</th>'
+            f'<th style="{TH}text-align:center;">Age</th>'
+            f'<th style="{TH}text-align:right;">Outstanding</th>'
+            f'</tr></thead>'
+            f'<tbody>{inv_rows}</tbody>'
+            f'<tfoot><tr style="background:rgba(239,68,68,0.07);'
+            f'border-top:2px solid rgba(239,68,68,0.2);">'
+            f'<td colspan="2" style="padding:10px 12px;font-weight:700;font-size:13px;">Total Overdue</td>'
+            f'<td style="padding:10px 12px;text-align:right;font-weight:800;font-size:15px;color:#ef4444;">'
+            f'{fmt_money(total_overdue, currency=cur)}</td>'
+            f'</tr></tfoot></table>'
+        )
 
-  <!-- Threshold note -->
-  <div style="font-size:12px;opacity:0.5;margin-bottom:8px;">
-    Threshold: {threshold} days &nbsp;·&nbsp; Cutoff date: {formatdate(cutoff)}
-  </div>
-
-  <!-- Invoice table -->
-  <table style="width:100%;border-collapse:collapse;border-radius:6px;overflow:hidden;">
-    <thead>
-      <tr style="border-bottom:2px solid rgba(128,128,128,0.2);">
-        <th style="{S["th"]}text-align:left;">Invoice</th>
-        <th style="{S["th"]}text-align:center;">Age</th>
-        <th style="{S["th"]}text-align:right;">Outstanding</th>
-      </tr>
-    </thead>
-    <tbody>{rows_html}</tbody>
-    <tfoot>
-      <tr style="border-top:2px solid rgba(128,128,128,0.2);">
-        <td style="{S["td"]}font-weight:700;">Total</td>
-        <td></td>
-        <td style="{S["td"]}text-align:right;font-weight:700;color:#ef4444;">
-          {fmt_money(total_overdue, currency=cur)}
-        </td>
-      </tr>
-    </tfoot>
-  </table>
-
-  <!-- Next step -->
-  <div style="{S["next"]}">
-    <b>Next step:</b> Use <b>Credit Control → Request Approval</b> on this Sales Order
-    to notify the Credit Approver team. The order can be submitted once approved.
-  </div>
-</div>"""
+        html = (
+            f'<div style="font-size:13px;line-height:1.5;">'
+            f'{summary_row(left, right)}'
+            f'{inv_table}'
+            f'{next_step}'
+            f'</div>'
+        )
 
     else:
-        # ── CREDIT LIMIT BREACH layout ───────────────────────────────────────
+        # ── CREDIT LIMIT BREACH ──────────────────────────────────────────────
         breach = (effective_ar + order_amount) - credit_limit
-        html = f"""
-<div style="font-size:13px;line-height:1.5;">
-  <!-- Summary cards -->
-  <div style="display:flex;gap:10px;margin-bottom:4px;">
-    {summary_card("background:rgba(128,128,128,0.07);", "Customer",
-                  f'{_esc(doc.customer_name)}<br><span style="font-size:12px;opacity:0.6;">'
-                  f'{_esc(doc.customer)}</span>')}
-    {summary_card("background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);",
-                  "Breach Amount", fmt_money(breach, currency=cur), "color:#ef4444;")}
-  </div>
 
-  <!-- Breakdown table -->
-  <table style="width:100%;border-collapse:collapse;margin-top:4px;">
-    <tbody>
-      <tr style="border-bottom:1px solid rgba(128,128,128,0.12);">
-        <td style="{S["td"]}opacity:0.65;">Credit Limit</td>
-        <td style="{S["td"]}text-align:right;font-weight:600;">{fmt_money(credit_limit, currency=cur)}</td>
-      </tr>
-      <tr style="border-bottom:1px solid rgba(128,128,128,0.12);">
-        <td style="{S["td"]}opacity:0.65;">Current AR (net of advances)</td>
-        <td style="{S["td"]}text-align:right;font-weight:600;">{fmt_money(effective_ar, currency=cur)}</td>
-      </tr>
-      <tr style="border-bottom:1px solid rgba(128,128,128,0.12);">
-        <td style="{S["td"]}opacity:0.65;">Advance Balance</td>
-        <td style="{S["td"]}text-align:right;font-weight:600;">{fmt_money(advances, currency=cur)}</td>
-      </tr>
-      <tr style="border-bottom:2px solid rgba(128,128,128,0.2);">
-        <td style="{S["td"]}opacity:0.65;">This Order</td>
-        <td style="{S["td"]}text-align:right;font-weight:600;">{fmt_money(order_amount, currency=cur)}</td>
-      </tr>
-      <tr>
-        <td style="{S["td"]}font-weight:700;">Total Exposure</td>
-        <td style="{S["td"]}text-align:right;font-weight:700;color:#ef4444;">
-          {fmt_money(effective_ar + order_amount, currency=cur)}
-          &nbsp;<span style="font-size:11px;opacity:0.7;">(limit: {fmt_money(credit_limit, currency=cur)})</span>
-        </td>
-      </tr>
-    </tbody>
-  </table>
+        left = (
+            f'<div style="{LBL}">Customer</div>'
+            f'<div style="font-size:14px;font-weight:700;margin-bottom:2px;">{_esc(doc.customer_name)}</div>'
+            f'<div style="font-size:11px;opacity:0.4;">{_esc(doc.customer)}</div>'
+        )
+        right = (
+            f'<div style="{LBL}color:#f87171;">Breach Amount</div>'
+            f'<div style="font-size:22px;font-weight:800;color:#ef4444;letter-spacing:-.5px;">'
+            f'{fmt_money(breach, currency=cur)}</div>'
+            f'<div style="font-size:11px;color:#f87171;margin-top:3px;">Exceeds credit limit</div>'
+        )
 
-  <!-- Next step -->
-  <div style="{S["next"]}">
-    <b>Next step:</b> Use <b>Credit Control → Request Approval</b> on this Sales Order
-    to notify the Credit Approver team. The order can be submitted once approved.
-  </div>
-</div>"""
+        def brow(label, value, bold=False, red=False):
+            val_style = "text-align:right;font-weight:" + ("800;font-size:15px;color:#ef4444;" if red else ("700;" if bold else "600;"))
+            return (
+                f'<tr><td style="{TD}opacity:0.6;">{label}</td>'
+                f'<td style="{TD}{val_style}">{value}</td></tr>'
+            )
+
+        breakdown = (
+            f'<table width="100%" cellpadding="0" cellspacing="0" '
+            f'style="border-collapse:collapse;border:1px solid rgba(128,128,128,0.15);border-radius:8px;margin-bottom:0;">'
+            f'<tbody>'
+            f'{brow("Credit Limit", fmt_money(credit_limit, currency=cur))}'
+            f'{brow("Current AR (net)", fmt_money(effective_ar, currency=cur))}'
+            f'{brow("Advance Balance", fmt_money(advances, currency=cur))}'
+            f'{brow("This Order", fmt_money(order_amount, currency=cur))}'
+            f'<tr style="background:rgba(239,68,68,0.07);border-top:2px solid rgba(239,68,68,0.2);">'
+            f'<td style="padding:10px 12px;font-weight:700;">Total Exposure</td>'
+            f'<td style="padding:10px 12px;text-align:right;font-weight:800;font-size:15px;color:#ef4444;">'
+            f'{fmt_money(effective_ar + order_amount, currency=cur)}'
+            f'<span style="font-size:11px;opacity:0.45;font-weight:400;"> / limit {fmt_money(credit_limit, currency=cur)}</span>'
+            f'</td></tr>'
+            f'</tbody></table>'
+        )
+
+        html = (
+            f'<div style="font-size:13px;line-height:1.5;">'
+            f'{summary_row(left, right)}'
+            f'{breakdown}'
+            f'{next_step}'
+            f'</div>'
+        )
 
     frappe.throw(html, title="🚫 Credit Hold — Submission Blocked")
 

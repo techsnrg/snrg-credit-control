@@ -28,52 +28,59 @@ function render_credit_chip(frm) {
     const fmt    = v => frappe.format(v, { fieldtype: "Currency", options: cur });
     const hasReq = !!frm.doc.custom_snrg_request_time;
 
-    // ── Helpers ────────────────────────────────────────────────────────────
-    const badge = (text, clr) =>
-      `<span style="background:rgba(${clr},0.12);border:1px solid rgba(${clr},0.4);
-        color:rgba(${clr},1);border-radius:12px;padding:2px 9px;
-        font-size:11px;font-weight:700;letter-spacing:0.4px;white-space:nowrap;">${text}</span>`;
+    // ── Building blocks ────────────────────────────────────────────────────
+    // Pill badge (flex works in dashboard headline area)
+    const pill = (text, rgb) =>
+      `<span style="background:rgba(${rgb},.18);border:1px solid rgba(${rgb},.45);
+        color:rgba(${rgb},1);font-size:10px;font-weight:800;letter-spacing:1.2px;
+        text-transform:uppercase;padding:3px 12px;border-radius:20px;
+        white-space:nowrap;vertical-align:middle;">${text}</span>`;
 
-    const kv = (label, value, mono) =>
-      `<div style="min-width:0;">
-        <div style="font-size:11px;opacity:0.55;text-transform:uppercase;
-          letter-spacing:0.5px;margin-bottom:3px;">${label}</div>
-        <div style="font-weight:600;font-size:${mono ? '15px' : '13px'};
-          overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${value}</div>
+    // Metric column — inline-block (100% reliable, no flex/grid needed)
+    const stat = (label, value, valCss, w) =>
+      `<div style="display:inline-block;vertical-align:top;width:${w};padding-right:12px;box-sizing:border-box;">
+        <div style="font-size:10px;font-weight:700;letter-spacing:1.1px;text-transform:uppercase;
+          opacity:.45;margin-bottom:4px;">${label}</div>
+        <div style="${valCss}">${value}</div>
       </div>`;
 
-    const divider = clr =>
-      `<div style="border-top:1px solid rgba(${clr},0.18);margin:10px 0 8px;"></div>`;
-
-    const bar = (pct, clr) =>
-      `<div style="height:5px;background:rgba(128,128,128,0.18);
-        border-radius:3px;overflow:hidden;margin:6px 0 2px;">
-        <div style="width:${pct}%;height:100%;background:rgba(${clr},1);
-          border-radius:3px;transition:width 0.4s;"></div>
+    // Progress bar
+    const bar = (pct, rgb) =>
+      `<div style="height:4px;background:rgba(255,255,255,.1);border-radius:3px;
+        overflow:hidden;margin:10px 0 4px;">
+        <div style="width:${pct}%;height:100%;background:rgba(${rgb},1);border-radius:3px;"></div>
       </div>
-      <div style="font-size:11px;opacity:0.5;text-align:right;margin-bottom:10px;">${pct}% of cap used</div>`;
+      <div style="font-size:10px;letter-spacing:.5px;opacity:.35;text-align:right;
+        margin-bottom:12px;">${pct}% OF CAP USED</div>`;
 
-    const wrap = (borderClr, content) =>
-      `<div style="border-left:4px solid ${borderClr};border-radius:6px;
-        padding:12px 16px;font-size:13px;line-height:1.5;
-        background:transparent;box-shadow:0 1px 3px rgba(0,0,0,0.15);
-        opacity:0;animation:snrgFadeIn 0.25s ease forwards;">${content}</div>`;
+    // Outer card wrapper
+    const card = (rgb, content) =>
+      `<div style="border:1px solid rgba(${rgb},.22);border-left:4px solid rgba(${rgb},1);
+        border-radius:0 8px 8px 0;padding:16px 20px;
+        background:rgba(${rgb},.06);
+        box-shadow:0 2px 12px rgba(0,0,0,.2);
+        opacity:0;animation:snrgFadeIn .3s ease forwards;
+        font-family:inherit;line-height:1.4;">${content}</div>`;
+
+    const L18 = 'font-size:18px;font-weight:800;letter-spacing:-.5px;';
+    const L15 = 'font-size:15px;font-weight:700;';
+    const L13 = 'font-size:13px;font-weight:600;opacity:.75;';
+    const hr  = rgb => `<div style="border-top:1px solid rgba(${rgb},.15);margin:13px 0 11px;"></div>`;
 
     // ── PENDING ────────────────────────────────────────────────────────────
     if (hasReq && !cap) {
-      _set_chip(frm, wrap("#3b82f6", `
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-          <span style="font-size:15px;">⏳</span>
-          <span style="font-weight:700;font-size:14px;">Credit Approval Pending</span>
-          <span style="margin-left:auto;">${badge("AWAITING REVIEW", "59,130,246")}</span>
+      _set_chip(frm, card('59,130,246', `
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <span style="font-size:13px;font-weight:700;">⏳ &nbsp;Credit Approval Pending</span>
+          ${pill('Awaiting Review', '147,197,253')}
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:2px;">
-          ${kv("Order Value", fmt(amt), true)}
-          ${kv("Requested On", frappe.datetime.str_to_user(frm.doc.custom_snrg_request_time))}
+        <div>
+          ${stat('Order Value', fmt(amt), L18, '50%')}
+          ${stat('Requested On', frappe.datetime.str_to_user(frm.doc.custom_snrg_request_time), L13, '50%')}
         </div>
-        ${divider("59,130,246")}
-        <div style="font-size:12px;opacity:0.65;">
-          📬 Approval request sent — awaiting Credit Control team review
+        ${hr('59,130,246')}
+        <div style="font-size:11px;opacity:.4;letter-spacing:.2px;">
+          📬 &nbsp;Sent to Credit Approver — awaiting review
         </div>`));
       return;
     }
@@ -90,65 +97,54 @@ function render_credit_chip(frm) {
     const isOver   = amt > cap;
 
     if (isValid && !isOver) {
-      // ✅ Approved & within cap
-      const daysLabel = daysLeft === 0 ? "EXPIRES TODAY" : `${daysLeft}d REMAINING`;
-      _set_chip(frm, wrap("#22c55e", `
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-          <span style="font-size:15px;">✅</span>
-          <span style="font-weight:700;font-size:14px;">Credit Approved — Active</span>
-          <span style="margin-left:auto;">${badge(daysLabel, "34,197,94")}</span>
+      // ✅ Active approval
+      _set_chip(frm, card('34,197,94', `
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <span style="font-size:13px;font-weight:700;">✅ &nbsp;Credit Approved — Active</span>
+          ${pill(daysLeft === 0 ? 'Expires Today' : daysLeft + 'd Remaining', '74,222,128')}
         </div>
-        ${bar(pct, "34,197,94")}
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:2px;">
-          ${kv("Approved Cap", fmt(cap))}
-          ${kv("Order Value", fmt(amt))}
-          ${kv("Valid Till", tillFmt)}
+        ${bar(pct, '34,197,94')}
+        <div>
+          ${stat('Approved Cap', fmt(cap), L13, '28%')}
+          ${stat('Order Value', fmt(amt), L13, '28%')}
+          ${stat('Headroom', fmt(headroom), 'font-size:20px;font-weight:800;color:#4ade80;', '44%')}
         </div>
-        ${divider("34,197,94")}
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <span style="font-size:12px;opacity:0.65;">Available headroom</span>
-          <span style="font-weight:700;font-size:15px;color:#22c55e;">${fmt(headroom)}</span>
+        <div style="font-size:10px;opacity:.3;margin-top:10px;letter-spacing:.5px;text-transform:uppercase;">
+          Valid till &nbsp;${tillFmt}
         </div>`));
 
     } else if (!isValid) {
       // ⚠️ Expired
-      _set_chip(frm, wrap("#f97316", `
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-          <span style="font-size:15px;">⚠️</span>
-          <span style="font-weight:700;font-size:14px;">Credit Approval Expired</span>
-          <span style="margin-left:auto;">${badge("EXPIRED", "249,115,22")}</span>
+      _set_chip(frm, card('249,115,22', `
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <span style="font-size:13px;font-weight:700;">⚠️ &nbsp;Credit Approval Expired</span>
+          ${pill('Expired', '251,146,60')}
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:2px;">
-          ${kv("Approved Cap", fmt(cap))}
-          ${kv("Order Value", fmt(amt))}
-          ${kv("Expired On", tillFmt)}
+        <div>
+          ${stat('Approved Cap', fmt(cap), L15, '28%')}
+          ${stat('Order Value', fmt(amt), L15, '28%')}
+          ${stat('Expired On', tillFmt, 'font-size:13px;font-weight:600;color:#fb923c;', '44%')}
         </div>
-        ${divider("249,115,22")}
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <span style="font-size:12px;opacity:0.65;">Re-request approval to submit this order</span>
-          <span style="font-weight:700;font-size:14px;color:#f97316;">
-            ${isOver ? `Over by ${fmt(deficit)}` : `Headroom ${fmt(headroom)}`}
-          </span>
+        ${hr('249,115,22')}
+        <div style="font-size:11px;opacity:.4;">
+          ⚡ &nbsp;Use Credit Control → Request Approval to renew
         </div>`));
 
     } else {
-      // 🚫 Over limit (valid but amount exceeds cap)
-      _set_chip(frm, wrap("#ef4444", `
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-          <span style="font-size:15px;">🚫</span>
-          <span style="font-weight:700;font-size:14px;">Order Exceeds Approved Cap</span>
-          <span style="margin-left:auto;">${badge("OVER CAP", "239,68,68")}</span>
+      // 🚫 Over cap
+      _set_chip(frm, card('239,68,68', `
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <span style="font-size:13px;font-weight:700;">🚫 &nbsp;Order Exceeds Approved Cap</span>
+          ${pill('Over Cap', '248,113,113')}
         </div>
-        ${bar(pct, "239,68,68")}
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:2px;">
-          ${kv("Approved Cap", fmt(cap))}
-          ${kv("Order Value", fmt(amt))}
-          ${kv("Valid Till", tillFmt)}
+        ${bar(pct, '239,68,68')}
+        <div>
+          ${stat('Approved Cap', fmt(cap), L13, '28%')}
+          ${stat('Order Value', fmt(amt), 'font-size:15px;font-weight:700;color:#f87171;', '28%')}
+          ${stat('Exceeds By', fmt(deficit), 'font-size:20px;font-weight:800;color:#f87171;', '44%')}
         </div>
-        ${divider("239,68,68")}
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <span style="font-size:12px;opacity:0.65;">Amount exceeds cap by</span>
-          <span style="font-weight:700;font-size:15px;color:#ef4444;">${fmt(deficit)}</span>
+        <div style="font-size:10px;opacity:.3;margin-top:10px;letter-spacing:.5px;text-transform:uppercase;">
+          Valid till &nbsp;${tillFmt} — cap must be increased
         </div>`));
     }
   } catch (e) {
@@ -248,8 +244,8 @@ function open_request_dialog(frm) {
         fieldname: "committed_amount",
         label: "Committed Amount",
         reqd: 1,
-        default: frm.doc.grand_total || frm.doc.rounded_total || 0,
-        description: "Amount the customer has committed to pay",
+        default: frm.doc.custom_snrg_overdue_amount_terms || 0,
+        description: "Amount the customer has committed to pay (defaults to total overdue)",
       },
       {
         fieldtype: "Section Break",
