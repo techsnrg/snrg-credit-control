@@ -1,0 +1,2 @@
+include requirements.txt
+recursive-include snrg_credit_control *.json *.js *.css *.html *.py
