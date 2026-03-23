@@ -25,20 +25,20 @@ function render_quotation_credit_chip(frm) {
     const themes = {
       "Credit OK": {
         rgb: "34,197,94",
-        surface: "rgba(16, 185, 129, 0.10)",
-        border: "rgba(52, 211, 153, 0.22)",
+        bg: "rgba(34,197,94,.08)",
+        border: "rgba(34,197,94,.18)",
         title: "Credit OK",
         badge: "Healthy",
-        subtitle: "Customer is within overdue and credit-limit thresholds after the latest save.",
+        subtitle: "Customer is currently within the configured credit policy.",
       },
       "Credit Hold": {
         rgb: "239,68,68",
-        surface: "rgba(239, 68, 68, 0.10)",
-        border: "rgba(248, 113, 113, 0.24)",
+        bg: "rgba(239,68,68,.08)",
+        border: "rgba(239,68,68,.18)",
         title: "Credit Hold",
         badge: reason || "Review",
         subtitle: reason === "Over-Limit"
-          ? "Live exposure plus this quotation is above the customer's credit limit."
+          ? "Current exposure plus this quotation crosses the customer's credit limit."
           : "Customer has overdue invoices beyond the configured threshold.",
       },
     };
@@ -46,44 +46,36 @@ function render_quotation_credit_chip(frm) {
     const theme = themes[status];
     if (!theme) return;
 
-    const pill = `<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(${theme.rgb},.14);border:1px solid rgba(${theme.rgb},.32);color:rgba(${theme.rgb},1);font-size:10px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;padding:5px 12px;border-radius:999px;white-space:nowrap;">${frappe.utils.escape_html(theme.badge)}</span>`;
+    const pill = `<span style="display:inline-flex;align-items:center;background:rgba(${theme.rgb},.12);border:1px solid rgba(${theme.rgb},.24);color:rgba(${theme.rgb},1);font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap;">${frappe.utils.escape_html(theme.badge)}</span>`;
     const stat = (label, value, width, valueStyle = "") =>
-      `<div style="display:inline-block;vertical-align:top;width:${width};padding-right:16px;padding-bottom:14px;box-sizing:border-box;min-width:180px;">
-        <div style="font-size:10px;font-weight:700;letter-spacing:1.1px;text-transform:uppercase;opacity:.48;margin-bottom:6px;">${label}</div>
-        <div style="font-size:18px;font-weight:800;letter-spacing:-0.2px;${valueStyle}">${value}</div>
+      `<div style="display:inline-block;vertical-align:top;width:${width};min-width:160px;padding-right:18px;padding-bottom:12px;box-sizing:border-box;">
+        <div style="font-size:11px;font-weight:600;opacity:.65;margin-bottom:4px;">${label}</div>
+        <div style="font-size:19px;font-weight:700;letter-spacing:-0.2px;${valueStyle}">${value}</div>
       </div>`;
-    const progressPct = creditLimit > 0
-      ? Math.max(0, Math.min(100, Math.round((exposure / creditLimit) * 100)))
-      : 0;
     const availabilityTone = projectedAvailable < 0
       ? "color:#fca5a5;"
       : (availableCredit <= 0 ? "color:#fdba74;" : `color:rgba(${theme.rgb},1);`);
-    const summaryLabel = creditLimit > 0 ? `${progressPct}% of credit limit currently utilized` : "No credit limit configured";
 
     frm.dashboard.set_headline(`
-      <div style="border:1px solid ${theme.border};border-left:5px solid rgba(${theme.rgb},1);border-radius:12px;padding:18px 22px;background:linear-gradient(135deg, ${theme.surface} 0%, rgba(15, 23, 42, 0.04) 100%);box-shadow:0 12px 24px rgba(15,23,42,.08);line-height:1.4;overflow:hidden;">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
+      <div style="border:1px solid ${theme.border};border-radius:10px;padding:14px 16px;background:${theme.bg};line-height:1.45;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;flex-wrap:wrap;">
           <div>
-            <div style="font-size:20px;font-weight:800;letter-spacing:-0.3px;margin-bottom:3px;">${theme.title}</div>
-            <div style="font-size:12px;opacity:.74;max-width:780px;">${theme.subtitle}</div>
+            <div style="font-size:18px;font-weight:700;margin-bottom:2px;">${theme.title}</div>
+            <div style="font-size:12px;opacity:.72;">${theme.subtitle}</div>
           </div>
           ${pill}
         </div>
-        <div style="height:8px;border-radius:999px;background:rgba(148,163,184,.16);overflow:hidden;margin-bottom:8px;">
-          <div style="width:${progressPct}%;height:100%;background:linear-gradient(90deg, rgba(${theme.rgb},.78) 0%, rgba(${theme.rgb},1) 100%);border-radius:999px;"></div>
+        <div style="margin-top:12px;">
+          ${stat("Available Credit", fmtSigned(availableCredit), "24%", availabilityTone)}
+          ${stat("Current Exposure", fmt(exposure), "19%")}
+          ${stat("Credit Limit", fmt(creditLimit), "19%")}
+          ${stat("Quotation Value", fmt(quotationValue), "19%")}
+          ${stat("Projected Balance", fmtSigned(projectedAvailable), "19%", projectedAvailable < 0 ? "color:#fca5a5;" : "")}
         </div>
-        <div style="font-size:11px;font-weight:600;letter-spacing:.2px;opacity:.58;margin-bottom:16px;">${summaryLabel}</div>
-        <div style="margin-bottom:2px;">
-          ${stat("Available Credit", fmtSigned(availableCredit), "28%", availabilityTone)}
-          ${stat("Projected After Quote", fmtSigned(projectedAvailable), "28%", projectedAvailable < 0 ? "color:#fca5a5;" : "")}
-          ${stat("Current Exposure", fmt(exposure), "22%")}
-          ${stat("Credit Limit", fmt(creditLimit), "22%")}
-        </div>
-        <div style="border-top:1px solid rgba(148,163,184,.18);padding-top:14px;">
-          ${stat("Overdue Invoices", overdueCount, "22%", overdueCount ? "color:#f59e0b;" : "")}
-          ${stat("Overdue Amount", fmt(overdueAmount), "26%", overdueAmount ? "color:#f59e0b;" : "")}
-          ${stat("Quotation Value", fmt(quotationValue), "26%")}
-          ${stat("Reason", reason || "Within policy", "26%", reason ? "color:#fca5a5;font-size:15px;" : "font-size:15px;")}
+        <div style="border-top:1px solid rgba(140,140,140,.14);margin-top:4px;padding-top:12px;font-size:12px;opacity:.8;">
+          <span style="margin-right:18px;"><strong>Overdue Invoices:</strong> ${overdueCount}</span>
+          <span style="margin-right:18px;"><strong>Overdue Amount:</strong> ${fmt(overdueAmount)}</span>
+          <span><strong>Reason:</strong> ${frappe.utils.escape_html(reason || "Within policy")}</span>
         </div>
       </div>
     `);
