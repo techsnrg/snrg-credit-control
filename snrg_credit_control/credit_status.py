@@ -1,12 +1,12 @@
 import frappe
-from frappe.utils import add_days, fmt_money, formatdate, getdate, today
+from frappe.utils import add_days, flt, fmt_money, formatdate, getdate, today
 
 
 DEFAULT_THRESHOLD_DAYS = 75
 
 
 def zero(value):
-    return value or 0
+    return flt(value)
 
 
 def escape_html(value):
