@@ -309,6 +309,55 @@ def get_credit_status(customer, company, currency=None, amount=0):
     }
 
 
+@frappe.whitelist()
+def get_ptp_references(sales_order):
+    if not sales_order:
+        return []
+
+    doc = frappe.get_doc("Sales Order", sales_order)
+    if not doc.has_permission("read"):
+        frappe.throw("Not permitted.", frappe.PermissionError)
+
+    refs = []
+    for row in (doc.get("custom_snrg_ptp_entries") or []):
+        refs.append(
+            {
+                "ptp_entry_id": row.name,
+                "label": _get_ptp_reference_label(row),
+                "committed_amount": _val(row.committed_amount),
+                "received_amount": _val(row.received_amount),
+                "difference_amount": _val(row.difference_amount or row.committed_amount),
+                "status": row.status or "Pending",
+            }
+        )
+    return refs
+
+
+@frappe.whitelist()
+def link_payment_entry_from_report(sales_order, ptp_entry_id, payment_entry, allocated_amount, remarks=None):
+    if not sales_order or not ptp_entry_id or not payment_entry:
+        frappe.throw("Sales Order, PTP reference, and Payment Entry are required.")
+
+    doc = frappe.get_doc("Sales Order", sales_order)
+    if not doc.has_permission("write"):
+        frappe.throw("Not permitted.", frappe.PermissionError)
+
+    ptp_rows = {row.name: row for row in (doc.get("custom_snrg_ptp_entries") or [])}
+    row = ptp_rows.get(ptp_entry_id)
+    if not row:
+        frappe.throw("Selected PTP reference was not found on the Sales Order.")
+
+    link = doc.append("custom_snrg_ptp_payment_links", {})
+    link.ptp_entry_id = ptp_entry_id
+    link.ptp_reference = _get_ptp_reference_label(row)
+    link.payment_entry = payment_entry
+    link.allocated_amount = _val(allocated_amount)
+    link.remarks = remarks or ""
+    doc.save()
+
+    return {"message": "Payment Entry linked successfully."}
+
+
 @frappe.whitelist(allow_guest=True)
 def approve_from_email(name):
     if not name:
