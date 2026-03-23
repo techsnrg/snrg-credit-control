@@ -249,7 +249,9 @@ _QUOTATION_FIELDS = [
         "options": "\nNot Run\nCredit OK\nCredit Hold",
         "default": "Not Run",
         "read_only": 1,
-        "hidden": 1,
+        "hidden": 0,
+        "in_list_view": 1,
+        "in_standard_filter": 1,
         "insert_after": "rounded_total",
     },
     {
@@ -257,7 +259,8 @@ _QUOTATION_FIELDS = [
         "fieldtype": "Data",
         "label": "Reason Code",
         "read_only": 1,
-        "hidden": 1,
+        "hidden": 0,
+        "in_standard_filter": 1,
         "insert_after": "custom_snrg_credit_check_status",
     },
     {
@@ -344,7 +347,10 @@ def _ensure_report():
 
 def _ensure_custom_field(doctype, field_def):
     fieldname = field_def["fieldname"]
-    if frappe.db.exists("Custom Field", f"{doctype}-{fieldname}"):
+    custom_field_name = f"{doctype}-{fieldname}"
+    if frappe.db.exists("Custom Field", custom_field_name):
+        for key, value in field_def.items():
+            frappe.db.set_value("Custom Field", custom_field_name, key, value, update_modified=False)
         return
     doc = {"doctype": "Custom Field", "dt": doctype}
     doc.update(field_def)

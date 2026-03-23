@@ -14,6 +14,10 @@ doctype_js = {
     "Quotation": "public/js/quotation.js",
 }
 
+doctype_list_js = {
+    "Quotation": "public/js/quotation_list.js",
+}
+
 # Python event hooks for Sales Order
 doc_events = {
     "Sales Order": {
