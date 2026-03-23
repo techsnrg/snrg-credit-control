@@ -213,13 +213,13 @@ def get_data(filters):
     if not so_list:
         return []
 
-    # Fetch latest PTP entry per SO in one query
+    # Fetch latest standalone Credit PTP per SO
     so_names = [r.name for r in so_list]
     placeholders = ", ".join(["%s"] * len(so_names))
     ptp_rows = frappe.db.sql(
         f"""
         SELECT
-            p.parent,
+            p.sales_order AS parent,
             p.name,
             p.ptp_by_name,
             p.commitment_date,
@@ -230,13 +230,14 @@ def get_data(filters):
             p.linked_payment_entries,
             p.payment_mode,
             p.modified
-        FROM `tabCredit PTP Entry` p
+        FROM `tabCredit PTP` p
         INNER JOIN (
-            SELECT parent, MAX(modified) AS latest
-            FROM `tabCredit PTP Entry`
-            WHERE parent IN ({placeholders})
-            GROUP BY parent
-        ) latest ON latest.parent = p.parent AND latest.latest = p.modified
+            SELECT sales_order, MAX(modified) AS latest
+            FROM `tabCredit PTP`
+            WHERE sales_order IN ({placeholders})
+              AND status != 'Superseded'
+            GROUP BY sales_order
+        ) latest ON latest.sales_order = p.sales_order AND latest.latest = p.modified
         """,
         so_names,
         as_dict=True,

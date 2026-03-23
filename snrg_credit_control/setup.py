@@ -188,27 +188,12 @@ _SO_FIELDS = [
         "read_only": 1,
         "insert_after": "custom_snrg_request_amount",
     },
-    {
-        "fieldname": "custom_snrg_ptp_entries",
-        "fieldtype": "Table",
-        "label": "PTP Entries",
-        "options": "Credit PTP Entry",
-        "insert_after": "custom_snrg_requested_to_employee",
-    },
-    {
-        "fieldname": "custom_snrg_ptp_payment_links",
-        "fieldtype": "Table",
-        "label": "PTP Payment Links",
-        "options": "Credit PTP Payment Link",
-        "insert_after": "custom_snrg_ptp_entries",
-    },
-
     # ── Section: Credit Override ─────────────────────────────────────────────
     {
         "fieldname": "custom_snrg_override_section",
         "fieldtype": "Section Break",
         "label": "Credit Override",
-        "insert_after": "custom_snrg_ptp_payment_links",
+        "insert_after": "custom_snrg_requested_to_employee",
         "collapsible": 1,
     },
     {

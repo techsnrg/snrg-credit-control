@@ -226,6 +226,8 @@ function open_ptp_update_dialog(report) {
 
   d.show();
 
+  wire_sales_order_ptp_refresh(d, report);
+
   d.get_field("ptp_reference").$input.on("change", () => {
     const ref = d._ptp_ref_map && d._ptp_ref_map[d.get_value("ptp_reference")];
     if (!ref) return;
@@ -285,6 +287,25 @@ function load_ptp_references_for_sales_order(d, report, salesOrder) {
       );
     },
   });
+}
+
+function wire_sales_order_ptp_refresh(d, report) {
+  const field = d.get_field("sales_order");
+  if (!field || !field.$input) return;
+
+  let lastValue = d.get_value("sales_order") || "";
+  const refresh = () => {
+    const currentValue = d.get_value("sales_order") || field.get_value() || field.$input.val() || "";
+    if (!currentValue || currentValue === lastValue) return;
+    lastValue = currentValue;
+    load_ptp_references_for_sales_order(d, report, currentValue);
+  };
+
+  field.$input.off(".snrg_ptp_refresh");
+  field.$input.on("change.snrg_ptp_refresh", refresh);
+  field.$input.on("blur.snrg_ptp_refresh", refresh);
+  field.$input.on("awesomplete-selectcomplete.snrg_ptp_refresh", refresh);
+  field.$input.on("autocompletechange.snrg_ptp_refresh", refresh);
 }
 
 function get_selected_report_row(report) {

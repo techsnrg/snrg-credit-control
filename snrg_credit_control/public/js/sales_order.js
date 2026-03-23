@@ -228,11 +228,10 @@ function add_sales_order_credit_buttons(frm) {
 
   const isApprover = frappe.user.has_role("Credit Approver");
   const hasRequest = !!frm.doc.custom_snrg_request_time;
-  const hasPtpRows = (frm.doc.custom_snrg_ptp_entries || []).length > 0;
 
   frm.add_custom_button("Check Credit Status", () => refresh_sales_order_credit_status(frm), "Credit Control");
   frm.add_custom_button("Request Approval", () => open_request_dialog(frm), "Credit Control");
-  if (!frm.is_new() && hasPtpRows) {
+  if (!frm.is_new()) {
     frm.add_custom_button("Link Payment Entry", () => open_payment_link_dialog(frm), "Credit Control");
   }
 
@@ -386,46 +385,38 @@ function open_request_dialog(frm) {
       },
     ],
     primary_action_label: "Submit Request",
-    primary_action(values) {
+    async primary_action(values) {
       try {
-        const now = frappe.datetime.now_datetime();
-        const amt = frm.doc.grand_total || frm.doc.rounded_total || 0;
-
-        frm.doc.custom_snrg_request_time = now;
-        frm.doc.custom_snrg_request_amount = amt;
-        frm.doc.custom_snrg_requested_to_employee = values.approver_employee;
-
-        const row = frappe.model.add_child(frm.doc, "Credit PTP Entry", "custom_snrg_ptp_entries");
-        row.ptp_by = values.ptp_by;
-        row.ptp_date = values.ptp_date;
-        row.commitment_date = values.commitment_date;
-        row.committed_amount = values.committed_amount;
-        row.payment_mode = values.payment_mode;
-        row.cheque_number = values.cheque_number || "";
-        row.remarks = values.remarks || "";
-        row.status = "Pending";
-        frm.refresh_field("custom_snrg_ptp_entries");
-
-        frm.dirty();
+        if (frm.is_new()) {
+          await frm.save();
+        }
         d.set_message("Saving and sending request…");
 
-        frm.save()
-          .then(() => {
-            d.hide();
-            frappe.show_alert({ message: "Approval request sent to the selected approver.", indicator: "green" });
-            frm.reload_doc();
-          })
-          .catch((err) => {
-            console.error("[SNRG] Request save error", err);
-            frappe.msgprint({
-              title: "Failed to send request",
-              message: (err && (err.message || err._server_messages)) || "Unknown error",
-              indicator: "red",
-            });
-          });
+        await frappe.call({
+          method: "snrg_credit_control.overrides.sales_order.request_credit_approval",
+          args: {
+            sales_order: frm.doc.name,
+            approver_employee: values.approver_employee,
+            ptp_by: values.ptp_by,
+            ptp_date: values.ptp_date,
+            commitment_date: values.commitment_date,
+            committed_amount: values.committed_amount,
+            payment_mode: values.payment_mode,
+            cheque_number: values.cheque_number || "",
+            remarks: values.remarks || "",
+          },
+        });
+
+        d.hide();
+        frappe.show_alert({ message: "Approval request sent to the selected approver.", indicator: "green" });
+        frm.reload_doc();
       } catch (e) {
         console.error("[SNRG] Request dialog exception", e);
-        frappe.msgprint({ title: "Error", message: (e && e.message) || String(e), indicator: "red" });
+        frappe.msgprint({
+          title: "Failed to send request",
+          message: (e && (e.message || e._server_messages)) || String(e),
+          indicator: "red",
+        });
       }
     },
   });
@@ -433,106 +424,104 @@ function open_request_dialog(frm) {
 }
 
 function open_payment_link_dialog(frm) {
-  const ptpRows = (frm.doc.custom_snrg_ptp_entries || []).filter(row => row.name);
-  if (!ptpRows.length) {
-    frappe.msgprint({
-      title: "No PTP Rows",
-      message: "Add and save a PTP request first, then link Payment Entries against it.",
-      indicator: "orange",
-    });
-    return;
-  }
-
-  const labelToPtpId = {};
-  const ptpOptions = ptpRows.map(row => {
-    const remaining = Math.max(0, Number(row.difference_amount || row.committed_amount || 0));
-    const label = [
-      row.ptp_by_name || row.ptp_by || row.name,
-      row.commitment_date || "No Date",
-      frappe.format(Number(row.committed_amount || 0), { fieldtype: "Currency", options: frm.doc.currency || "INR" }),
-      `Remaining ${frappe.format(remaining, { fieldtype: "Currency", options: frm.doc.currency || "INR" })}`,
-    ].join(" | ");
-    labelToPtpId[label] = row.name;
-    return label;
-  });
-
-  const d = new frappe.ui.Dialog({
-    title: "Link Payment Entry to PTP",
-    fields: [
-      {
-        fieldtype: "Select",
-        fieldname: "ptp_label",
-        label: "PTP Reference",
-        reqd: 1,
-        options: ["", ...ptpOptions].join("\n"),
-      },
-      {
-        fieldtype: "Link",
-        fieldname: "payment_entry",
-        label: "Payment Entry",
-        options: "Payment Entry",
-        reqd: 1,
-        get_query: () => ({
-          filters: {
-            docstatus: 1,
-            party_type: "Customer",
-            party: frm.doc.customer,
-          },
-        }),
-      },
-      {
-        fieldtype: "Currency",
-        fieldname: "allocated_amount",
-        label: "Allocated Amount",
-        reqd: 1,
-      },
-      {
-        fieldtype: "Small Text",
-        fieldname: "remarks",
-        label: "Remarks",
-      },
-    ],
-    primary_action_label: "Add Payment Link",
-    primary_action(values) {
-      const ptpEntryId = labelToPtpId[values.ptp_label];
-      if (!ptpEntryId) {
-        frappe.msgprint({ title: "Missing PTP", message: "Select a valid PTP reference.", indicator: "red" });
+  frappe.call({
+    method: "snrg_credit_control.overrides.sales_order.get_ptp_references",
+    args: { sales_order: frm.doc.name },
+    callback: ({ message }) => {
+      const refs = message || [];
+      if (!refs.length) {
+        frappe.msgprint({
+          title: "No Active PTP",
+          message: "Create a PTP request first, then link Payment Entries against it.",
+          indicator: "orange",
+        });
         return;
       }
 
-      const row = frappe.model.add_child(frm.doc, "Credit PTP Payment Link", "custom_snrg_ptp_payment_links");
-      row.ptp_entry_id = ptpEntryId;
-      row.ptp_reference = values.ptp_label;
-      row.payment_entry = values.payment_entry;
-      row.allocated_amount = values.allocated_amount;
-      row.remarks = values.remarks || "";
-      frm.refresh_field("custom_snrg_ptp_payment_links");
-      frm.dirty();
+      const refMap = {};
+      const options = refs.map(ref => {
+        const label = `${ref.label} | Remaining ${frappe.format(ref.difference_amount || 0, { fieldtype: "Currency", options: frm.doc.currency || "INR" })} | ${ref.status}`;
+        refMap[label] = ref;
+        return label;
+      });
 
-      frm.save()
-        .then(() => {
-          d.hide();
-          frappe.show_alert({ message: "Payment Entry linked to PTP.", indicator: "green" });
-          frm.reload_doc();
-        })
-        .catch((err) => {
-          console.error("[SNRG] Payment link save error", err);
-          frappe.msgprint({
-            title: "Failed to link Payment Entry",
-            message: (err && (err.message || err._server_messages)) || "Unknown error",
-            indicator: "red",
+      const d = new frappe.ui.Dialog({
+        title: "Link Payment Entry to PTP",
+        fields: [
+          {
+            fieldtype: "Select",
+            fieldname: "ptp_label",
+            label: "PTP Reference",
+            reqd: 1,
+            options: ["", ...options].join("\n"),
+          },
+          {
+            fieldtype: "Link",
+            fieldname: "payment_entry",
+            label: "Payment Entry",
+            options: "Payment Entry",
+            reqd: 1,
+            get_query: () => ({
+              filters: {
+                docstatus: 1,
+                party_type: "Customer",
+                party: frm.doc.customer,
+              },
+            }),
+          },
+          {
+            fieldtype: "Currency",
+            fieldname: "allocated_amount",
+            label: "Allocated Amount",
+            reqd: 1,
+          },
+          {
+            fieldtype: "Small Text",
+            fieldname: "remarks",
+            label: "Remarks",
+          },
+        ],
+        primary_action_label: "Add Payment Link",
+        primary_action(values) {
+          const ref = refMap[values.ptp_label];
+          if (!ref) {
+            frappe.msgprint({ title: "Missing PTP", message: "Select a valid PTP reference.", indicator: "red" });
+            return;
+          }
+
+          frappe.call({
+            method: "snrg_credit_control.overrides.sales_order.link_payment_entry_from_report",
+            args: {
+              ptp_entry_id: ref.ptp_entry_id,
+              payment_entry: values.payment_entry,
+              allocated_amount: values.allocated_amount,
+              remarks: values.remarks || "",
+            },
+            callback: () => {
+              d.hide();
+              frappe.show_alert({ message: "Payment Entry linked to PTP.", indicator: "green" });
+              frm.reload_doc();
+            },
+            error: (err) => {
+              console.error("[SNRG] Payment link save error", err);
+              frappe.msgprint({
+                title: "Failed to link Payment Entry",
+                message: (err && (err.message || err._server_messages)) || "Unknown error",
+                indicator: "red",
+              });
+            },
           });
-        });
+        },
+      });
+
+      d.show();
+
+      d.get_field("ptp_label").$input.on("change", () => {
+        const ref = refMap[d.get_value("ptp_label")];
+        if (!ref) return;
+        d.set_value("allocated_amount", Math.max(0, Number(ref.difference_amount || 0)));
+      });
     },
-  });
-
-  d.show();
-
-  d.get_field("ptp_label").$input.on("change", () => {
-    const row = ptpRows.find(entry => entry.name === labelToPtpId[d.get_value("ptp_label")]);
-    if (!row) return;
-    const remaining = Math.max(0, Number(row.difference_amount || row.committed_amount || 0));
-    d.set_value("allocated_amount", remaining);
   });
 }
 

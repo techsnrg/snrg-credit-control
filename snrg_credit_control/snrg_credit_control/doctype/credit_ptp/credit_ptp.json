@@ -1,0 +1,220 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:PTP-.YYYY.-.#####",
+ "creation": "2026-03-24 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "sales_order",
+  "customer",
+  "customer_name",
+  "company",
+  "currency",
+  "requested_to_employee",
+  "requested_by",
+  "reference_label",
+  "ptp_by",
+  "ptp_by_name",
+  "ptp_date",
+  "commitment_date",
+  "committed_amount",
+  "received_amount",
+  "difference_amount",
+  "payment_mode",
+  "cheque_number",
+  "status",
+  "linked_payment_entries",
+  "remarks",
+  "payment_links"
+ ],
+ "fields": [
+  {
+   "fieldname": "sales_order",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Sales Order",
+   "options": "Sales Order",
+   "reqd": 1
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Customer",
+   "options": "Customer",
+   "read_only": 1
+  },
+  {
+   "fieldname": "customer_name",
+   "fieldtype": "Data",
+   "label": "Customer Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "read_only": 1
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "requested_to_employee",
+   "fieldtype": "Link",
+   "label": "Requested To",
+   "options": "Employee",
+   "read_only": 1
+  },
+  {
+   "fieldname": "requested_by",
+   "fieldtype": "Link",
+   "label": "Requested By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reference_label",
+   "fieldtype": "Data",
+   "label": "Reference Label",
+   "read_only": 1
+  },
+  {
+   "fieldname": "ptp_by",
+   "fieldtype": "Link",
+   "label": "Committed By",
+   "options": "Employee",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "ptp_by.employee_name",
+   "fieldname": "ptp_by_name",
+   "fieldtype": "Data",
+   "label": "Committed By Name",
+   "read_only": 1
+  },
+  {
+   "default": "Today",
+   "fieldname": "ptp_date",
+   "fieldtype": "Date",
+   "label": "Promise Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "commitment_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Payment By Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "committed_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Committed Amount",
+   "reqd": 1
+  },
+  {
+   "fieldname": "received_amount",
+   "fieldtype": "Currency",
+   "label": "Received Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "difference_amount",
+   "fieldtype": "Currency",
+   "label": "Difference Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "payment_mode",
+   "fieldtype": "Select",
+   "label": "Payment Mode",
+   "options": "\nNEFT\nRTGS\nCheque\nCash\nUPI\nOther",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:['Cheque','NEFT','RTGS'].includes(doc.payment_mode)",
+   "fieldname": "cheque_number",
+   "fieldtype": "Data",
+   "label": "Cheque / UTR No."
+  },
+  {
+   "default": "Pending",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "Pending\nPartially Cleared\nCleared\nBroken\nSuperseded"
+  },
+  {
+   "fieldname": "linked_payment_entries",
+   "fieldtype": "Small Text",
+   "label": "Linked Payment Entries",
+   "read_only": 1
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "payment_links",
+   "fieldtype": "Table",
+   "label": "Payment Links",
+   "options": "Credit PTP Payment Link"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-03-24 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Snrg Credit Control",
+ "name": "Credit PTP",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Credit Approver",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

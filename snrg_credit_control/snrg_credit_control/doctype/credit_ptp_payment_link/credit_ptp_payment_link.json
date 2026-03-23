@@ -5,8 +5,6 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "ptp_entry_id",
-  "ptp_reference",
   "payment_entry",
   "posting_date",
   "payment_entry_amount",
@@ -14,20 +12,6 @@
   "remarks"
  ],
  "fields": [
-  {
-   "fieldname": "ptp_entry_id",
-   "fieldtype": "Data",
-   "hidden": 1,
-   "label": "PTP Entry ID",
-   "read_only": 1
-  },
-  {
-   "fieldname": "ptp_reference",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "PTP Reference",
-   "read_only": 1
-  },
   {
    "fieldname": "payment_entry",
    "fieldtype": "Link",

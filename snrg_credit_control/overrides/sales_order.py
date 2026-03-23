@@ -19,6 +19,12 @@ from snrg_credit_control.credit_status import (
     stamp_credit_fields,
     zero,
 )
+from snrg_credit_control.ptp import (
+    build_ptp_reference_label,
+    get_active_credit_ptp,
+    get_ptp_references_for_sales_order,
+    get_sales_order_ptp_docs,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -64,9 +70,6 @@ def validate(doc, method=None):
     # 1a. Ensure the selected approver can actually receive the request
     _validate_request_target(doc)
 
-    # 1b. Sync PTP payment allocations and derived PTP status
-    _sync_ptp_tracking(doc)
-
     # 2. Compute credit fields
     _compute_credit_fields(doc)
 
@@ -107,115 +110,8 @@ def _validate_request_target(doc):
     )
 
 
-def _sync_ptp_tracking(doc):
-    ptp_rows = list(doc.get("custom_snrg_ptp_entries") or [])
-    payment_links = list(doc.get("custom_snrg_ptp_payment_links") or [])
-    if not ptp_rows and not payment_links:
-        return
-
-    ptp_map = {}
-    for row in ptp_rows:
-        if not row.name:
-            row.name = frappe.generate_hash(length=10)
-        ptp_map[row.name] = row
-
-    payment_totals = {}
-    payment_amount_totals = {}
-    for link in payment_links:
-        ptp_entry_id = (link.ptp_entry_id or "").strip()
-        if not ptp_entry_id or ptp_entry_id not in ptp_map:
-            frappe.throw("Each PTP Payment Link must point to a valid PTP entry on the Sales Order.")
-
-        row = ptp_map[ptp_entry_id]
-        label = _get_ptp_reference_label(row)
-        link.ptp_reference = label
-
-        pe = frappe.db.get_value(
-            "Payment Entry",
-            link.payment_entry,
-            ["posting_date", "paid_amount", "docstatus", "party_type", "party", "company"],
-            as_dict=True,
-        ) or {}
-        if not pe:
-            frappe.throw(f"Payment Entry {link.payment_entry} was not found.")
-        if pe.get("docstatus") != 1:
-            frappe.throw(f"Payment Entry {link.payment_entry} must be submitted before it can be linked to a PTP.")
-        if pe.get("party_type") != "Customer" or pe.get("party") != doc.customer:
-            frappe.throw(f"Payment Entry {link.payment_entry} must belong to customer {doc.customer}.")
-        if pe.get("company") != doc.company:
-            frappe.throw(f"Payment Entry {link.payment_entry} must belong to company {doc.company}.")
-
-        link.posting_date = pe.get("posting_date")
-        link.payment_entry_amount = _val(pe.get("paid_amount"))
-        link.allocated_amount = _val(link.allocated_amount or link.payment_entry_amount)
-
-        if link.allocated_amount <= 0:
-            frappe.throw(f"Allocated amount for Payment Entry {link.payment_entry} must be greater than zero.")
-        if link.allocated_amount > link.payment_entry_amount:
-            frappe.throw(
-                f"Allocated amount for Payment Entry {link.payment_entry} cannot exceed the Payment Entry amount."
-            )
-
-        key = (ptp_entry_id, link.payment_entry)
-        payment_amount_totals[key] = payment_amount_totals.get(key, 0) + link.allocated_amount
-        if payment_amount_totals[key] > link.payment_entry_amount:
-            frappe.throw(
-                f"Total allocated amount for Payment Entry {link.payment_entry} against the same PTP "
-                "cannot exceed the Payment Entry amount."
-            )
-
-        bucket = payment_totals.setdefault(ptp_entry_id, {"received": 0, "entries": []})
-        bucket["received"] += link.allocated_amount
-        if link.payment_entry not in bucket["entries"]:
-            bucket["entries"].append(link.payment_entry)
-
-    today_date = getdate(today())
-    for row in ptp_rows:
-        bucket = payment_totals.get(row.name, {})
-        received = _val(bucket.get("received"))
-        committed = _val(row.committed_amount)
-        difference = committed - received
-
-        row.received_amount = received
-        row.difference_amount = difference
-        row.linked_payment_entries = ", ".join(bucket.get("entries") or [])
-
-        if committed and received >= committed:
-            row.status = "Cleared"
-        elif received > 0:
-            row.status = "Partially Cleared"
-        elif row.commitment_date and getdate(row.commitment_date) < today_date:
-            row.status = "Broken"
-        else:
-            row.status = "Pending"
-
-    _supersede_older_ptp_rows(ptp_rows)
-
-
-def _supersede_older_ptp_rows(ptp_rows):
-    active_rows = []
-    for idx, row in enumerate(ptp_rows):
-        if (row.status or "").strip() in {"Pending", "Partially Cleared"}:
-            active_rows.append((idx, row))
-
-    if len(active_rows) <= 1:
-        return
-
-    latest_index = max(idx for idx, _ in active_rows)
-    for idx, row in active_rows:
-        if idx != latest_index:
-            row.status = "Superseded"
-
-
 def _get_ptp_reference_label(row):
-    parts = []
-    if row.get("ptp_by_name"):
-        parts.append(row.ptp_by_name)
-    if row.get("commitment_date"):
-        parts.append(str(row.commitment_date))
-    if row.get("committed_amount"):
-        parts.append(fmt_money(_val(row.committed_amount), currency="INR"))
-    return " | ".join(parts) or (row.name or "PTP")
+    return build_ptp_reference_label(row)
 
 
 def _compute_credit_fields(doc):
@@ -335,46 +231,97 @@ def get_ptp_references(sales_order):
     if not doc.has_permission("read"):
         frappe.throw("Not permitted.", frappe.PermissionError)
 
-    refs = []
-    for row in (doc.get("custom_snrg_ptp_entries") or []):
-        if (row.status or "").strip() == "Superseded":
-            continue
-        refs.append(
-            {
-                "ptp_entry_id": row.name,
-                "label": _get_ptp_reference_label(row),
-                "committed_amount": _val(row.committed_amount),
-                "received_amount": _val(row.received_amount),
-                "difference_amount": _val(row.difference_amount or row.committed_amount),
-                "status": row.status or "Pending",
-            }
-        )
-    return refs
+    return get_ptp_references_for_sales_order(sales_order, actionable_only=True)
 
 
 @frappe.whitelist()
-def link_payment_entry_from_report(sales_order, ptp_entry_id, payment_entry, allocated_amount, remarks=None):
-    if not sales_order or not ptp_entry_id or not payment_entry:
-        frappe.throw("Sales Order, PTP reference, and Payment Entry are required.")
+def request_credit_approval(
+    sales_order,
+    approver_employee,
+    ptp_by,
+    ptp_date,
+    commitment_date,
+    committed_amount,
+    payment_mode,
+    cheque_number=None,
+    remarks=None,
+):
+    if not sales_order:
+        frappe.throw("Sales Order is required.")
 
     doc = frappe.get_doc("Sales Order", sales_order)
     if not doc.has_permission("write"):
         frappe.throw("Not permitted.", frappe.PermissionError)
 
-    ptp_rows = {row.name: row for row in (doc.get("custom_snrg_ptp_entries") or [])}
-    row = ptp_rows.get(ptp_entry_id)
-    if not row:
-        frappe.throw("Selected PTP reference was not found on the Sales Order.")
+    amount = _val(doc.grand_total or doc.rounded_total)
+    now = frappe.utils.now_datetime()
 
-    link = doc.append("custom_snrg_ptp_payment_links", {})
-    link.ptp_entry_id = ptp_entry_id
-    link.ptp_reference = _get_ptp_reference_label(row)
-    link.payment_entry = payment_entry
-    link.allocated_amount = _val(allocated_amount)
-    link.remarks = remarks or ""
-    doc.save()
+    frappe.db.set_value(
+        "Sales Order",
+        doc.name,
+        {
+            "custom_snrg_request_time": now,
+            "custom_snrg_request_amount": amount,
+            "custom_snrg_requested_to_employee": approver_employee,
+            "custom_credit_approval_status": "Pending",
+        },
+        update_modified=True,
+    )
+
+    ptp = frappe.get_doc(
+        {
+            "doctype": "Credit PTP",
+            "sales_order": doc.name,
+            "customer": doc.customer,
+            "customer_name": doc.customer_name,
+            "company": doc.company,
+            "currency": doc.currency,
+            "requested_to_employee": approver_employee,
+            "requested_by": frappe.session.user,
+            "ptp_by": ptp_by,
+            "ptp_date": ptp_date,
+            "commitment_date": commitment_date,
+            "committed_amount": _val(committed_amount),
+            "payment_mode": payment_mode,
+            "cheque_number": cheque_number or "",
+            "remarks": remarks or "",
+        }
+    ).insert(ignore_permissions=True)
+
+    refreshed_doc = frappe.get_doc("Sales Order", doc.name)
+    _notify_approvers(refreshed_doc, ptp_docs=[frappe._dict(ptp.as_dict())])
+    return {"message": "Approval request sent successfully.", "ptp": ptp.name}
+
+
+@frappe.whitelist()
+def link_payment_entry_from_report(sales_order=None, ptp_entry_id=None, payment_entry=None, allocated_amount=0, remarks=None):
+    if not ptp_entry_id or not payment_entry:
+        frappe.throw("PTP reference and Payment Entry are required.")
+
+    ptp = frappe.get_doc("Credit PTP", ptp_entry_id)
+    if not ptp.has_permission("write"):
+        frappe.throw("Not permitted.", frappe.PermissionError)
+
+    ptp.append(
+        "payment_links",
+        {
+            "payment_entry": payment_entry,
+            "allocated_amount": _val(allocated_amount),
+            "remarks": remarks or "",
+        },
+    )
+    ptp.save(ignore_permissions=True)
 
     return {"message": "Payment Entry linked successfully."}
+
+
+@frappe.whitelist()
+def get_active_ptp_for_sales_order(sales_order):
+    if not sales_order:
+        return {}
+
+    active = get_active_credit_ptp(sales_order)
+    return active[0] if active else {}
 
 
 @frappe.whitelist(allow_guest=True)
@@ -496,7 +443,7 @@ def _create_internal_notification(for_user, subject, html, document_type, docume
     ).insert(ignore_permissions=True)
 
 
-def _notify_approvers(doc):
+def _notify_approvers(doc, ptp_docs=None):
     """Send notification to the selected employee approver."""
     target = _get_employee_notification_target(doc.custom_snrg_requested_to_employee)
     if not target:
@@ -506,10 +453,11 @@ def _notify_approvers(doc):
     cur          = doc.currency or "INR"
     so_link      = frappe.utils.get_url_to_form("Sales Order", doc.name)
     approve_link = _get_approve_from_email_url(doc)
+    ptp_docs = ptp_docs or get_sales_order_ptp_docs(doc.name)
 
     # Build PTP summary from child table
     ptp_rows = ""
-    for entry in (doc.custom_snrg_ptp_entries or []):
+    for entry in (ptp_docs or []):
         ptp_rows += (
             f"<tr>"
             f"<td style='padding:4px 8px;'>{_esc(entry.get('ptp_by_name') or entry.get('ptp_by') or '—')}</td>"
