@@ -7,6 +7,8 @@ Replaces all 4 DB-stored server scripts:
   - after_save()    : sends email notifications
 """
 
+from urllib.parse import quote
+
 import frappe
 from frappe.utils import getdate, today, add_days, fmt_money, formatdate
 from snrg_credit_control.credit_status import (
@@ -30,6 +32,16 @@ def _is_approver(user=None):
            frappe.db.exists("Has Role", {"parent": user, "role": "System Manager"})
 
 
+def _is_selected_approver(doc, user=None):
+    user = user or frappe.session.user
+    target = _get_employee_notification_target(doc.custom_snrg_requested_to_employee)
+    return bool(user and target.get("user_id") == user)
+
+
+def _can_approve_request(doc, user=None):
+    return _is_approver(user) or _is_selected_approver(doc, user)
+
+
 def _val(x):
     return zero(x)
 
@@ -48,6 +60,9 @@ def validate(doc, method=None):
 
     # 1. Approver guard — only Credit Approvers may change override fields
     _check_approver_guard(doc)
+
+    # 1a. Ensure the selected approver can actually receive the request
+    _validate_request_target(doc)
 
     # 2. Compute credit fields
     _compute_credit_fields(doc)
@@ -68,8 +83,25 @@ def _check_approver_guard(doc):
     ) or {}
     changed_cap  = _val(doc.custom_snrg_override_cap_amount) != _val(prev.get("custom_snrg_override_cap_amount"))
     changed_till = (doc.custom_snrg_override_valid_till or "") != (prev.get("custom_snrg_override_valid_till") or "")
-    if (changed_cap or changed_till) and not _is_approver():
+    if (changed_cap or changed_till) and not _can_approve_request(doc):
         frappe.throw("Only Credit Approvers can set the Override Cap / Valid Till.")
+
+
+def _validate_request_target(doc):
+    if not doc.custom_snrg_request_time:
+        return
+
+    if not doc.custom_snrg_requested_to_employee:
+        frappe.throw("Select the employee who should receive this credit approval request.")
+
+    target = _get_employee_notification_target(doc.custom_snrg_requested_to_employee)
+    if target.get("user_id") and target.get("email"):
+        return
+
+    frappe.throw(
+        "The selected employee must have a linked ERPNext user and an email address "
+        "so the approval request can be sent through both internal notification and email."
+    )
 
 
 def _compute_credit_fields(doc):
@@ -180,6 +212,56 @@ def get_credit_status(customer, company, currency=None, amount=0):
     }
 
 
+@frappe.whitelist(allow_guest=True)
+def approve_from_email(name):
+    if not name:
+        frappe.throw("Sales Order is required.")
+
+    if frappe.session.user == "Guest":
+        return _redirect_to_login(name)
+
+    doc = frappe.get_doc("Sales Order", name)
+    if not doc.custom_snrg_request_time:
+        frappe.throw("This Sales Order does not have a pending credit approval request.")
+
+    if not _can_approve_request(doc):
+        frappe.throw("You are not allowed to approve this Sales Order.", frappe.PermissionError)
+
+    if (doc.custom_credit_approval_status or "").lower() == "approved":
+        frappe.local.response["type"] = "redirect"
+        frappe.local.response["location"] = frappe.utils.get_url_to_form("Sales Order", doc.name)
+        return
+
+    order_amount = _val(doc.grand_total or doc.rounded_total)
+    approved_cap = min(_val(doc.custom_snrg_request_amount or order_amount), order_amount)
+    valid_till = add_days(today(), 7)
+
+    doc.custom_snrg_override_cap_amount = approved_cap
+    doc.custom_snrg_override_valid_till = valid_till
+    doc.custom_snrg_approver = frappe.session.user
+    doc.custom_snrg_approval_time = frappe.utils.now_datetime()
+    doc.custom_credit_approval_status = "Approved"
+    doc.save(ignore_permissions=True)
+
+    frappe.local.response["type"] = "redirect"
+    frappe.local.response["location"] = frappe.utils.get_url_to_form("Sales Order", doc.name)
+
+
+def _redirect_to_login(name):
+    approve_url = frappe.utils.get_url(
+        f"/api/method/snrg_credit_control.overrides.sales_order.approve_from_email?name={quote(name)}"
+    )
+    login_url = frappe.utils.get_url(f"/login?redirect-to={quote(approve_url, safe='')}")
+    frappe.local.response["type"] = "redirect"
+    frappe.local.response["location"] = login_url
+
+
+def _get_approve_from_email_url(doc):
+    return frappe.utils.get_url(
+        f"/api/method/snrg_credit_control.overrides.sales_order.approve_from_email?name={quote(doc.name)}"
+    )
+
+
 def _throw_credit_error(doc, snapshot):
     """Throw a styled HTML credit-hold error dialog."""
     html = render_credit_details_html(
@@ -209,20 +291,56 @@ def after_save(doc, method=None):
         _notify_requester(doc)
 
 
+def _get_employee_notification_target(employee):
+    if not employee:
+        return {}
+
+    row = frappe.db.get_value(
+        "Employee",
+        employee,
+        ["employee_name", "user_id", "company_email", "personal_email"],
+        as_dict=True,
+    ) or {}
+
+    user_id = row.get("user_id")
+    email = (user_id if user_id and "@" in user_id else None) or row.get("company_email") or row.get("personal_email")
+
+    return {
+        "employee": employee,
+        "employee_name": row.get("employee_name") or employee,
+        "user_id": user_id,
+        "email": email,
+    }
+
+
+def _create_internal_notification(for_user, subject, html, document_type, document_name, from_user=None):
+    if not for_user:
+        return
+
+    frappe.get_doc(
+        {
+            "doctype": "Notification Log",
+            "for_user": for_user,
+            "type": "Alert",
+            "document_type": document_type,
+            "document_name": document_name,
+            "subject": subject,
+            "email_content": html,
+            "from_user": from_user or frappe.session.user,
+        }
+    ).insert(ignore_permissions=True)
+
+
 def _notify_approvers(doc):
-    """Send email to all users with the Credit Approver role."""
-    approver_users = frappe.get_all(
-        "Has Role",
-        filters={"role": "Credit Approver"},
-        fields=["parent"],
-    )
-    recipients = [u.parent for u in approver_users if "@" in (u.parent or "")]
-    if not recipients:
+    """Send notification to the selected employee approver."""
+    target = _get_employee_notification_target(doc.custom_snrg_requested_to_employee)
+    if not target:
         return
 
     order_amount = _val(doc.grand_total or doc.rounded_total)
     cur          = doc.currency or "INR"
     so_link      = frappe.utils.get_url_to_form("Sales Order", doc.name)
+    approve_link = _get_approve_from_email_url(doc)
 
     # Build PTP summary from child table
     ptp_rows = ""
@@ -266,30 +384,49 @@ def _notify_approvers(doc):
     <tr><td style='padding:6px 8px;font-weight:600;background:#f5f5f5;'>Overdue Invoices</td>
         <td style='padding:6px 8px;'>{doc.custom_snrg_overdue_count_terms or 0} invoice(s) —
         {fmt_money(_val(doc.custom_snrg_overdue_amount_terms), currency=cur)}</td></tr>
+    <tr><td style='padding:6px 8px;font-weight:600;background:#f5f5f5;'>Requested To</td>
+        <td style='padding:6px 8px;'>{_esc(target.get('employee_name') or doc.custom_snrg_requested_to_employee or '—')}</td></tr>
   </tbody>
 </table>
 <p><strong>Promise to Pay Details:</strong></p>
 {ptp_table}
 <p style='margin-top:16px;'>
-  <a href='{so_link}' style='background:#0d6efd;color:#fff;padding:8px 16px;border-radius:4px;text-decoration:none;'>
+  <a href='{approve_link}' style='display:inline-block;background:#16a34a;color:#fff;padding:8px 16px;border-radius:4px;text-decoration:none;font-weight:600;margin-right:8px;'>
+    Approve Order
+  </a>
+  <a href='{so_link}' style='display:inline-block;background:#0d6efd;color:#fff;padding:8px 16px;border-radius:4px;text-decoration:none;'>
     Open Sales Order
   </a>
+</p>
+<p style='font-size:12px;color:#666;margin-top:10px;'>
+  The approve button works for the logged-in selected approver and applies the standard quick-approval defaults.
 </p>
 <p style='color:#888;font-size:12px;margin-top:16px;'>
   This is an automated notification from SNRG ERPNext.
 </p>
 """
-    frappe.sendmail(
-        recipients=recipients,
-        subject=subject,
-        message=message,
-        now=True,
-    )
+    if target.get("user_id"):
+        _create_internal_notification(
+            for_user=target["user_id"],
+            subject=subject,
+            html=message,
+            document_type="Sales Order",
+            document_name=doc.name,
+            from_user=doc.owner,
+        )
+
+    if target.get("email"):
+        frappe.sendmail(
+            recipients=[target["email"]],
+            subject=subject,
+            message=message,
+            now=True,
+        )
 
 
 def _notify_requester(doc):
-    """Send approval confirmation email to the SO owner."""
-    if not doc.owner or "@" not in doc.owner:
+    """Send approval confirmation notification to the SO owner."""
+    if not doc.owner:
         return
 
     cur        = doc.currency or "INR"
@@ -330,9 +467,19 @@ def _notify_requester(doc):
   This is an automated notification from SNRG ERPNext.
 </p>
 """
-    frappe.sendmail(
-        recipients=[doc.owner],
+    _create_internal_notification(
+        for_user=doc.owner,
         subject=subject,
-        message=message,
-        now=True,
+        html=message,
+        document_type="Sales Order",
+        document_name=doc.name,
+        from_user=doc.custom_snrg_approver or frappe.session.user,
     )
+
+    if "@" in doc.owner:
+        frappe.sendmail(
+            recipients=[doc.owner],
+            subject=subject,
+            message=message,
+            now=True,
+        )

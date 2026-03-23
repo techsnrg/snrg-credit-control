@@ -291,6 +291,24 @@ function open_request_dialog(frm) {
     fields: [
       {
         fieldtype: "Section Break",
+        label: "Approval Routing",
+      },
+      {
+        fieldtype: "Link",
+        fieldname: "approver_employee",
+        label: "Send Approval Request To",
+        options: "Employee",
+        reqd: 1,
+        description: "Internal employee who should receive the approval request through ERPNext notification and email",
+        get_query: () => ({
+          filters: {
+            status: "Active",
+            user_id: ["is", "set"],
+          },
+        }),
+      },
+      {
+        fieldtype: "Section Break",
         label: "Promise to Pay Details",
       },
       {
@@ -371,6 +389,7 @@ function open_request_dialog(frm) {
 
         frm.doc.custom_snrg_request_time = now;
         frm.doc.custom_snrg_request_amount = amt;
+        frm.doc.custom_snrg_requested_to_employee = values.approver_employee;
 
         const row = frappe.model.add_child(frm.doc, "Credit PTP Entry", "custom_snrg_ptp_entries");
         row.ptp_by = values.ptp_by;
@@ -389,7 +408,7 @@ function open_request_dialog(frm) {
         frm.save()
           .then(() => {
             d.hide();
-            frappe.show_alert({ message: "Approval request sent to Credit Control team.", indicator: "green" });
+            frappe.show_alert({ message: "Approval request sent to the selected approver.", indicator: "green" });
             frm.reload_doc();
           })
           .catch((err) => {
