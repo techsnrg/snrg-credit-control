@@ -25,99 +25,132 @@ function render_credit_chip(frm) {
     const till   = frm.doc.custom_snrg_override_valid_till;
     const amt    = Number(frm.doc.grand_total || frm.doc.rounded_total || 0);
     const cur    = frm.doc.currency || "INR";
-    const fmt    = (v) => frappe.format(v, { fieldtype: "Currency", options: cur });
+    const fmt    = v => frappe.format(v, { fieldtype: "Currency", options: cur });
     const hasReq = !!frm.doc.custom_snrg_request_time;
 
-    // ── Case 1: Pending approval ───────────────────────────────────────────
+    // ── Helpers ────────────────────────────────────────────────────────────
+    const badge = (text, clr) =>
+      `<span style="background:rgba(${clr},0.12);border:1px solid rgba(${clr},0.4);
+        color:rgba(${clr},1);border-radius:12px;padding:2px 9px;
+        font-size:11px;font-weight:700;letter-spacing:0.4px;white-space:nowrap;">${text}</span>`;
+
+    const kv = (label, value, mono) =>
+      `<div style="min-width:0;">
+        <div style="font-size:11px;opacity:0.55;text-transform:uppercase;
+          letter-spacing:0.5px;margin-bottom:3px;">${label}</div>
+        <div style="font-weight:600;font-size:${mono ? '15px' : '13px'};
+          overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${value}</div>
+      </div>`;
+
+    const divider = clr =>
+      `<div style="border-top:1px solid rgba(${clr},0.18);margin:10px 0 8px;"></div>`;
+
+    const bar = (pct, clr) =>
+      `<div style="height:5px;background:rgba(128,128,128,0.18);
+        border-radius:3px;overflow:hidden;margin:6px 0 2px;">
+        <div style="width:${pct}%;height:100%;background:rgba(${clr},1);
+          border-radius:3px;transition:width 0.4s;"></div>
+      </div>
+      <div style="font-size:11px;opacity:0.5;text-align:right;margin-bottom:10px;">${pct}% of cap used</div>`;
+
+    const wrap = (borderClr, content) =>
+      `<div style="border-left:4px solid ${borderClr};border-radius:6px;
+        padding:12px 16px;font-size:13px;line-height:1.5;
+        background:transparent;box-shadow:0 1px 3px rgba(0,0,0,0.15);
+        opacity:0;animation:snrgFadeIn 0.25s ease forwards;">${content}</div>`;
+
+    // ── PENDING ────────────────────────────────────────────────────────────
     if (hasReq && !cap) {
-      _set_chip(frm, `
-        <div class="snrg-credit-chip" style="border-left:4px solid #0d6efd;">
-          <div class="snrg-chip-title">⏳ Credit Approval Pending</div>
-          <div class="snrg-chip-row">
-            <span>Order Value</span><span>${fmt(amt)}</span>
-          </div>
-          <div class="snrg-chip-row">
-            <span>Requested On</span>
-            <span>${frappe.datetime.str_to_user(frm.doc.custom_snrg_request_time)}</span>
-          </div>
-          <div class="snrg-chip-note">Awaiting approval from Credit Control Team.</div>
-        </div>`);
+      _set_chip(frm, wrap("#3b82f6", `
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+          <span style="font-size:15px;">⏳</span>
+          <span style="font-weight:700;font-size:14px;">Credit Approval Pending</span>
+          <span style="margin-left:auto;">${badge("AWAITING REVIEW", "59,130,246")}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:2px;">
+          ${kv("Order Value", fmt(amt), true)}
+          ${kv("Requested On", frappe.datetime.str_to_user(frm.doc.custom_snrg_request_time))}
+        </div>
+        ${divider("59,130,246")}
+        <div style="font-size:12px;opacity:0.65;">
+          📬 Approval request sent — awaiting Credit Control team review
+        </div>`));
       return;
     }
 
-    // ── Case 2: No override set ────────────────────────────────────────────
     if (!cap || !till) return;
 
-    const today     = frappe.datetime.get_today();
-    const isValid   = frappe.datetime.get_diff(till, today) >= 0;
-    const tillUser  = frappe.datetime.str_to_user(till);
-    const headroom  = Math.max(0, cap - amt);
-    const deficit   = Math.max(0, amt - cap);
-    const pct       = Math.min(100, Math.round((amt / cap) * 100));
-    const isOver    = amt > cap;
-    const barColor  = isOver ? "#dc3545" : "#28a745";
-
-    const progressBar = `
-      <div style="height:6px;background:rgba(128,128,128,0.25);
-        border-radius:3px;overflow:hidden;margin:6px 0 10px;">
-        <div style="width:${pct}%;height:100%;background:${barColor};transition:width 0.3s;"></div>
-      </div>`;
-
-    let borderColor, icon, title, rows;
+    const today    = frappe.datetime.get_today();
+    const isValid  = frappe.datetime.get_diff(till, today) >= 0;
+    const daysLeft = frappe.datetime.get_diff(till, today);
+    const tillFmt  = frappe.datetime.str_to_user(till);
+    const headroom = Math.max(0, cap - amt);
+    const deficit  = Math.max(0, amt - cap);
+    const pct      = Math.min(100, Math.round((amt / cap) * 100));
+    const isOver   = amt > cap;
 
     if (isValid && !isOver) {
-      // ✅ Approved and within limit
-      borderColor = "#28a745"; icon = "✅"; title = "Approved Credit Limit Active";
-      rows = [
-        ["Approved Cap",         fmt(cap)],
-        ["Order Value",          fmt(amt)],
-        ["Available Headroom",   `<b>${fmt(headroom)}</b>`],
-        ["Valid Till",           tillUser],
-      ];
+      // ✅ Approved & within cap
+      const daysLabel = daysLeft === 0 ? "EXPIRES TODAY" : `${daysLeft}d REMAINING`;
+      _set_chip(frm, wrap("#22c55e", `
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <span style="font-size:15px;">✅</span>
+          <span style="font-weight:700;font-size:14px;">Credit Approved — Active</span>
+          <span style="margin-left:auto;">${badge(daysLabel, "34,197,94")}</span>
+        </div>
+        ${bar(pct, "34,197,94")}
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:2px;">
+          ${kv("Approved Cap", fmt(cap))}
+          ${kv("Order Value", fmt(amt))}
+          ${kv("Valid Till", tillFmt)}
+        </div>
+        ${divider("34,197,94")}
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:12px;opacity:0.65;">Available headroom</span>
+          <span style="font-weight:700;font-size:15px;color:#22c55e;">${fmt(headroom)}</span>
+        </div>`));
+
     } else if (!isValid) {
       // ⚠️ Expired
-      borderColor = "#ffc107"; icon = "⚠️"; title = "Credit Approval Expired";
-      rows = [
-        ["Approved Cap",         fmt(cap)],
-        ["Order Value",          fmt(amt)],
-        [isOver ? "Exceeded By" : "Headroom", `<b>${fmt(isOver ? deficit : headroom)}</b>`],
-        ["Expired On",           tillUser],
-      ];
+      _set_chip(frm, wrap("#f97316", `
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+          <span style="font-size:15px;">⚠️</span>
+          <span style="font-weight:700;font-size:14px;">Credit Approval Expired</span>
+          <span style="margin-left:auto;">${badge("EXPIRED", "249,115,22")}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:2px;">
+          ${kv("Approved Cap", fmt(cap))}
+          ${kv("Order Value", fmt(amt))}
+          ${kv("Expired On", tillFmt)}
+        </div>
+        ${divider("249,115,22")}
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:12px;opacity:0.65;">Re-request approval to submit this order</span>
+          <span style="font-weight:700;font-size:14px;color:#f97316;">
+            ${isOver ? `Over by ${fmt(deficit)}` : `Headroom ${fmt(headroom)}`}
+          </span>
+        </div>`));
+
     } else {
-      // 🚫 Over limit
-      borderColor = "#dc3545"; icon = "🚫"; title = "Credit Limit Exceeded";
-      rows = [
-        ["Approved Cap",         fmt(cap)],
-        ["Order Value",          fmt(amt)],
-        ["Exceeded By",          `<b>${fmt(deficit)}</b>`],
-        ["Valid Till",           tillUser],
-      ];
+      // 🚫 Over limit (valid but amount exceeds cap)
+      _set_chip(frm, wrap("#ef4444", `
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <span style="font-size:15px;">🚫</span>
+          <span style="font-weight:700;font-size:14px;">Order Exceeds Approved Cap</span>
+          <span style="margin-left:auto;">${badge("OVER CAP", "239,68,68")}</span>
+        </div>
+        ${bar(pct, "239,68,68")}
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:2px;">
+          ${kv("Approved Cap", fmt(cap))}
+          ${kv("Order Value", fmt(amt))}
+          ${kv("Valid Till", tillFmt)}
+        </div>
+        ${divider("239,68,68")}
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:12px;opacity:0.65;">Amount exceeds cap by</span>
+          <span style="font-weight:700;font-size:15px;color:#ef4444;">${fmt(deficit)}</span>
+        </div>`));
     }
-
-    const body = rows.map(([label, value]) => {
-      const isHighlight = label.startsWith("Available") || label.startsWith("Exceeded");
-      return isHighlight
-        ? `<div class="snrg-chip-row snrg-chip-highlight">
-             <span style="text-transform:uppercase;">${label}</span>
-             <span style="font-size:13.5px;">${value}</span>
-           </div>`
-        : label === "Valid Till" || label === "Expired On"
-        ? `<div style="margin-top:6px;"></div>
-           <div class="snrg-chip-row">
-             <span>${label}</span><span style="opacity:.85;">${value}</span>
-           </div>`
-        : `<div class="snrg-chip-row">
-             <span style="width:55%;display:inline-block;">${label}</span>
-             <span>${value}</span>
-           </div>`;
-    }).join("");
-
-    _set_chip(frm, `
-      <div class="snrg-credit-chip" style="border-left:4px solid ${borderColor};">
-        <div class="snrg-chip-title">${icon} ${title}</div>
-        ${progressBar}
-        ${body}
-      </div>`);
   } catch (e) {
     console.warn("[SNRG Credit Chip] render error:", e);
   }
@@ -153,8 +186,7 @@ frappe.ui.form.on("Sales Order", {
 function _add_credit_buttons(frm) {
   if (frm.doc.docstatus !== 0) return;   // Draft only
 
-  const isApprover = frappe.user.has_role("Credit Approver") ||
-                     frappe.user.has_role("System Manager");
+  const isApprover = frappe.user.has_role("Credit Approver");
   const hasRequest = !!frm.doc.custom_snrg_request_time;
 
   // "Request Approval" — visible to everyone on a draft
