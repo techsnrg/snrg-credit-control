@@ -155,6 +155,31 @@ def before_submit(doc, method=None):
     _throw_credit_error(doc, snapshot)
 
 
+@frappe.whitelist()
+def get_credit_status(customer, company, currency=None, amount=0):
+    if not customer or not company:
+        return {}
+
+    snapshot = build_credit_snapshot(
+        customer=customer,
+        company=company,
+        amount=amount,
+        currency=currency,
+        more_prefix="…",
+    )
+
+    return {
+        "status": snapshot["status"],
+        "reason_code": snapshot["reason_code"],
+        "overdue_count": snapshot["overdue_count"],
+        "total_overdue": snapshot["total_overdue"],
+        "effective_ar": snapshot["effective_ar"],
+        "credit_limit": snapshot["credit_limit"],
+        "details": snapshot["details"],
+        "currency": snapshot["currency"],
+    }
+
+
 def _throw_credit_error(doc, snapshot):
     """Throw a styled HTML credit-hold error dialog."""
     html = render_credit_details_html(

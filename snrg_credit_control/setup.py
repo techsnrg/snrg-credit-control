@@ -105,7 +105,8 @@ _SO_FIELDS = [
         "options": "\nNot Run\nCredit OK\nCredit Hold",
         "default": "Not Run",
         "read_only": 1,
-        "in_list_view": 0,
+        "in_list_view": 1,
+        "in_standard_filter": 1,
         "insert_after": "custom_snrg_credit_section",
     },
     {
@@ -113,6 +114,7 @@ _SO_FIELDS = [
         "fieldtype": "Data",
         "label": "Reason Code",
         "read_only": 1,
+        "in_standard_filter": 1,
         "insert_after": "custom_snrg_credit_check_status",
     },
     {

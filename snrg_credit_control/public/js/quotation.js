@@ -57,9 +57,7 @@ function render_quotation_credit_chip(frm) {
         border: "rgba(34,197,94,.18)",
         title: "Credit OK",
         badge: "Healthy",
-        subtitle: stage === "preview"
-          ? "Live customer snapshot fetched after selection."
-          : "Customer is currently within the configured credit policy.",
+        subtitle: "Customer is currently within the configured credit policy.",
       },
       "Credit Hold": {
         rgb: "239,68,68",
@@ -80,7 +78,7 @@ function render_quotation_credit_chip(frm) {
 
     const pill = `<span style="display:inline-flex;align-items:center;background:rgba(${theme.rgb},.12);border:1px solid rgba(${theme.rgb},.24);color:rgba(${theme.rgb},1);font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap;">${frappe.utils.escape_html(theme.badge)}</span>`;
     const step = (label, value, sign = "", valueStyle = "", accent = "") =>
-      `<div style="display:flex;align-items:center;gap:10px;min-width:0;">
+      `<div style="display:flex;align-items:center;gap:10px;min-width:220px;flex:1 1 220px;">
         <div style="min-width:0;">
           <div style="font-size:11px;font-weight:600;opacity:.62;margin-bottom:4px;">${label}</div>
           <div style="font-size:20px;font-weight:700;letter-spacing:-0.25px;${valueStyle}">${sign}${value}</div>
@@ -90,18 +88,20 @@ function render_quotation_credit_chip(frm) {
     const availabilityTone = projectedAvailable < 0
       ? "color:#fca5a5;"
       : (availableCredit <= 0 ? "color:#fdba74;" : `color:rgba(${theme.rgb},1);`);
-    const projectedTone = projectedAvailable < 0 ? "color:#f87171;" : (status === "Credit OK" ? "color:#1f7a3d;" : "");
+    const projectedTone = projectedAvailable < 0
+      ? "color:#f87171;text-shadow:0 0 0 rgba(0,0,0,0.01);"
+      : (status === "Credit OK" ? "color:#22c55e;font-weight:800;text-shadow:0 0 0 rgba(0,0,0,0.01);" : "color:#f8fafc;font-weight:800;");
     const basePanel = "background:var(--control-bg, #f8f9fa);border:1px solid var(--border-color, #d1d8dd);";
     const calculationRow = stage === "preview"
       ? `
-          <div style="display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:flex-start;gap:18px 16px;flex-wrap:wrap;">
             ${step("Credit Limit", fmt(creditLimit), "", "", "−")}
             ${step("Current Exposure", fmt(exposure), "", "", "=")}
             ${step("Available Credit", fmtSigned(availableCredit), "", availabilityTone)}
           </div>
         `
       : `
-          <div style="display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:flex-start;gap:18px 16px;flex-wrap:wrap;">
             ${step("Credit Limit", fmt(creditLimit), "", "", "−")}
             ${step("Current Exposure", fmt(exposure), "", "", "=")}
             ${step("Available Credit", fmtSigned(availableCredit), "", availabilityTone, "−")}
@@ -126,7 +126,7 @@ function render_quotation_credit_chip(frm) {
         <div style="border-top:1px solid rgba(140,140,140,.14);margin-top:12px;padding-top:12px;font-size:12px;opacity:.8;">
           <span style="margin-right:18px;"><strong>Overdue Invoices:</strong> ${overdueCount}</span>
           <span style="margin-right:18px;"><strong>Overdue Amount:</strong> ${fmt(overdueAmount)}</span>
-          <span><strong>Reason:</strong> ${frappe.utils.escape_html(reason || "Within policy")}</span>
+          <span><strong>Status:</strong> ${frappe.utils.escape_html(reason || "Within policy")}</span>
         </div>
       </div>
     `);

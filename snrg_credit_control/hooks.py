@@ -15,6 +15,7 @@ doctype_js = {
 }
 
 doctype_list_js = {
+    "Sales Order": "public/js/sales_order_list.js",
     "Quotation": "public/js/quotation_list.js",
 }
 

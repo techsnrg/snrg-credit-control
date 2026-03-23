@@ -1,203 +1,289 @@
 // =============================================================================
 // SNRG Credit Control — Sales Order client script
-// Replaces Client Scripts 1, 2, and 3.
-//
-// Sections:
-//   1. Credit Chip  — dashboard headline card showing current credit status
-//   2. Form Events  — refresh handler, field watchers
-//   3. Request Approval dialog — structured PTP entry
-//   4. Approve Credit dialog  — cap + valid-till confirmation for approvers
-//   5. CSS  — fadeIn animation
 // =============================================================================
 
+function get_sales_order_credit_view_model(frm) {
+  const status = frm.doc.custom_snrg_credit_check_status;
+  if (!status || status === "Not Run") {
+    return null;
+  }
 
-// =============================================================================
-// 1. CREDIT CHIP
-// =============================================================================
+  return {
+    status,
+    reason: frm.doc.custom_snrg_credit_check_reason_code || "",
+    overdueCount: Number(frm.doc.custom_snrg_overdue_count_terms || 0),
+    overdueAmount: Number(frm.doc.custom_snrg_overdue_amount_terms || 0),
+    exposure: Number(frm.doc.custom_snrg_exposure_at_check || 0),
+    creditLimit: Number(frm.doc.custom_snrg_credit_limit_at_check || 0),
+    orderValue: Number(frm.doc.grand_total || frm.doc.rounded_total || 0),
+    currency: frm.doc.currency || "INR",
+    approvalStatus: frm.doc.custom_credit_approval_status || "",
+    overrideCap: Number(frm.doc.custom_snrg_override_cap_amount || 0),
+    overrideValidTill: frm.doc.custom_snrg_override_valid_till || "",
+  };
+}
 
-function render_credit_chip(frm) {
+function render_sales_order_credit_chip(frm) {
   try {
     if (!frm || !frm.dashboard || !frm.dashboard.set_headline) return;
-    if (frm.is_new() || !frm.doc.name) return;
     if (frm.dashboard.clear_headline) frm.dashboard.clear_headline();
 
-    const cap    = Number(frm.doc.custom_snrg_override_cap_amount || 0);
-    const till   = frm.doc.custom_snrg_override_valid_till;
-    const amt    = Number(frm.doc.grand_total || frm.doc.rounded_total || 0);
-    const cur    = frm.doc.currency || "INR";
-    const fmt    = v => frappe.format(v, { fieldtype: "Currency", options: cur });
-    const hasReq = !!frm.doc.custom_snrg_request_time;
+    const model = get_sales_order_credit_view_model(frm);
+    if (!model) return;
 
-    // ── Building blocks ────────────────────────────────────────────────────
-    // Pill badge (flex works in dashboard headline area)
-    const pill = (text, rgb) =>
-      `<span style="background:rgba(${rgb},.18);border:1px solid rgba(${rgb},.45);
-        color:rgba(${rgb},1);font-size:10px;font-weight:800;letter-spacing:1.2px;
-        text-transform:uppercase;padding:3px 12px;border-radius:20px;
-        white-space:nowrap;vertical-align:middle;">${text}</span>`;
+    const {
+      status,
+      reason,
+      overdueCount,
+      overdueAmount,
+      exposure,
+      creditLimit,
+      orderValue,
+      currency,
+      approvalStatus,
+      overrideCap,
+      overrideValidTill,
+    } = model;
 
-    // Metric column — inline-block (100% reliable, no flex/grid needed)
-    const stat = (label, value, valCss, w) =>
-      `<div style="display:inline-block;vertical-align:top;width:${w};padding-right:12px;box-sizing:border-box;">
-        <div style="font-size:10px;font-weight:700;letter-spacing:1.1px;text-transform:uppercase;
-          opacity:.45;margin-bottom:4px;">${label}</div>
-        <div style="${valCss}">${value}</div>
+    const availableCredit = creditLimit ? (creditLimit - exposure) : 0;
+    const projectedBalance = creditLimit ? (creditLimit - exposure - orderValue) : 0;
+    const fmt = value => frappe.format(value, { fieldtype: "Currency", options: currency });
+    const fmtSigned = value => {
+      const formatted = fmt(Math.abs(value));
+      return value < 0 ? `-${formatted}` : formatted;
+    };
+
+    const themes = {
+      "Credit OK": {
+        rgb: "34,197,94",
+        title: "Credit OK",
+        badge: "Healthy",
+        subtitle: "Customer is currently within the configured credit policy.",
+      },
+      "Credit Hold": {
+        rgb: "239,68,68",
+        title: "Credit Hold",
+        badge: reason || "Review",
+        subtitle: reason === "Over-Limit"
+          ? "Current exposure plus this order crosses the customer's credit limit."
+          : "Customer has overdue invoices beyond the configured threshold.",
+      },
+    };
+
+    const theme = themes[status];
+    if (!theme) return;
+
+    const pill = `<span style="display:inline-flex;align-items:center;background:rgba(${theme.rgb},.12);border:1px solid rgba(${theme.rgb},.24);color:rgba(${theme.rgb},1);font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap;">${frappe.utils.escape_html(theme.badge)}</span>`;
+    const step = (label, value, valueStyle = "", accent = "") =>
+      `<div style="display:flex;align-items:center;gap:10px;min-width:220px;flex:1 1 220px;">
+        <div style="min-width:0;">
+          <div style="font-size:11px;font-weight:600;opacity:.62;margin-bottom:4px;">${label}</div>
+          <div style="font-size:20px;font-weight:700;letter-spacing:-0.25px;${valueStyle}">${value}</div>
+        </div>
+        ${accent ? `<div style="font-size:18px;font-weight:700;opacity:.4;padding-top:16px;">${accent}</div>` : ""}
       </div>`;
 
-    // Progress bar
-    const bar = (pct, rgb) =>
-      `<div style="height:4px;background:rgba(255,255,255,.1);border-radius:3px;
-        overflow:hidden;margin:10px 0 4px;">
-        <div style="width:${pct}%;height:100%;background:rgba(${rgb},1);border-radius:3px;"></div>
+    const availableTone = projectedBalance < 0
+      ? "color:#fca5a5;"
+      : (availableCredit <= 0 ? "color:#fdba74;" : `color:rgba(${theme.rgb},1);`);
+    const projectedTone = projectedBalance < 0
+      ? "color:#f87171;font-weight:800;"
+      : (status === "Credit OK" ? "color:#22c55e;font-weight:800;" : "color:#f8fafc;font-weight:800;");
+
+    let approvalLine = "";
+    if (approvalStatus || overrideCap || overrideValidTill) {
+      const parts = [];
+      if (approvalStatus) parts.push(`<strong>Approval:</strong> ${frappe.utils.escape_html(approvalStatus)}`);
+      if (overrideCap) parts.push(`<strong>Cap:</strong> ${fmt(overrideCap)}`);
+      if (overrideValidTill) parts.push(`<strong>Valid Till:</strong> ${frappe.datetime.str_to_user(overrideValidTill)}`);
+      approvalLine = `<div style="margin-top:8px;font-size:12px;opacity:.78;">${parts.join(" &nbsp;&nbsp; ")}</div>`;
+    }
+
+    frm.dashboard.set_headline(`
+      <div style="background:var(--control-bg, #f8f9fa);border:1px solid var(--border-color, #d1d8dd);border-radius:10px;padding:16px 18px;line-height:1.45;color:var(--text-color, #36414c);box-shadow:none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;flex-wrap:wrap;">
+          <div>
+            <div style="font-size:18px;font-weight:700;margin-bottom:2px;">${theme.title}</div>
+            <div style="font-size:12px;opacity:.72;">${theme.subtitle}</div>
+          </div>
+          ${pill}
+        </div>
+        <div style="margin-top:14px;border:1px solid rgba(140,140,140,.12);border-radius:8px;background:rgba(255,255,255,.35);padding:14px 14px 10px;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;opacity:.55;margin-bottom:10px;">Credit Calculation</div>
+          <div style="display:flex;align-items:flex-start;gap:18px 16px;flex-wrap:wrap;">
+            ${step("Credit Limit", fmt(creditLimit), "", "−")}
+            ${step("Current Exposure", fmt(exposure), "", "=")}
+            ${step("Available Credit", fmtSigned(availableCredit), availableTone, "−")}
+            ${step("Order Value", fmt(orderValue), "", "=")}
+            ${step("Projected Balance", fmtSigned(projectedBalance), projectedTone)}
+          </div>
+        </div>
+        <div style="border-top:1px solid rgba(140,140,140,.14);margin-top:12px;padding-top:12px;font-size:12px;opacity:.82;">
+          <span style="margin-right:18px;"><strong>Overdue Invoices:</strong> ${overdueCount}</span>
+          <span style="margin-right:18px;"><strong>Overdue Amount:</strong> ${fmt(overdueAmount)}</span>
+          <span><strong>Status:</strong> ${frappe.utils.escape_html(reason || "Within policy")}</span>
+          ${approvalLine}
+        </div>
       </div>
-      <div style="font-size:10px;letter-spacing:.5px;opacity:.35;text-align:right;
-        margin-bottom:12px;">${pct}% OF CAP USED</div>`;
+    `);
 
-    // Outer card wrapper
-    const card = (rgb, content) =>
-      `<div style="border:1px solid rgba(${rgb},.22);border-left:4px solid rgba(${rgb},1);
-        border-radius:0 8px 8px 0;padding:16px 20px;
-        background:rgba(${rgb},.06);
-        box-shadow:0 2px 12px rgba(0,0,0,.2);
-        opacity:0;animation:snrgFadeIn .3s ease forwards;
-        font-family:inherit;line-height:1.4;">${content}</div>`;
-
-    const L18 = 'font-size:18px;font-weight:800;letter-spacing:-.5px;';
-    const L15 = 'font-size:15px;font-weight:700;';
-    const L13 = 'font-size:13px;font-weight:600;opacity:.75;';
-    const hr  = rgb => `<div style="border-top:1px solid rgba(${rgb},.15);margin:13px 0 11px;"></div>`;
-
-    // ── PENDING ────────────────────────────────────────────────────────────
-    if (hasReq && !cap) {
-      _set_chip(frm, card('59,130,246', `
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-          <span style="font-size:13px;font-weight:700;">⏳ &nbsp;Credit Approval Pending</span>
-          ${pill('Awaiting Review', '147,197,253')}
-        </div>
-        <div>
-          ${stat('Order Value', fmt(amt), L18, '50%')}
-          ${stat('Requested On', frappe.datetime.str_to_user(frm.doc.custom_snrg_request_time), L13, '50%')}
-        </div>
-        ${hr('59,130,246')}
-        <div style="font-size:11px;opacity:.4;letter-spacing:.2px;">
-          📬 &nbsp;Sent to Credit Approver — awaiting review
-        </div>`));
-      return;
-    }
-
-    if (!cap || !till) return;
-
-    const today    = frappe.datetime.get_today();
-    const isValid  = frappe.datetime.get_diff(till, today) >= 0;
-    const daysLeft = frappe.datetime.get_diff(till, today);
-    const tillFmt  = frappe.datetime.str_to_user(till);
-    const headroom = Math.max(0, cap - amt);
-    const deficit  = Math.max(0, amt - cap);
-    const pct      = Math.min(100, Math.round((amt / cap) * 100));
-    const isOver   = amt > cap;
-
-    if (isValid && !isOver) {
-      // ✅ Active approval
-      _set_chip(frm, card('34,197,94', `
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-          <span style="font-size:13px;font-weight:700;">✅ &nbsp;Credit Approved — Active</span>
-          ${pill(daysLeft === 0 ? 'Expires Today' : daysLeft + 'd Remaining', '74,222,128')}
-        </div>
-        ${bar(pct, '34,197,94')}
-        <div>
-          ${stat('Approved Cap', fmt(cap), L13, '28%')}
-          ${stat('Order Value', fmt(amt), L13, '28%')}
-          ${stat('Headroom', fmt(headroom), 'font-size:20px;font-weight:800;color:#4ade80;', '44%')}
-        </div>
-        <div style="font-size:10px;opacity:.3;margin-top:10px;letter-spacing:.5px;text-transform:uppercase;">
-          Valid till &nbsp;${tillFmt}
-        </div>`));
-
-    } else if (!isValid) {
-      // ⚠️ Expired
-      _set_chip(frm, card('249,115,22', `
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-          <span style="font-size:13px;font-weight:700;">⚠️ &nbsp;Credit Approval Expired</span>
-          ${pill('Expired', '251,146,60')}
-        </div>
-        <div>
-          ${stat('Approved Cap', fmt(cap), L15, '28%')}
-          ${stat('Order Value', fmt(amt), L15, '28%')}
-          ${stat('Expired On', tillFmt, 'font-size:13px;font-weight:600;color:#fb923c;', '44%')}
-        </div>
-        ${hr('249,115,22')}
-        <div style="font-size:11px;opacity:.4;">
-          ⚡ &nbsp;Use Credit Control → Request Approval to renew
-        </div>`));
-
-    } else {
-      // 🚫 Over cap
-      _set_chip(frm, card('239,68,68', `
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-          <span style="font-size:13px;font-weight:700;">🚫 &nbsp;Order Exceeds Approved Cap</span>
-          ${pill('Over Cap', '248,113,113')}
-        </div>
-        ${bar(pct, '239,68,68')}
-        <div>
-          ${stat('Approved Cap', fmt(cap), L13, '28%')}
-          ${stat('Order Value', fmt(amt), 'font-size:15px;font-weight:700;color:#f87171;', '28%')}
-          ${stat('Exceeds By', fmt(deficit), 'font-size:20px;font-weight:800;color:#f87171;', '44%')}
-        </div>
-        <div style="font-size:10px;opacity:.3;margin-top:10px;letter-spacing:.5px;text-transform:uppercase;">
-          Valid till &nbsp;${tillFmt} — cap must be increased
-        </div>`));
-    }
+    const box = frm.dashboard.wrapper.find(".dashboard-headline");
+    box.css({ background: "transparent", padding: "0", "box-shadow": "none", border: "none" });
   } catch (e) {
-    console.warn("[SNRG Credit Chip] render error:", e);
+    console.warn("[SNRG Sales Order Credit Chip] render error:", e);
   }
 }
 
-function _set_chip(frm, html) {
-  frm.dashboard.set_headline(html);
-  const box = frm.dashboard.wrapper.find(".dashboard-headline");
-  box.css({ background: "transparent", padding: "0", "box-shadow": "none", border: "none" });
+function render_sales_order_header_status(frm) {
+  try {
+    if (!frm || !frm.page || !frm.page.wrapper) return;
+
+    const model = get_sales_order_credit_view_model(frm);
+    frm.page.wrapper.find(".snrg-so-credit-header-pill").remove();
+    if (!model || !model.status || model.status === "Not Run") return;
+
+    const config = {
+      "Credit OK": {
+        bg: "rgba(34,197,94,.14)",
+        border: "rgba(34,197,94,.28)",
+        color: "#22c55e",
+        label: "Credit OK",
+      },
+      "Credit Hold": {
+        bg: "rgba(239,68,68,.14)",
+        border: "rgba(239,68,68,.28)",
+        color: "#f87171",
+        label: model.reason ? `Credit Hold · ${model.reason}` : "Credit Hold",
+      },
+    }[model.status];
+
+    if (!config) return;
+
+    const pill = $(`
+      <span class="snrg-so-credit-header-pill" style="display:inline-flex;align-items:center;margin-left:8px;padding:4px 12px;border-radius:999px;border:1px solid ${config.border};background:${config.bg};color:${config.color};font-size:12px;font-weight:700;line-height:1.2;white-space:nowrap;">
+        ${frappe.utils.escape_html(config.label)}
+      </span>
+    `);
+
+    const primaryIndicator = frm.page.wrapper.find(".page-head .indicator-pill, .layout-main .indicator-pill").first();
+    if (primaryIndicator.length) {
+      pill.insertAfter(primaryIndicator);
+      return;
+    }
+
+    const titleArea = frm.page.wrapper.find(".page-title, .title-area, .page-form-header").first();
+    if (titleArea.length) {
+      titleArea.append(pill);
+    }
+  } catch (e) {
+    console.warn("[SNRG Sales Order Header Status] render error:", e);
+  }
 }
 
-
-// =============================================================================
-// 2. FORM EVENTS
-// =============================================================================
-
 frappe.ui.form.on("Sales Order", {
-
   refresh(frm) {
-    render_credit_chip(frm);
-    _add_credit_buttons(frm);
+    render_sales_order_credit_chip(frm);
+    render_sales_order_header_status(frm);
+    add_sales_order_credit_buttons(frm);
   },
-
-  // Re-render chip when any relevant field changes
-  custom_snrg_override_cap_amount: (frm) => render_credit_chip(frm),
-  custom_snrg_override_valid_till:  (frm) => render_credit_chip(frm),
-  custom_snrg_request_time:         (frm) => render_credit_chip(frm),
-  custom_credit_approval_status:    (frm) => render_credit_chip(frm),
-  grand_total:                      (frm) => render_credit_chip(frm),
-  rounded_total:                    (frm) => render_credit_chip(frm),
+  custom_snrg_credit_check_status(frm) {
+    render_sales_order_credit_chip(frm);
+    render_sales_order_header_status(frm);
+  },
+  custom_snrg_credit_check_reason_code(frm) {
+    render_sales_order_credit_chip(frm);
+    render_sales_order_header_status(frm);
+  },
+  custom_snrg_override_cap_amount(frm) {
+    render_sales_order_credit_chip(frm);
+  },
+  custom_snrg_override_valid_till(frm) {
+    render_sales_order_credit_chip(frm);
+  },
+  custom_credit_approval_status(frm) {
+    render_sales_order_credit_chip(frm);
+  },
+  custom_snrg_overdue_count_terms(frm) {
+    render_sales_order_credit_chip(frm);
+  },
+  custom_snrg_overdue_amount_terms(frm) {
+    render_sales_order_credit_chip(frm);
+  },
+  custom_snrg_exposure_at_check(frm) {
+    render_sales_order_credit_chip(frm);
+  },
+  custom_snrg_credit_limit_at_check(frm) {
+    render_sales_order_credit_chip(frm);
+  },
+  grand_total(frm) {
+    render_sales_order_credit_chip(frm);
+  },
+  rounded_total(frm) {
+    render_sales_order_credit_chip(frm);
+  },
 });
 
-function _add_credit_buttons(frm) {
-  if (frm.doc.docstatus !== 0) return;   // Draft only
+function add_sales_order_credit_buttons(frm) {
+  if (frm.doc.docstatus !== 0) return;
 
   const isApprover = frappe.user.has_role("Credit Approver");
   const hasRequest = !!frm.doc.custom_snrg_request_time;
 
-  // "Request Approval" — visible to everyone on a draft
+  frm.add_custom_button("Check Credit Status", () => refresh_sales_order_credit_status(frm), "Credit Control");
   frm.add_custom_button("Request Approval", () => open_request_dialog(frm), "Credit Control");
 
-  // "Approve Credit" — only for Credit Approvers when a request exists
   if (isApprover && hasRequest) {
     frm.add_custom_button("Approve Credit", () => open_approve_dialog(frm), "Credit Control");
   }
 }
 
+async function refresh_sales_order_credit_status(frm) {
+  if (!frm.doc.customer || !frm.doc.company) {
+    frappe.msgprint({
+      title: "Missing Customer",
+      message: "Select a customer and company first to check credit status.",
+      indicator: "orange",
+    });
+    return;
+  }
 
-// =============================================================================
-// 3. REQUEST APPROVAL DIALOG  (structured PTP)
-// =============================================================================
+  try {
+    const { message } = await frappe.call({
+      method: "snrg_credit_control.overrides.sales_order.get_credit_status",
+      args: {
+        customer: frm.doc.customer,
+        company: frm.doc.company,
+        currency: frm.doc.currency,
+        amount: frm.doc.grand_total || frm.doc.rounded_total || 0,
+      },
+    });
+
+    if (!message) return;
+
+    frm.doc.custom_snrg_credit_check_status = message.status || "Not Run";
+    frm.doc.custom_snrg_credit_check_reason_code = message.reason_code || "";
+    frm.doc.custom_snrg_overdue_count_terms = message.overdue_count || 0;
+    frm.doc.custom_snrg_overdue_amount_terms = message.total_overdue || 0;
+    frm.doc.custom_snrg_exposure_at_check = message.effective_ar || 0;
+    frm.doc.custom_snrg_credit_limit_at_check = message.credit_limit || 0;
+    frm.doc.custom_snrg_credit_check_details = message.details || "";
+
+    render_sales_order_credit_chip(frm);
+    render_sales_order_header_status(frm);
+
+    frappe.show_alert({
+      message: `Credit status refreshed: ${message.status || "Not Run"}`,
+      indicator: message.status === "Credit Hold" ? "orange" : "green",
+    });
+  } catch (e) {
+    console.warn("[SNRG Sales Order Credit Check] refresh error:", e);
+    frappe.msgprint({
+      title: "Unable to check credit status",
+      message: (e && e.message) || String(e),
+      indicator: "red",
+    });
+  }
+}
 
 function open_request_dialog(frm) {
   const d = new frappe.ui.Dialog({
@@ -283,20 +369,18 @@ function open_request_dialog(frm) {
         const now = frappe.datetime.now_datetime();
         const amt = frm.doc.grand_total || frm.doc.rounded_total || 0;
 
-        // Stamp request fields
-        frm.doc.custom_snrg_request_time   = now;
+        frm.doc.custom_snrg_request_time = now;
         frm.doc.custom_snrg_request_amount = amt;
 
-        // Add a new PTP entry row
         const row = frappe.model.add_child(frm.doc, "Credit PTP Entry", "custom_snrg_ptp_entries");
-        row.ptp_by           = values.ptp_by;
-        row.ptp_date         = values.ptp_date;
-        row.commitment_date  = values.commitment_date;
+        row.ptp_by = values.ptp_by;
+        row.ptp_date = values.ptp_date;
+        row.commitment_date = values.commitment_date;
         row.committed_amount = values.committed_amount;
-        row.payment_mode     = values.payment_mode;
-        row.cheque_number    = values.cheque_number || "";
-        row.remarks          = values.remarks || "";
-        row.status           = "Pending";
+        row.payment_mode = values.payment_mode;
+        row.cheque_number = values.cheque_number || "";
+        row.remarks = values.remarks || "";
+        row.status = "Pending";
         frm.refresh_field("custom_snrg_ptp_entries");
 
         frm.dirty();
@@ -325,15 +409,10 @@ function open_request_dialog(frm) {
   d.show();
 }
 
-
-// =============================================================================
-// 4. APPROVE CREDIT DIALOG  (cap + validity confirmation for Credit Approvers)
-// =============================================================================
-
 function open_approve_dialog(frm) {
   const reqAmt = Number(frm.doc.custom_snrg_request_amount || 0);
-  const soAmt  = Number(frm.doc.grand_total || frm.doc.rounded_total || 0);
-  const defaultCap  = Math.min(reqAmt || soAmt, soAmt);
+  const soAmt = Number(frm.doc.grand_total || frm.doc.rounded_total || 0);
+  const defaultCap = Math.min(reqAmt || soAmt, soAmt);
   const defaultTill = frappe.datetime.add_days(frappe.datetime.get_today(), 7);
 
   const d = new frappe.ui.Dialog({
@@ -382,10 +461,10 @@ function open_approve_dialog(frm) {
         }
 
         await frm.set_value("custom_snrg_override_cap_amount", values.approved_cap);
-        await frm.set_value("custom_snrg_override_valid_till",  values.valid_till);
-        await frm.set_value("custom_snrg_approver",             frappe.session.user);
-        await frm.set_value("custom_snrg_approval_time",        frappe.datetime.now_datetime());
-        await frm.set_value("custom_credit_approval_status",    "Approved");
+        await frm.set_value("custom_snrg_override_valid_till", values.valid_till);
+        await frm.set_value("custom_snrg_approver", frappe.session.user);
+        await frm.set_value("custom_snrg_approval_time", frappe.datetime.now_datetime());
+        await frm.set_value("custom_credit_approval_status", "Approved");
         await frm.save();
 
         d.hide();
@@ -398,49 +477,3 @@ function open_approve_dialog(frm) {
   });
   d.show();
 }
-
-
-// =============================================================================
-// 5. CSS — chip styles + fadeIn animation
-// =============================================================================
-
-(function _inject_styles() {
-  if (document.getElementById("snrg-credit-chip-styles")) return;
-  const style = document.createElement("style");
-  style.id = "snrg-credit-chip-styles";
-  style.innerHTML = `
-    @keyframes snrgFadeIn {
-      from { opacity:0; transform:translateY(-2px); }
-      to   { opacity:1; transform:translateY(0); }
-    }
-    .snrg-credit-chip {
-      font-size: 13px;
-      line-height: 1.5;
-      border-radius: 6px;
-      padding: 10px 14px;
-      background: rgba(255,255,255,0.02);
-      box-shadow: 0 0 2px rgba(0,0,0,0.2);
-      opacity: 0;
-      animation: snrgFadeIn 0.25s ease forwards;
-    }
-    .snrg-chip-title {
-      font-weight: 600;
-      margin-bottom: 6px;
-    }
-    .snrg-chip-row {
-      display: flex;
-      justify-content: space-between;
-      margin: 2px 0;
-    }
-    .snrg-chip-highlight {
-      font-weight: 600;
-      margin: 4px 0 6px;
-    }
-    .snrg-chip-note {
-      margin-top: 8px;
-      font-size: 12.5px;
-      opacity: 0.85;
-    }
-  `;
-  document.head.appendChild(style);
-}());
