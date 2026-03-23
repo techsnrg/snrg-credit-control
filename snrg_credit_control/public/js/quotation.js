@@ -47,17 +47,22 @@ function render_quotation_credit_chip(frm) {
     if (!theme) return;
 
     const pill = `<span style="display:inline-flex;align-items:center;background:rgba(${theme.rgb},.12);border:1px solid rgba(${theme.rgb},.24);color:rgba(${theme.rgb},1);font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap;">${frappe.utils.escape_html(theme.badge)}</span>`;
-    const stat = (label, value, width, valueStyle = "") =>
-      `<div style="display:inline-block;vertical-align:top;width:${width};min-width:160px;padding-right:18px;padding-bottom:12px;box-sizing:border-box;">
-        <div style="font-size:11px;font-weight:600;opacity:.65;margin-bottom:4px;">${label}</div>
-        <div style="font-size:19px;font-weight:700;letter-spacing:-0.2px;${valueStyle}">${value}</div>
+    const step = (label, value, sign = "", valueStyle = "", accent = "") =>
+      `<div style="display:flex;align-items:center;gap:10px;min-width:0;">
+        <div style="min-width:0;">
+          <div style="font-size:11px;font-weight:600;opacity:.62;margin-bottom:4px;">${label}</div>
+          <div style="font-size:20px;font-weight:700;letter-spacing:-0.25px;${valueStyle}">${sign}${value}</div>
+        </div>
+        ${accent ? `<div style="font-size:18px;font-weight:700;opacity:.4;padding-top:16px;">${accent}</div>` : ""}
       </div>`;
     const availabilityTone = projectedAvailable < 0
       ? "color:#fca5a5;"
       : (availableCredit <= 0 ? "color:#fdba74;" : `color:rgba(${theme.rgb},1);`);
+    const projectedTone = projectedAvailable < 0 ? "color:#f87171;" : (status === "Credit OK" ? "color:#1f7a3d;" : "");
+    const basePanel = "background:var(--control-bg, #f8f9fa);border:1px solid var(--border-color, #d1d8dd);";
 
     frm.dashboard.set_headline(`
-      <div style="border:1px solid ${theme.border};border-radius:10px;padding:14px 16px;background:${theme.bg};line-height:1.45;">
+      <div style="${basePanel}border-radius:10px;padding:16px 18px;line-height:1.45;color:var(--text-color, #36414c);box-shadow:none;">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;flex-wrap:wrap;">
           <div>
             <div style="font-size:18px;font-weight:700;margin-bottom:2px;">${theme.title}</div>
@@ -65,14 +70,17 @@ function render_quotation_credit_chip(frm) {
           </div>
           ${pill}
         </div>
-        <div style="margin-top:12px;">
-          ${stat("Available Credit", fmtSigned(availableCredit), "24%", availabilityTone)}
-          ${stat("Current Exposure", fmt(exposure), "19%")}
-          ${stat("Credit Limit", fmt(creditLimit), "19%")}
-          ${stat("Quotation Value", fmt(quotationValue), "19%")}
-          ${stat("Projected Balance", fmtSigned(projectedAvailable), "19%", projectedAvailable < 0 ? "color:#fca5a5;" : "")}
+        <div style="margin-top:14px;border:1px solid rgba(140,140,140,.12);border-radius:8px;background:rgba(255,255,255,.35);padding:14px 14px 10px;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;opacity:.55;margin-bottom:10px;">Credit Calculation</div>
+          <div style="display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;">
+            ${step("Credit Limit", fmt(creditLimit), "", "", "−")}
+            ${step("Current Exposure", fmt(exposure), "", "", "=")}
+            ${step("Available Credit", fmtSigned(availableCredit), "", availabilityTone, "−")}
+            ${step("Quotation Value", fmt(quotationValue), "", "", "=")}
+            ${step("Projected Balance", fmtSigned(projectedAvailable), "", projectedTone)}
+          </div>
         </div>
-        <div style="border-top:1px solid rgba(140,140,140,.14);margin-top:4px;padding-top:12px;font-size:12px;opacity:.8;">
+        <div style="border-top:1px solid rgba(140,140,140,.14);margin-top:12px;padding-top:12px;font-size:12px;opacity:.8;">
           <span style="margin-right:18px;"><strong>Overdue Invoices:</strong> ${overdueCount}</span>
           <span style="margin-right:18px;"><strong>Overdue Amount:</strong> ${fmt(overdueAmount)}</span>
           <span><strong>Reason:</strong> ${frappe.utils.escape_html(reason || "Within policy")}</span>
