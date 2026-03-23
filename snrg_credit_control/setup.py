@@ -17,6 +17,7 @@ def after_install():
     _ensure_role()
     _ensure_customer_fields()
     _ensure_so_fields()
+    _ensure_quotation_fields()
     _ensure_report()
     frappe.db.commit()
 
@@ -26,6 +27,7 @@ def after_migrate():
     _ensure_role()
     _ensure_customer_fields()
     _ensure_so_fields()
+    _ensure_quotation_fields()
     _ensure_report()
     frappe.db.commit()
 
@@ -237,6 +239,73 @@ _SO_FIELDS = [
 def _ensure_so_fields():
     for fdef in _SO_FIELDS:
         _ensure_custom_field("Sales Order", fdef)
+
+
+_QUOTATION_FIELDS = [
+    {
+        "fieldname": "custom_snrg_credit_check_status",
+        "fieldtype": "Select",
+        "label": "Credit Check Status",
+        "options": "\nNot Run\nCredit OK\nCredit Hold",
+        "default": "Not Run",
+        "read_only": 1,
+        "hidden": 1,
+        "insert_after": "rounded_total",
+    },
+    {
+        "fieldname": "custom_snrg_credit_check_reason_code",
+        "fieldtype": "Data",
+        "label": "Reason Code",
+        "read_only": 1,
+        "hidden": 1,
+        "insert_after": "custom_snrg_credit_check_status",
+    },
+    {
+        "fieldname": "custom_snrg_overdue_count_terms",
+        "fieldtype": "Int",
+        "label": "Overdue Invoice Count",
+        "read_only": 1,
+        "hidden": 1,
+        "insert_after": "custom_snrg_credit_check_reason_code",
+    },
+    {
+        "fieldname": "custom_snrg_overdue_amount_terms",
+        "fieldtype": "Currency",
+        "label": "Overdue Amount",
+        "read_only": 1,
+        "hidden": 1,
+        "insert_after": "custom_snrg_overdue_count_terms",
+    },
+    {
+        "fieldname": "custom_snrg_exposure_at_check",
+        "fieldtype": "Currency",
+        "label": "Total AR Exposure",
+        "read_only": 1,
+        "hidden": 1,
+        "insert_after": "custom_snrg_overdue_amount_terms",
+    },
+    {
+        "fieldname": "custom_snrg_credit_limit_at_check",
+        "fieldtype": "Currency",
+        "label": "Credit Limit Snapshot",
+        "read_only": 1,
+        "hidden": 1,
+        "insert_after": "custom_snrg_exposure_at_check",
+    },
+    {
+        "fieldname": "custom_snrg_credit_check_details",
+        "fieldtype": "Small Text",
+        "label": "Credit Check Details",
+        "read_only": 1,
+        "hidden": 1,
+        "insert_after": "custom_snrg_credit_limit_at_check",
+    },
+]
+
+
+def _ensure_quotation_fields():
+    for fdef in _QUOTATION_FIELDS:
+        _ensure_custom_field("Quotation", fdef)
 
 
 # ---------------------------------------------------------------------------
