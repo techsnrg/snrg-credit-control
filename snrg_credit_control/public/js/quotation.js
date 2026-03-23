@@ -1,21 +1,49 @@
+function get_quotation_credit_view_model(frm) {
+  const preview = frm._snrg_credit_preview;
+
+  if (preview && (frm.is_new() || frm.is_dirty())) {
+    return {
+      stage: "preview",
+      status: preview.status,
+      reason: preview.reason_code || "",
+      overdueCount: Number(preview.overdue_count || 0),
+      overdueAmount: Number(preview.total_overdue || 0),
+      exposure: Number(preview.effective_ar || 0),
+      creditLimit: Number(preview.credit_limit || 0),
+      quotationValue: 0,
+      currency: preview.currency || frm.doc.currency || "INR",
+    };
+  }
+
+  const status = frm.doc.custom_snrg_credit_check_status;
+  if (!status || status === "Not Run") {
+    return null;
+  }
+
+  return {
+    stage: "saved",
+    status,
+    reason: frm.doc.custom_snrg_credit_check_reason_code || "",
+    overdueCount: Number(frm.doc.custom_snrg_overdue_count_terms || 0),
+    overdueAmount: Number(frm.doc.custom_snrg_overdue_amount_terms || 0),
+    exposure: Number(frm.doc.custom_snrg_exposure_at_check || 0),
+    creditLimit: Number(frm.doc.custom_snrg_credit_limit_at_check || 0),
+    quotationValue: Number(frm.doc.grand_total || frm.doc.rounded_total || 0),
+    currency: frm.doc.currency || "INR",
+  };
+}
+
 function render_quotation_credit_chip(frm) {
   try {
     if (!frm || !frm.dashboard || !frm.dashboard.set_headline) return;
-    if (frm.is_new() || !frm.doc.name) return;
     if (frm.dashboard.clear_headline) frm.dashboard.clear_headline();
 
-    const status = frm.doc.custom_snrg_credit_check_status;
-    if (!status || status === "Not Run") return;
+    const model = get_quotation_credit_view_model(frm);
+    if (!model) return;
 
-    const reason = frm.doc.custom_snrg_credit_check_reason_code || "";
-    const overdueCount = Number(frm.doc.custom_snrg_overdue_count_terms || 0);
-    const overdueAmount = Number(frm.doc.custom_snrg_overdue_amount_terms || 0);
-    const exposure = Number(frm.doc.custom_snrg_exposure_at_check || 0);
-    const creditLimit = Number(frm.doc.custom_snrg_credit_limit_at_check || 0);
-    const quotationValue = Number(frm.doc.grand_total || frm.doc.rounded_total || 0);
+    const { stage, status, reason, overdueCount, overdueAmount, exposure, creditLimit, quotationValue, currency } = model;
     const availableCredit = creditLimit ? (creditLimit - exposure) : 0;
     const projectedAvailable = creditLimit ? (creditLimit - exposure - quotationValue) : 0;
-    const currency = frm.doc.currency || "INR";
     const fmt = value => frappe.format(value, { fieldtype: "Currency", options: currency });
     const fmtSigned = value => {
       const formatted = fmt(Math.abs(value));
@@ -29,7 +57,9 @@ function render_quotation_credit_chip(frm) {
         border: "rgba(34,197,94,.18)",
         title: "Credit OK",
         badge: "Healthy",
-        subtitle: "Customer is currently within the configured credit policy.",
+        subtitle: stage === "preview"
+          ? "Live customer snapshot fetched after selection."
+          : "Customer is currently within the configured credit policy.",
       },
       "Credit Hold": {
         rgb: "239,68,68",
@@ -37,8 +67,10 @@ function render_quotation_credit_chip(frm) {
         border: "rgba(239,68,68,.18)",
         title: "Credit Hold",
         badge: reason || "Review",
-        subtitle: reason === "Over-Limit"
+        subtitle: reason === "Over-Limit" && stage !== "preview"
           ? "Current exposure plus this quotation crosses the customer's credit limit."
+          : reason === "Over-Limit"
+          ? "Current exposure is already beyond the customer's credit limit."
           : "Customer has overdue invoices beyond the configured threshold.",
       },
     };
@@ -60,6 +92,23 @@ function render_quotation_credit_chip(frm) {
       : (availableCredit <= 0 ? "color:#fdba74;" : `color:rgba(${theme.rgb},1);`);
     const projectedTone = projectedAvailable < 0 ? "color:#f87171;" : (status === "Credit OK" ? "color:#1f7a3d;" : "");
     const basePanel = "background:var(--control-bg, #f8f9fa);border:1px solid var(--border-color, #d1d8dd);";
+    const calculationRow = stage === "preview"
+      ? `
+          <div style="display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;">
+            ${step("Credit Limit", fmt(creditLimit), "", "", "−")}
+            ${step("Current Exposure", fmt(exposure), "", "", "=")}
+            ${step("Available Credit", fmtSigned(availableCredit), "", availabilityTone)}
+          </div>
+        `
+      : `
+          <div style="display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;">
+            ${step("Credit Limit", fmt(creditLimit), "", "", "−")}
+            ${step("Current Exposure", fmt(exposure), "", "", "=")}
+            ${step("Available Credit", fmtSigned(availableCredit), "", availabilityTone, "−")}
+            ${step("Quotation Value", fmt(quotationValue), "", "", "=")}
+            ${step("Projected Balance", fmtSigned(projectedAvailable), "", projectedTone)}
+          </div>
+        `;
 
     frm.dashboard.set_headline(`
       <div style="${basePanel}border-radius:10px;padding:16px 18px;line-height:1.45;color:var(--text-color, #36414c);box-shadow:none;">
@@ -72,13 +121,7 @@ function render_quotation_credit_chip(frm) {
         </div>
         <div style="margin-top:14px;border:1px solid rgba(140,140,140,.12);border-radius:8px;background:rgba(255,255,255,.35);padding:14px 14px 10px;">
           <div style="font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;opacity:.55;margin-bottom:10px;">Credit Calculation</div>
-          <div style="display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;">
-            ${step("Credit Limit", fmt(creditLimit), "", "", "−")}
-            ${step("Current Exposure", fmt(exposure), "", "", "=")}
-            ${step("Available Credit", fmtSigned(availableCredit), "", availabilityTone, "−")}
-            ${step("Quotation Value", fmt(quotationValue), "", "", "=")}
-            ${step("Projected Balance", fmtSigned(projectedAvailable), "", projectedTone)}
-          </div>
+          ${calculationRow}
         </div>
         <div style="border-top:1px solid rgba(140,140,140,.14);margin-top:12px;padding-top:12px;font-size:12px;opacity:.8;">
           <span style="margin-right:18px;"><strong>Overdue Invoices:</strong> ${overdueCount}</span>
@@ -99,12 +142,13 @@ function render_quotation_header_status(frm) {
   try {
     if (!frm || !frm.page || !frm.page.wrapper) return;
 
-    const status = frm.doc.custom_snrg_credit_check_status;
+    const model = get_quotation_credit_view_model(frm);
     frm.page.wrapper.find(".snrg-credit-header-pill").remove();
 
-    if (!status || status === "Not Run" || frm.is_new()) return;
+    if (!model || !model.status || model.status === "Not Run") return;
 
-    const reason = frm.doc.custom_snrg_credit_check_reason_code || "";
+    const status = model.status;
+    const reason = model.reason || "";
     const config = {
       "Credit OK": {
         bg: "rgba(34,197,94,.14)",
@@ -144,9 +188,21 @@ function render_quotation_header_status(frm) {
 }
 
 frappe.ui.form.on("Quotation", {
+  setup(frm) {
+    frm._snrg_credit_preview = null;
+  },
   refresh(frm) {
     render_quotation_credit_chip(frm);
     render_quotation_header_status(frm);
+  },
+  party_name(frm) {
+    fetch_quotation_credit_preview(frm);
+  },
+  company(frm) {
+    fetch_quotation_credit_preview(frm);
+  },
+  quotation_to(frm) {
+    fetch_quotation_credit_preview(frm);
   },
   custom_snrg_credit_check_status(frm) {
     render_quotation_credit_chip(frm);
@@ -168,4 +224,34 @@ frappe.ui.form.on("Quotation", {
   custom_snrg_credit_limit_at_check(frm) {
     render_quotation_credit_chip(frm);
   },
+  before_save(frm) {
+    frm._snrg_credit_preview = null;
+  },
 });
+
+async function fetch_quotation_credit_preview(frm) {
+  frm._snrg_credit_preview = null;
+
+  if (!frm.doc.party_name || !frm.doc.company || frm.doc.quotation_to !== "Customer") {
+    render_quotation_credit_chip(frm);
+    render_quotation_header_status(frm);
+    return;
+  }
+
+  try {
+    const { message } = await frappe.call({
+      method: "snrg_credit_control.overrides.quotation.get_credit_preview",
+      args: {
+        customer: frm.doc.party_name,
+        company: frm.doc.company,
+        currency: frm.doc.currency,
+      },
+    });
+
+    frm._snrg_credit_preview = message || null;
+    render_quotation_credit_chip(frm);
+    render_quotation_header_status(frm);
+  } catch (e) {
+    console.warn("[SNRG Quotation Credit Preview] fetch error:", e);
+  }
+}

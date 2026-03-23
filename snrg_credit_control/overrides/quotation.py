@@ -1,3 +1,5 @@
+import frappe
+
 from snrg_credit_control.credit_status import build_credit_snapshot, reset_credit_fields, stamp_credit_fields
 
 
@@ -17,3 +19,26 @@ def validate(doc, method=None):
         currency=doc.currency,
     )
     stamp_credit_fields(doc, snapshot)
+
+
+@frappe.whitelist()
+def get_credit_preview(customer, company, currency=None):
+    if not customer or not company:
+        return {}
+
+    snapshot = build_credit_snapshot(
+        customer=customer,
+        company=company,
+        amount=0,
+        currency=currency,
+    )
+
+    return {
+        "status": snapshot["status"],
+        "reason_code": snapshot["reason_code"],
+        "overdue_count": snapshot["overdue_count"],
+        "total_overdue": snapshot["total_overdue"],
+        "effective_ar": snapshot["effective_ar"],
+        "credit_limit": snapshot["credit_limit"],
+        "currency": snapshot["currency"],
+    }
