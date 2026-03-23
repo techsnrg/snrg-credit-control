@@ -97,7 +97,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Status",
-   "options": "Pending\nPartially Cleared\nCleared\nBroken"
+   "options": "Pending\nPartially Cleared\nCleared\nBroken\nSuperseded"
   },
   {
    "fieldname": "remarks",

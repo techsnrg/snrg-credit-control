@@ -189,6 +189,23 @@ def _sync_ptp_tracking(doc):
         else:
             row.status = "Pending"
 
+    _supersede_older_ptp_rows(ptp_rows)
+
+
+def _supersede_older_ptp_rows(ptp_rows):
+    active_rows = []
+    for idx, row in enumerate(ptp_rows):
+        if (row.status or "").strip() in {"Pending", "Partially Cleared"}:
+            active_rows.append((idx, row))
+
+    if len(active_rows) <= 1:
+        return
+
+    latest_index = max(idx for idx, _ in active_rows)
+    for idx, row in active_rows:
+        if idx != latest_index:
+            row.status = "Superseded"
+
 
 def _get_ptp_reference_label(row):
     parts = []
@@ -320,6 +337,8 @@ def get_ptp_references(sales_order):
 
     refs = []
     for row in (doc.get("custom_snrg_ptp_entries") or []):
+        if (row.status or "").strip() == "Superseded":
+            continue
         refs.append(
             {
                 "ptp_entry_id": row.name,
