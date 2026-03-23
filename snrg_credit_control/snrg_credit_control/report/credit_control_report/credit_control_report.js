@@ -82,6 +82,8 @@ frappe.query_reports["Credit Control Report"] = {
         value = `<span style="color:#f39c12;font-weight:600;">${value}</span>`;
       } else if (s === "broken") {
         value = `<span style="color:#c0392b;font-weight:600;">${value}</span>`;
+      } else if (s === "superseded") {
+        value = `<span style="color:#7f8c8d;font-weight:600;">${value}</span>`;
       } else if (s === "pending") {
         value = `<span style="color:#e67e22;font-weight:600;">${value}</span>`;
       }
@@ -135,6 +137,9 @@ function open_ptp_update_dialog(report) {
         options: "Sales Order",
         reqd: 1,
         default: row && row.name ? row.name : "",
+        onchange() {
+          load_ptp_references_for_sales_order(d, report, d.get_value("sales_order"));
+        },
         get_query: () => ({
           filters: {
             docstatus: 0,
@@ -225,10 +230,6 @@ function open_ptp_update_dialog(report) {
     const ref = d._ptp_ref_map && d._ptp_ref_map[d.get_value("ptp_reference")];
     if (!ref) return;
     d.set_value("allocated_amount", Math.max(0, Number(ref.difference_amount || 0)));
-  });
-
-  d.get_field("sales_order").$input.on("change", () => {
-    load_ptp_references_for_sales_order(d, report, d.get_value("sales_order"));
   });
 
   if (d.get_value("sales_order")) {
