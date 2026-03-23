@@ -222,10 +222,20 @@ def before_submit(doc, method=None):
     if not (doc.get("customer") and doc.get("company")):
         return
 
-    status = (doc.custom_snrg_credit_check_status or "").lower()
-    overdue_count = doc.custom_snrg_overdue_count_terms or 0
+    # Re-query live data — never trust stamped fields alone at submit time
+    today_date   = getdate(today())
+    threshold    = _get_threshold(doc.customer)
+    cutoff       = add_days(today_date, -threshold)
+    rows         = _get_overdue_invoices(doc.customer, doc.company, cutoff)
+    overdue_count = len(rows)
 
-    needs_approval = ("hold" in status) or (overdue_count > 0)
+    credit_limit  = _get_credit_limit(doc.customer, doc.company)
+    total_ar      = _get_total_outstanding(doc.customer, doc.company)
+    effective_ar  = max(total_ar, 0)
+    order_amount  = _val(doc.grand_total or doc.rounded_total)
+    limit_breach  = bool(credit_limit and (effective_ar + order_amount) > credit_limit)
+
+    needs_approval = (overdue_count > 0) or limit_breach
     if not needs_approval:
         return
 
