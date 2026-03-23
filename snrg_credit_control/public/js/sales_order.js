@@ -260,19 +260,16 @@ function open_request_dialog(frm) {
         frm.doc.custom_snrg_request_amount = amt;
 
         // Add a new PTP entry row
-        if (!frm.doc.custom_snrg_ptp_entries) {
-          frm.doc.custom_snrg_ptp_entries = [];
-        }
-        frm.model.add_child(frm.doc, "Credit PTP Entry", "custom_snrg_ptp_entries", {
-          ptp_by:           values.ptp_by,
-          ptp_date:         values.ptp_date,
-          commitment_date:  values.commitment_date,
-          committed_amount: values.committed_amount,
-          payment_mode:     values.payment_mode,
-          cheque_number:    values.cheque_number || "",
-          remarks:          values.remarks || "",
-          status:           "Pending",
-        });
+        const row = frappe.model.add_child(frm.doc, "Credit PTP Entry", "custom_snrg_ptp_entries");
+        row.ptp_by           = values.ptp_by;
+        row.ptp_date         = values.ptp_date;
+        row.commitment_date  = values.commitment_date;
+        row.committed_amount = values.committed_amount;
+        row.payment_mode     = values.payment_mode;
+        row.cheque_number    = values.cheque_number || "";
+        row.remarks          = values.remarks || "";
+        row.status           = "Pending";
+        frm.refresh_field("custom_snrg_ptp_entries");
 
         frm.dirty();
         d.set_message("Saving and sending request…");
