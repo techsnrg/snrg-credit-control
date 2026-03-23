@@ -194,6 +194,7 @@ frappe.ui.form.on("Quotation", {
   refresh(frm) {
     render_quotation_credit_chip(frm);
     render_quotation_header_status(frm);
+    add_quotation_credit_button(frm);
   },
   party_name(frm) {
     fetch_quotation_credit_preview(frm);
@@ -253,5 +254,54 @@ async function fetch_quotation_credit_preview(frm) {
     render_quotation_header_status(frm);
   } catch (e) {
     console.warn("[SNRG Quotation Credit Preview] fetch error:", e);
+  }
+}
+
+function add_quotation_credit_button(frm) {
+  if (!frm.doc.party_name || !frm.doc.company || frm.doc.quotation_to !== "Customer") {
+    return;
+  }
+
+  frm.add_custom_button("Credit Details", () => open_quotation_credit_details(frm));
+}
+
+async function open_quotation_credit_details(frm) {
+  if (!frm.doc.party_name || !frm.doc.company) {
+    frappe.msgprint({
+      title: "Missing Customer",
+      message: "Select a customer and company first to view credit details.",
+      indicator: "orange",
+    });
+    return;
+  }
+
+  try {
+    const { message } = await frappe.call({
+      method: "snrg_credit_control.overrides.quotation.get_credit_details",
+      args: {
+        customer: frm.doc.party_name,
+        customer_name: frm.doc.customer_name || frm.doc.party_name,
+        company: frm.doc.company,
+        currency: frm.doc.currency,
+        amount: frm.doc.grand_total || frm.doc.rounded_total || 0,
+      },
+    });
+
+    if (!message || !message.html) {
+      return;
+    }
+
+    frappe.msgprint({
+      title: message.title || "Customer Credit Details",
+      message: message.html,
+      wide: true,
+    });
+  } catch (e) {
+    console.warn("[SNRG Quotation Credit Details] dialog error:", e);
+    frappe.msgprint({
+      title: "Unable to load credit details",
+      message: (e && e.message) || String(e),
+      indicator: "red",
+    });
   }
 }

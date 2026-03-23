@@ -1,6 +1,11 @@
 import frappe
 
-from snrg_credit_control.credit_status import build_credit_snapshot, reset_credit_fields, stamp_credit_fields
+from snrg_credit_control.credit_status import (
+    build_credit_snapshot,
+    render_credit_details_html,
+    reset_credit_fields,
+    stamp_credit_fields,
+)
 
 
 def validate(doc, method=None):
@@ -41,4 +46,34 @@ def get_credit_preview(customer, company, currency=None):
         "effective_ar": snapshot["effective_ar"],
         "credit_limit": snapshot["credit_limit"],
         "currency": snapshot["currency"],
+    }
+
+
+@frappe.whitelist()
+def get_credit_details(customer, company, customer_name=None, currency=None, amount=0):
+    if not customer or not company:
+        return {}
+
+    snapshot = build_credit_snapshot(
+        customer=customer,
+        company=company,
+        amount=amount,
+        currency=currency,
+    )
+
+    html = render_credit_details_html(
+        snapshot=snapshot,
+        customer=customer,
+        customer_name=customer_name or customer,
+        next_step_html=(
+            "<p style='margin:0;'>"
+            "<strong>&#128161; Credit Snapshot</strong><br>"
+            "This view helps the sales team understand overdue invoices and exposure before saving or submitting the quotation."
+            "</p>"
+        ),
+    )
+
+    return {
+        "title": "Customer Credit Details",
+        "html": html,
     }

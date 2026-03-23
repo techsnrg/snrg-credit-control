@@ -1,5 +1,5 @@
 import frappe
-from frappe.utils import add_days, fmt_money, getdate, today
+from frappe.utils import add_days, fmt_money, formatdate, getdate, today
 
 
 DEFAULT_THRESHOLD_DAYS = 75
@@ -7,6 +7,14 @@ DEFAULT_THRESHOLD_DAYS = 75
 
 def zero(value):
     return value or 0
+
+
+def escape_html(value):
+    try:
+        return frappe.utils.escape_html(value or "")
+    except Exception:
+        string_value = str(value or "")
+        return string_value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
 def get_threshold(customer):
@@ -151,3 +159,132 @@ def reset_credit_fields(doc):
     doc.custom_snrg_exposure_at_check = 0
     doc.custom_snrg_credit_limit_at_check = 0
     doc.custom_snrg_credit_check_details = ""
+
+
+def render_credit_details_html(snapshot, customer, customer_name, next_step_html=None):
+    cur = snapshot["currency"]
+    today_date = snapshot["today_date"]
+    threshold = snapshot["threshold"]
+    cutoff = snapshot["cutoff"]
+    amount = snapshot["amount"]
+    rows = snapshot["rows"]
+    count = snapshot["overdue_count"]
+    total_overdue = snapshot["total_overdue"]
+    credit_limit = snapshot["credit_limit"]
+    effective_ar = snapshot["effective_ar"]
+    advances = snapshot["advances"]
+
+    padding = "padding:8px 6px;"
+    border_bottom = "border-bottom:1px solid #e0e0e0;"
+    th_style = f"{padding}font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.6px;{border_bottom}"
+    hr = "<hr style='border:none;border-top:1px solid #e0e0e0;margin:14px 0;'>"
+
+    next_step = next_step_html or (
+        "<p style='margin:0;'>"
+        "<strong>&#128161; Credit Snapshot</strong><br>"
+        "This is a read-only credit view for the selected customer."
+        "</p>"
+    )
+
+    if count > 0:
+        invoice_rows = ""
+        for row in rows[:15]:
+            age = (today_date - getdate(row.posting_date)).days
+            age_color = "#c0392b" if age > 90 else ("#e67e22" if age > 75 else "#555")
+            invoice_rows += (
+                f"<tr>"
+                f"<td style='{padding}{border_bottom}'>"
+                f"<a href='#Form/Sales%20Invoice/{row.name}' style='color:#2980b9;font-weight:600;text-decoration:none;'>"
+                f"{escape_html(row.name)}</a></td>"
+                f"<td style='{padding}{border_bottom}text-align:center;font-weight:700;color:{age_color};'>{age}d</td>"
+                f"<td style='{padding}{border_bottom}text-align:right;font-weight:600;'>{fmt_money(row.outstanding_amount, currency=cur)}</td>"
+                f"</tr>"
+            )
+        if count > 15:
+            invoice_rows += (
+                f"<tr><td colspan='3' style='{padding}text-align:center;color:#aaa;font-size:12px;'>"
+                f"&#8230; and {count - 15} more invoice(s)</td></tr>"
+            )
+
+        return (
+            f"<table width='100%' cellpadding='0' cellspacing='0'>"
+            f"<tr>"
+            f"<td width='48%' style='padding:4px 12px 4px 0;vertical-align:top;'>"
+            f"<p style='margin:0 0 2px;font-size:11px;color:#888;font-weight:700;letter-spacing:.6px;text-transform:uppercase;'>&#128100; Customer</p>"
+            f"<p style='margin:0 0 2px;font-size:15px;font-weight:700;'>{escape_html(customer_name)}</p>"
+            f"<p style='margin:0;font-size:12px;color:#999;'>{escape_html(customer)}</p>"
+            f"</td>"
+            f"<td width='4%'></td>"
+            f"<td width='48%' style='padding:4px 0 4px 0;vertical-align:top;'>"
+            f"<p style='margin:0 0 2px;font-size:11px;color:#c0392b;font-weight:700;letter-spacing:.6px;text-transform:uppercase;'>&#9888;&#65039; Total Overdue</p>"
+            f"<p style='margin:0 0 2px;font-size:22px;font-weight:800;color:#c0392b;'>{fmt_money(total_overdue, currency=cur)}</p>"
+            f"<p style='margin:0;font-size:12px;color:#e67e22;'>{count} invoice{'s' if count != 1 else ''} &nbsp;&#183;&nbsp; older than {threshold} days</p>"
+            f"</td>"
+            f"</tr>"
+            f"</table>"
+            f"{hr}"
+            f"<p style='margin:0 0 8px;font-size:12px;color:#888;'>&#128203; <strong>Overdue Invoices</strong>"
+            f"&nbsp;&nbsp;&#183;&nbsp;&nbsp;Cutoff date: <strong>{formatdate(cutoff)}</strong>"
+            f"&nbsp;&nbsp;&#183;&nbsp;&nbsp;Threshold: <strong>{threshold} days</strong></p>"
+            f"<table width='100%' cellpadding='0' cellspacing='0' style='border-collapse:collapse;'>"
+            f"<thead><tr>"
+            f"<th style='{th_style}text-align:left;'>Invoice</th>"
+            f"<th style='{th_style}text-align:center;'>Age</th>"
+            f"<th style='{th_style}text-align:right;'>Outstanding</th>"
+            f"</tr></thead>"
+            f"<tbody>{invoice_rows}</tbody>"
+            f"<tfoot><tr>"
+            f"<td colspan='2' style='{padding}font-weight:700;font-size:13px;border-top:2px solid #ccc;'>&#128197; Total Overdue</td>"
+            f"<td style='{padding}text-align:right;font-weight:800;font-size:16px;color:#c0392b;border-top:2px solid #ccc;'>{fmt_money(total_overdue, currency=cur)}</td>"
+            f"</tr></tfoot>"
+            f"</table>"
+            f"{hr}"
+            f"{next_step}"
+        )
+
+    breach = (effective_ar + amount) - credit_limit
+
+    def breakdown_row(label, value, val_color=None, bold_val=False):
+        value_color = f"color:{val_color};" if val_color else ""
+        value_weight = "font-weight:800;font-size:15px;" if bold_val else "font-weight:600;"
+        return (
+            f"<tr>"
+            f"<td style='{padding}{border_bottom}color:#666;'>{label}</td>"
+            f"<td style='{padding}{border_bottom}text-align:right;{value_weight}{value_color}'>{value}</td>"
+            f"</tr>"
+        )
+
+    return (
+        f"<table width='100%' cellpadding='0' cellspacing='0'>"
+        f"<tr>"
+        f"<td width='48%' style='padding:4px 12px 4px 0;vertical-align:top;'>"
+        f"<p style='margin:0 0 2px;font-size:11px;color:#888;font-weight:700;letter-spacing:.6px;text-transform:uppercase;'>&#128100; Customer</p>"
+        f"<p style='margin:0 0 2px;font-size:15px;font-weight:700;'>{escape_html(customer_name)}</p>"
+        f"<p style='margin:0;font-size:12px;color:#999;'>{escape_html(customer)}</p>"
+        f"</td>"
+        f"<td width='4%'></td>"
+        f"<td width='48%' style='padding:4px 0;vertical-align:top;'>"
+        f"<p style='margin:0 0 2px;font-size:11px;color:#c0392b;font-weight:700;letter-spacing:.6px;text-transform:uppercase;'>&#128683; Breach Amount</p>"
+        f"<p style='margin:0 0 2px;font-size:22px;font-weight:800;color:#c0392b;'>{fmt_money(breach, currency=cur)}</p>"
+        f"<p style='margin:0;font-size:12px;color:#e67e22;'>Exceeds approved credit limit</p>"
+        f"</td>"
+        f"</tr>"
+        f"</table>"
+        f"{hr}"
+        f"<p style='margin:0 0 8px;font-size:12px;color:#888;'>&#128200; <strong>Credit Limit Breakdown</strong></p>"
+        f"<table width='100%' cellpadding='0' cellspacing='0' style='border-collapse:collapse;'><tbody>"
+        f"{breakdown_row('&#127974; Credit Limit', fmt_money(credit_limit, currency=cur))}"
+        f"{breakdown_row('&#128196; Current AR Outstanding', fmt_money(effective_ar, currency=cur))}"
+        f"{breakdown_row('&#128179; Advance Balance (credit)', fmt_money(advances, currency=cur))}"
+        f"{breakdown_row('&#128666; This Document', fmt_money(amount, currency=cur))}"
+        f"<tr>"
+        f"<td style='{padding}font-weight:700;font-size:13px;border-top:2px solid #ccc;'>&#9889; Total Exposure</td>"
+        f"<td style='{padding}text-align:right;font-weight:800;font-size:15px;color:#c0392b;border-top:2px solid #ccc;'>"
+        f"{fmt_money(effective_ar + amount, currency=cur)}"
+        f"<br><span style='font-size:11px;color:#888;font-weight:400;'>vs limit {fmt_money(credit_limit, currency=cur)}</span>"
+        f"</td>"
+        f"</tr>"
+        f"</tbody></table>"
+        f"{hr}"
+        f"{next_step}"
+    )

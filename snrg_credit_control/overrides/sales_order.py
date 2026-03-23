@@ -11,7 +11,9 @@ import frappe
 from frappe.utils import getdate, today, add_days, fmt_money, formatdate
 from snrg_credit_control.credit_status import (
     build_credit_snapshot,
+    escape_html,
     get_advance_balance,
+    render_credit_details_html,
     stamp_credit_fields,
     zero,
 )
@@ -33,11 +35,7 @@ def _val(x):
 
 
 def _esc(val):
-    try:
-        return frappe.utils.escape_html(val or "")
-    except Exception:
-        s = str(val or "")
-        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    return escape_html(val)
 
 
 # ---------------------------------------------------------------------------
@@ -159,186 +157,19 @@ def before_submit(doc, method=None):
 
 def _throw_credit_error(doc, snapshot):
     """Throw a styled HTML credit-hold error dialog."""
-    cur = snapshot["currency"]
-    today_date = snapshot["today_date"]
-    threshold = snapshot["threshold"]
-    cutoff = snapshot["cutoff"]
-    order_amount = snapshot["amount"]
-    rows = snapshot["rows"]
-    count = snapshot["overdue_count"]
-    total_overdue = snapshot["total_overdue"]
-    credit_limit = snapshot["credit_limit"]
-    effective_ar = snapshot["effective_ar"]
-    advances = snapshot["advances"]
-
-    # ── Styles confirmed to survive Frappe dialog sanitizer ─────────────────
-    # Only color, font-size, font-weight, padding, text-align, border-bottom
-    # on <th>/<td>, and <hr> work reliably. background/border on <td> is stripped.
-
-    P  = "padding:8px 6px;"                               # cell padding
-    BD = "border-bottom:1px solid #e0e0e0;"                # row separator
-    TH = f"{P}font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.6px;{BD}"
-
-    hr = "<hr style='border:none;border-top:1px solid #e0e0e0;margin:14px 0;'>"
-
-    if count > 0:
-        # ── Build invoice rows ───────────────────────────────────────────────
-        inv_rows = ""
-        for r in rows[:15]:
-            age     = (today_date - getdate(r.posting_date)).days
-            age_clr = "#c0392b" if age > 90 else ("#e67e22" if age > 75 else "#555"
-            )
-            inv_rows += (
-                f'<tr>'
-                f'<td style="{P}{BD}">'
-                f'<a href="#Form/Sales%20Invoice/{r.name}" '
-                f'style="color:#2980b9;font-weight:600;text-decoration:none;">'
-                f'{_esc(r.name)}</a></td>'
-                f'<td style="{P}{BD}text-align:center;font-weight:700;color:{age_clr};">{age}d</td>'
-                f'<td style="{P}{BD}text-align:right;font-weight:600;">'
-                f'{fmt_money(r.outstanding_amount, currency=cur)}</td>'
-                f'</tr>'
-            )
-        if count > 15:
-            inv_rows += (
-                f'<tr><td colspan="3" style="{P}text-align:center;color:#aaa;font-size:12px;">'
-                f'&#8230; and {count - 15} more invoice(s)</td></tr>'
-            )
-
-        html = (
-            # ── Customer + Overdue summary ───────────────────────────────────
-            f'<table width="100%" cellpadding="0" cellspacing="0">'
-            f'<tr>'
-            f'<td width="48%" style="padding:4px 12px 4px 0;vertical-align:top;">'
-            f'<p style="margin:0 0 2px;font-size:11px;color:#888;font-weight:700;'
-            f'letter-spacing:.6px;text-transform:uppercase;">&#128100; Customer</p>'
-            f'<p style="margin:0 0 2px;font-size:15px;font-weight:700;">{_esc(doc.customer_name)}</p>'
-            f'<p style="margin:0;font-size:12px;color:#999;">{_esc(doc.customer)}</p>'
-            f'</td>'
-            f'<td width="4%"></td>'
-            f'<td width="48%" style="padding:4px 0 4px 0;vertical-align:top;">'
-            f'<p style="margin:0 0 2px;font-size:11px;color:#c0392b;font-weight:700;'
-            f'letter-spacing:.6px;text-transform:uppercase;">&#9888;&#65039; Total Overdue</p>'
-            f'<p style="margin:0 0 2px;font-size:22px;font-weight:800;color:#c0392b;">'
-            f'{fmt_money(total_overdue, currency=cur)}</p>'
-            f'<p style="margin:0;font-size:12px;color:#e67e22;">'
-            f'{count} invoice{"s" if count != 1 else ""} &nbsp;&#183;&nbsp; older than {threshold} days</p>'
-            f'</td>'
-            f'</tr>'
-            f'</table>'
-
-            f'{hr}'
-
-            # ── Invoice table ─────────────────────────────────────────────────
-            f'<p style="margin:0 0 8px;font-size:12px;color:#888;">'
-            f'&#128203; <strong>Overdue Invoices</strong>'
-            f'&nbsp;&nbsp;&#183;&nbsp;&nbsp;'
-            f'Cutoff date: <strong>{formatdate(cutoff)}</strong>'
-            f'&nbsp;&nbsp;&#183;&nbsp;&nbsp;'
-            f'Threshold: <strong>{threshold} days</strong></p>'
-
-            f'<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">'
-            f'<thead>'
-            f'<tr>'
-            f'<th style="{TH}text-align:left;">Invoice</th>'
-            f'<th style="{TH}text-align:center;">Age</th>'
-            f'<th style="{TH}text-align:right;">Outstanding</th>'
-            f'</tr>'
-            f'</thead>'
-            f'<tbody>{inv_rows}</tbody>'
-            f'<tfoot>'
-            f'<tr>'
-            f'<td colspan="2" style="{P}font-weight:700;font-size:13px;'
-            f'border-top:2px solid #ccc;">&#128197; Total Overdue</td>'
-            f'<td style="{P}text-align:right;font-weight:800;font-size:16px;color:#c0392b;'
-            f'border-top:2px solid #ccc;">{fmt_money(total_overdue, currency=cur)}</td>'
-            f'</tr>'
-            f'</tfoot>'
-            f'</table>'
-
-            f'{hr}'
-
-            # ── Next step ─────────────────────────────────────────────────────
-            f'<p style="margin:0;">'
-            f'<strong>&#128161; Next Step</strong><br>'
-            f'Use <strong>Credit Control &#8594; Request Approval</strong> '
-            f'to notify the Credit Approver team.<br>'
-            f'The order can be submitted once the approval is granted.'
-            f'</p>'
-        )
-
-    else:
-        # ── CREDIT LIMIT BREACH ──────────────────────────────────────────────
-        breach = (effective_ar + order_amount) - credit_limit
-
-        def brow(label, value, val_color=None, bold_val=False, top_border=False):
-            top = "border-top:2px solid #ccc;" if top_border else ""
-            vc  = f"color:{val_color};" if val_color else ""
-            vw  = "font-weight:800;font-size:15px;" if bold_val else "font-weight:600;"
-            return (
-                f'<tr>'
-                f'<td style="{P}{BD}color:#666;">{label}</td>'
-                f'<td style="{P}{BD}text-align:right;{vw}{vc}{top}">{value}</td>'
-                f'</tr>'
-            )
-
-        html = (
-            # ── Customer + Breach summary ────────────────────────────────────
-            f'<table width="100%" cellpadding="0" cellspacing="0">'
-            f'<tr>'
-            f'<td width="48%" style="padding:4px 12px 4px 0;vertical-align:top;">'
-            f'<p style="margin:0 0 2px;font-size:11px;color:#888;font-weight:700;'
-            f'letter-spacing:.6px;text-transform:uppercase;">&#128100; Customer</p>'
-            f'<p style="margin:0 0 2px;font-size:15px;font-weight:700;">{_esc(doc.customer_name)}</p>'
-            f'<p style="margin:0;font-size:12px;color:#999;">{_esc(doc.customer)}</p>'
-            f'</td>'
-            f'<td width="4%"></td>'
-            f'<td width="48%" style="padding:4px 0;vertical-align:top;">'
-            f'<p style="margin:0 0 2px;font-size:11px;color:#c0392b;font-weight:700;'
-            f'letter-spacing:.6px;text-transform:uppercase;">&#128683; Breach Amount</p>'
-            f'<p style="margin:0 0 2px;font-size:22px;font-weight:800;color:#c0392b;">'
-            f'{fmt_money(breach, currency=cur)}</p>'
-            f'<p style="margin:0;font-size:12px;color:#e67e22;">Exceeds approved credit limit</p>'
-            f'</td>'
-            f'</tr>'
-            f'</table>'
-
-            f'{hr}'
-
-            # ── Breakdown table ───────────────────────────────────────────────
-            f'<p style="margin:0 0 8px;font-size:12px;color:#888;">'
-            f'&#128200; <strong>Credit Limit Breakdown</strong></p>'
-
-            f'<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">'
-            f'<tbody>'
-            f'{brow("&#127974; Credit Limit", fmt_money(credit_limit, currency=cur))}'
-            f'{brow("&#128196; Current AR Outstanding", fmt_money(effective_ar, currency=cur))}'
-            f'{brow("&#128179; Advance Balance (credit)", fmt_money(advances, currency=cur))}'
-            f'{brow("&#128666; This Order", fmt_money(order_amount, currency=cur))}'
-            f'<tr>'
-            f'<td style="{P}font-weight:700;font-size:13px;border-top:2px solid #ccc;">'
-            f'&#9889; Total Exposure</td>'
-            f'<td style="{P}text-align:right;font-weight:800;font-size:15px;color:#c0392b;'
-            f'border-top:2px solid #ccc;">'
-            f'{fmt_money(effective_ar + order_amount, currency=cur)}'
-            f'<br><span style="font-size:11px;color:#888;font-weight:400;">'
-            f'vs limit {fmt_money(credit_limit, currency=cur)}</span>'
-            f'</td>'
-            f'</tr>'
-            f'</tbody>'
-            f'</table>'
-
-            f'{hr}'
-
-            # ── Next step ─────────────────────────────────────────────────────
-            f'<p style="margin:0;">'
-            f'<strong>&#128161; Next Step</strong><br>'
-            f'Use <strong>Credit Control &#8594; Request Approval</strong> '
-            f'to notify the Credit Approver team.<br>'
-            f'The order can be submitted once the approval is granted.'
-            f'</p>'
-        )
-
+    html = render_credit_details_html(
+        snapshot=snapshot,
+        customer=doc.customer,
+        customer_name=doc.customer_name,
+        next_step_html=(
+            "<p style='margin:0;'>"
+            "<strong>&#128161; Next Step</strong><br>"
+            "Use <strong>Credit Control &#8594; Request Approval</strong> "
+            "to notify the Credit Approver team.<br>"
+            "The order can be submitted once the approval is granted."
+            "</p>"
+        ),
+    )
     frappe.throw(html, title="🚫 Credit Hold — Submission Blocked")
 
 
