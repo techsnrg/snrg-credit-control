@@ -1,0 +1,77 @@
+{
+ "actions": [],
+ "creation": "2026-03-24 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "ptp_entry_id",
+  "ptp_reference",
+  "payment_entry",
+  "posting_date",
+  "payment_entry_amount",
+  "allocated_amount",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "ptp_entry_id",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "PTP Entry ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "ptp_reference",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "PTP Reference",
+   "read_only": 1
+  },
+  {
+   "fieldname": "payment_entry",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Payment Entry",
+   "options": "Payment Entry",
+   "reqd": 1
+  },
+  {
+   "fieldname": "posting_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Posting Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "payment_entry_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Payment Entry Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "allocated_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Allocated Amount",
+   "reqd": 1
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-03-24 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Snrg Credit Control",
+ "name": "Credit PTP Payment Link",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC"
+}

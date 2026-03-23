@@ -112,10 +112,36 @@ def get_columns():
             "width": 120,
         },
         {
+            "label": "PTP Received",
+            "fieldname": "ptp_received_amount",
+            "fieldtype": "Currency",
+            "options": "currency",
+            "width": 120,
+        },
+        {
+            "label": "PTP Difference",
+            "fieldname": "ptp_difference_amount",
+            "fieldtype": "Currency",
+            "options": "currency",
+            "width": 130,
+        },
+        {
+            "label": "PTP Status",
+            "fieldname": "ptp_status",
+            "fieldtype": "Data",
+            "width": 130,
+        },
+        {
             "label": "PTP Mode",
             "fieldname": "ptp_payment_mode",
             "fieldtype": "Data",
             "width": 90,
+        },
+        {
+            "label": "Payment Entries",
+            "fieldname": "ptp_payment_entries",
+            "fieldtype": "Data",
+            "width": 180,
         },
         {
             "label": "Approval Status",
@@ -194,9 +220,14 @@ def get_data(filters):
         f"""
         SELECT
             p.parent,
+            p.name,
             p.ptp_by_name,
             p.commitment_date,
             p.committed_amount,
+            p.received_amount,
+            p.difference_amount,
+            p.status,
+            p.linked_payment_entries,
             p.payment_mode,
             p.modified
         FROM `tabCredit PTP Entry` p
@@ -249,7 +280,11 @@ def get_data(filters):
                 "ptp_by_name":                        ptp.get("ptp_by_name") or "",
                 "ptp_commitment_date":                ptp.get("commitment_date"),
                 "ptp_committed_amount":               ptp.get("committed_amount") or 0,
+                "ptp_received_amount":                ptp.get("received_amount") or 0,
+                "ptp_difference_amount":              ptp.get("difference_amount") or 0,
+                "ptp_status":                         ptp.get("status") or "",
                 "ptp_payment_mode":                   ptp.get("payment_mode") or "",
+                "ptp_payment_entries":                ptp.get("linked_payment_entries") or "",
                 "custom_credit_approval_status":      approval_status,
                 "custom_snrg_override_cap_amount":    so.custom_snrg_override_cap_amount or 0,
                 "custom_snrg_override_valid_till":    vt,

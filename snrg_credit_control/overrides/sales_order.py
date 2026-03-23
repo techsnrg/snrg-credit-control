@@ -64,6 +64,9 @@ def validate(doc, method=None):
     # 1a. Ensure the selected approver can actually receive the request
     _validate_request_target(doc)
 
+    # 1b. Sync PTP payment allocations and derived PTP status
+    _sync_ptp_tracking(doc)
+
     # 2. Compute credit fields
     _compute_credit_fields(doc)
 
@@ -102,6 +105,100 @@ def _validate_request_target(doc):
         "The selected employee must have a linked ERPNext user and an email address "
         "so the approval request can be sent through both internal notification and email."
     )
+
+
+def _sync_ptp_tracking(doc):
+    ptp_rows = list(doc.get("custom_snrg_ptp_entries") or [])
+    payment_links = list(doc.get("custom_snrg_ptp_payment_links") or [])
+    if not ptp_rows and not payment_links:
+        return
+
+    ptp_map = {}
+    for row in ptp_rows:
+        if not row.name:
+            row.name = frappe.generate_hash(length=10)
+        ptp_map[row.name] = row
+
+    payment_totals = {}
+    payment_amount_totals = {}
+    for link in payment_links:
+        ptp_entry_id = (link.ptp_entry_id or "").strip()
+        if not ptp_entry_id or ptp_entry_id not in ptp_map:
+            frappe.throw("Each PTP Payment Link must point to a valid PTP entry on the Sales Order.")
+
+        row = ptp_map[ptp_entry_id]
+        label = _get_ptp_reference_label(row)
+        link.ptp_reference = label
+
+        pe = frappe.db.get_value(
+            "Payment Entry",
+            link.payment_entry,
+            ["posting_date", "paid_amount", "docstatus", "party_type", "party", "company"],
+            as_dict=True,
+        ) or {}
+        if not pe:
+            frappe.throw(f"Payment Entry {link.payment_entry} was not found.")
+        if pe.get("docstatus") != 1:
+            frappe.throw(f"Payment Entry {link.payment_entry} must be submitted before it can be linked to a PTP.")
+        if pe.get("party_type") != "Customer" or pe.get("party") != doc.customer:
+            frappe.throw(f"Payment Entry {link.payment_entry} must belong to customer {doc.customer}.")
+        if pe.get("company") != doc.company:
+            frappe.throw(f"Payment Entry {link.payment_entry} must belong to company {doc.company}.")
+
+        link.posting_date = pe.get("posting_date")
+        link.payment_entry_amount = _val(pe.get("paid_amount"))
+        link.allocated_amount = _val(link.allocated_amount or link.payment_entry_amount)
+
+        if link.allocated_amount <= 0:
+            frappe.throw(f"Allocated amount for Payment Entry {link.payment_entry} must be greater than zero.")
+        if link.allocated_amount > link.payment_entry_amount:
+            frappe.throw(
+                f"Allocated amount for Payment Entry {link.payment_entry} cannot exceed the Payment Entry amount."
+            )
+
+        key = (ptp_entry_id, link.payment_entry)
+        payment_amount_totals[key] = payment_amount_totals.get(key, 0) + link.allocated_amount
+        if payment_amount_totals[key] > link.payment_entry_amount:
+            frappe.throw(
+                f"Total allocated amount for Payment Entry {link.payment_entry} against the same PTP "
+                "cannot exceed the Payment Entry amount."
+            )
+
+        bucket = payment_totals.setdefault(ptp_entry_id, {"received": 0, "entries": []})
+        bucket["received"] += link.allocated_amount
+        if link.payment_entry not in bucket["entries"]:
+            bucket["entries"].append(link.payment_entry)
+
+    today_date = getdate(today())
+    for row in ptp_rows:
+        bucket = payment_totals.get(row.name, {})
+        received = _val(bucket.get("received"))
+        committed = _val(row.committed_amount)
+        difference = committed - received
+
+        row.received_amount = received
+        row.difference_amount = difference
+        row.linked_payment_entries = ", ".join(bucket.get("entries") or [])
+
+        if committed and received >= committed:
+            row.status = "Cleared"
+        elif received > 0:
+            row.status = "Partially Cleared"
+        elif row.commitment_date and getdate(row.commitment_date) < today_date:
+            row.status = "Broken"
+        else:
+            row.status = "Pending"
+
+
+def _get_ptp_reference_label(row):
+    parts = []
+    if row.get("ptp_by_name"):
+        parts.append(row.ptp_by_name)
+    if row.get("commitment_date"):
+        parts.append(str(row.commitment_date))
+    if row.get("committed_amount"):
+        parts.append(fmt_money(_val(row.committed_amount), currency="INR"))
+    return " | ".join(parts) or (row.name or "PTP")
 
 
 def _compute_credit_fields(doc):

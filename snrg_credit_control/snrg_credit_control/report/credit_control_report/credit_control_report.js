@@ -72,10 +72,32 @@ frappe.query_reports["Credit Control Report"] = {
       }
     }
 
+    if (column.fieldname === "ptp_status" && data) {
+      const s = (data.ptp_status || "").toLowerCase();
+      if (s === "cleared") {
+        value = `<span style="color:#27ae60;font-weight:600;">${value}</span>`;
+      } else if (s === "partially cleared") {
+        value = `<span style="color:#f39c12;font-weight:600;">${value}</span>`;
+      } else if (s === "broken") {
+        value = `<span style="color:#c0392b;font-weight:600;">${value}</span>`;
+      } else if (s === "pending") {
+        value = `<span style="color:#e67e22;font-weight:600;">${value}</span>`;
+      }
+    }
+
     // Highlight overdue amounts in red
     if (column.fieldname === "custom_snrg_overdue_amount_terms" && data) {
       if ((data.custom_snrg_overdue_amount_terms || 0) > 0) {
         value = `<span style="color:#c0392b;font-weight:600;">${value}</span>`;
+      }
+    }
+
+    if (column.fieldname === "ptp_difference_amount" && data) {
+      const difference = Number(data.ptp_difference_amount || 0);
+      if (difference > 0) {
+        value = `<span style="color:#c0392b;font-weight:600;">${value}</span>`;
+      } else if (difference <= 0 && Number(data.ptp_received_amount || 0) > 0) {
+        value = `<span style="color:#27ae60;font-weight:600;">${value}</span>`;
       }
     }
 
