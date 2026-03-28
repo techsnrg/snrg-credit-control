@@ -10,8 +10,79 @@
 {% endfor %}
 
 <style>
-  body, table, td, th { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #222; }
-  .dn-title { text-align: center; font-size: 16px; font-weight: bold; text-transform: uppercase; margin-bottom: 24px; }
+  @page {
+    margin: 20mm 14mm 24mm 14mm;
+  }
+  body, table, td, th {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 12px;
+    color: #222;
+  }
+  .dn-shell {
+    position: relative;
+    min-height: 100%;
+    padding: 10px 8px 120px;
+  }
+  .dn-letterhead {
+    margin-bottom: 34px;
+  }
+  .dn-brand {
+    display: table;
+    width: 100%;
+    margin-bottom: 12px;
+  }
+  .dn-brand-mark,
+  .dn-brand-copy {
+    display: table-cell;
+    vertical-align: middle;
+  }
+  .dn-brand-mark {
+    width: 54px;
+  }
+  .dn-brand-box {
+    width: 42px;
+    height: 42px;
+    background: #2d3f74;
+    border-radius: 2px;
+    color: #f2d36e;
+    font-size: 28px;
+    font-weight: bold;
+    line-height: 42px;
+    text-align: center;
+  }
+  .dn-brand-copy {
+    color: #22386f;
+    padding-left: 8px;
+  }
+  .dn-brand-name {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    line-height: 1.1;
+  }
+  .dn-brand-sub {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    margin-top: 2px;
+  }
+  .dn-brand-rule {
+    height: 9px;
+    background: #eef0f4;
+    border-top: 1px solid #d5d9e3;
+  }
+  .dn-paper {
+    position: relative;
+    z-index: 1;
+  }
+  .dn-title {
+    text-align: center;
+    font-size: 16px;
+    font-weight: bold;
+    text-transform: uppercase;
+    margin-bottom: 24px;
+    color: #1f2f5d;
+  }
   .dn-header { width: 100%; margin-bottom: 18px; }
   .dn-ref-block { text-align: right; vertical-align: top; }
   .dn-ref-block p { margin: 2px 0; }
@@ -54,8 +125,47 @@
   .dn-signatory { margin-top: 48px; }
   .dn-signatory-line { border-top: 1px solid #333; width: 200px; margin-bottom: 4px; }
   .dn-signatory p { margin: 2px 0; font-size: 12px; }
+  .dn-footer {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    color: #22386f;
+    text-align: center;
+    font-size: 8px;
+  }
+  .dn-footer-copy {
+    padding: 10px 20px 6px;
+    line-height: 1.45;
+  }
+  .dn-footer-copy strong {
+    display: block;
+    font-size: 9px;
+    margin-bottom: 2px;
+  }
+  .dn-footer-band {
+    height: 18px;
+    background: #2d3f74;
+    margin-top: 6px;
+  }
 </style>
 
+<div class="dn-shell">
+  <div class="dn-letterhead">
+    <div class="dn-brand">
+      <div class="dn-brand-mark">
+        <div class="dn-brand-box">G</div>
+      </div>
+      <div class="dn-brand-copy">
+        <div class="dn-brand-name">GOLD COAST</div>
+        <div class="dn-brand-name">ELECTRICALS</div>
+        <div class="dn-brand-sub">E L E C T R I C A L S</div>
+      </div>
+    </div>
+    <div class="dn-brand-rule"></div>
+  </div>
+
+  <div class="dn-paper">
 <div class="dn-title">Payment Demand Notice (Final Notice Before Legal Action)</div>
 
 <!-- Reference block (date + notice number) -->
@@ -218,4 +328,20 @@
   {% if doc.bar_council_number %}
   <p>Bar Council No.: {{ doc.bar_council_number }}</p>
   {% endif %}
+</div>
+  </div>
+
+  <div class="dn-footer">
+    <div class="dn-footer-copy">
+      <strong>SNRG ELECTRICALS INDIA PRIVATE LIMITED</strong>
+      Registered Address: Plot No. 29, 3rd Floor, Okhla Industrial Estate, Phase III, New Delhi 110020, India
+      <br>
+      Corporate Office: A-2, Block A, Sector 63, Gautam Buddh Nagar, Noida 201301, Uttar Pradesh, India
+      <br>
+      Toll Free: 1800-309-7841 | Tel: 0120-4206800 | Email: info@snrgindia.com | Website: www.goldcoastelectricals.com
+      <br>
+      CIN: U31909DL2021PTC376852
+    </div>
+    <div class="dn-footer-band"></div>
+  </div>
 </div>
