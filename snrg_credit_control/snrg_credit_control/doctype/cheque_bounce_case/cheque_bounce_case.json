@@ -1,0 +1,160 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:CBC-{YYYY}-{#####}",
+ "creation": "2026-03-29 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "journal_entry",
+  "company",
+  "customer",
+  "bounce_entry_date",
+  "bounce_amount",
+  "status",
+  "cheque_scan",
+  "bank_memo_scan",
+  "legal_owner",
+  "assigned_to",
+  "demand_notice",
+  "narration",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "journal_entry",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Journal Entry",
+   "options": "Journal Entry",
+   "reqd": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Customer",
+   "options": "Customer",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "bounce_entry_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Bounce Entry Date",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "bounce_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Bounce Amount",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "Entry Marked\nDocuments Pending\nReady for Legal Review\nUnder Review\nNotice Pending\nNotice Sent\nResolved\nComplaint Preparation\nComplaint Filed\nClosed",
+   "reqd": 1
+  },
+  {
+   "fieldname": "cheque_scan",
+   "fieldtype": "Attach",
+   "label": "Scanned Copy of Cheque"
+  },
+  {
+   "fieldname": "bank_memo_scan",
+   "fieldtype": "Attach",
+   "label": "Scanned Copy of Bank Memo"
+  },
+  {
+   "fieldname": "legal_owner",
+   "fieldtype": "Link",
+   "label": "Legal Owner",
+   "options": "User"
+  },
+  {
+   "fieldname": "assigned_to",
+   "fieldtype": "Link",
+   "label": "Assigned To",
+   "options": "User"
+  },
+  {
+   "fieldname": "demand_notice",
+   "fieldtype": "Link",
+   "label": "Demand Notice",
+   "options": "Demand Notice"
+  },
+  {
+   "fieldname": "narration",
+   "fieldtype": "Long Text",
+   "label": "Narration",
+   "read_only": 1
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-03-29 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Snrg Credit Control",
+ "name": "Cheque Bounce Case",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Legal",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "title_field": "customer",
+ "track_changes": 1
+}

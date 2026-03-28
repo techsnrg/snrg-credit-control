@@ -12,11 +12,13 @@ after_migrate = "snrg_credit_control.setup.after_migrate"
 doctype_js = {
     "Sales Order": "public/js/sales_order.js",
     "Quotation": "public/js/quotation.js",
+    "Journal Entry": "public/js/journal_entry.js",
 }
 
 doctype_list_js = {
     "Sales Order": "public/js/sales_order_list.js",
     "Quotation": "public/js/quotation_list.js",
+    "Cheque Bounce Case": "public/js/cheque_bounce_case_list.js",
 }
 
 # Python event hooks for Sales Order
@@ -28,5 +30,9 @@ doc_events = {
     },
     "Quotation": {
         "validate": "snrg_credit_control.overrides.quotation.validate",
+    },
+    "Journal Entry": {
+        "on_submit": "snrg_credit_control.overrides.journal_entry.on_submit",
+        "on_update_after_submit": "snrg_credit_control.overrides.journal_entry.on_update_after_submit",
     },
 }

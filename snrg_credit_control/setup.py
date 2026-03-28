@@ -18,6 +18,7 @@ def after_install():
     _ensure_module()
     _ensure_role()
     _ensure_customer_fields()
+    _ensure_journal_entry_fields()
     _ensure_so_fields()
     _ensure_quotation_fields()
     _ensure_report()
@@ -32,6 +33,7 @@ def after_migrate():
     _ensure_module()
     _ensure_role()
     _ensure_customer_fields()
+    _ensure_journal_entry_fields()
     _ensure_so_fields()
     _ensure_quotation_fields()
     _ensure_report()
@@ -94,6 +96,51 @@ _CUSTOMER_FIELDS = [
 def _ensure_customer_fields():
     for fdef in _CUSTOMER_FIELDS:
         _ensure_custom_field("Customer", fdef)
+
+
+# ---------------------------------------------------------------------------
+# Custom Fields — Journal Entry
+# ---------------------------------------------------------------------------
+
+_JOURNAL_ENTRY_FIELDS = [
+    {
+        "fieldname": "custom_cheque_bounce_section",
+        "fieldtype": "Section Break",
+        "label": "Cheque Bounce Tracking",
+        "insert_after": "user_remark",
+        "collapsible": 1,
+        "allow_on_submit": 1,
+    },
+    {
+        "fieldname": "custom_is_cheque_bounce",
+        "fieldtype": "Check",
+        "label": "Is Cheque Bounce",
+        "insert_after": "custom_cheque_bounce_section",
+        "allow_on_submit": 1,
+    },
+    {
+        "fieldname": "custom_cheque_bounce_case",
+        "fieldtype": "Link",
+        "label": "Cheque Bounce Case",
+        "options": "Cheque Bounce Case",
+        "insert_after": "custom_is_cheque_bounce",
+        "read_only": 1,
+        "allow_on_submit": 1,
+    },
+    {
+        "fieldname": "custom_cheque_bounce_status",
+        "fieldtype": "Data",
+        "label": "Cheque Bounce Status",
+        "insert_after": "custom_cheque_bounce_case",
+        "read_only": 1,
+        "allow_on_submit": 1,
+    },
+]
+
+
+def _ensure_journal_entry_fields():
+    for fdef in _JOURNAL_ENTRY_FIELDS:
+        _ensure_custom_field("Journal Entry", fdef)
 
 
 # ---------------------------------------------------------------------------
@@ -458,6 +505,7 @@ def _ensure_demand_notice_default_print_format():
 def _ensure_credit_control_workspace():
     has_demand_notice = frappe.db.exists("DocType", "Demand Notice")
     has_demand_notice_settings = frappe.db.exists("DocType", "Demand Notice Settings")
+    has_cheque_bounce_case = frappe.db.exists("DocType", "Cheque Bounce Case")
 
     content_blocks = [
         {
@@ -620,6 +668,55 @@ def _ensure_credit_control_workspace():
                 "link_to": "Demand Notice Settings",
                 "icon": "settings",
                 "color": "Grey",
+            }
+        )
+
+    if has_cheque_bounce_case:
+        content_blocks.extend(
+            [
+                {
+                    "id": "cheque_bounce_header",
+                    "type": "header",
+                    "data": {"text": "Cheque Bounce", "col": 12},
+                },
+                {
+                    "id": "cheque_bounce_case_shortcut",
+                    "type": "shortcut",
+                    "data": {"shortcut_name": "Cheque Bounce Case", "col": 3},
+                },
+            ]
+        )
+        links.extend(
+            [
+                {
+                    "label": "Cheque Bounce",
+                    "type": "Card Break",
+                    "hidden": 0,
+                    "is_query_report": 0,
+                    "link_count": 0,
+                    "onboard": 0,
+                    "dependencies": "",
+                },
+                {
+                    "label": "Cheque Bounce Case",
+                    "type": "Link",
+                    "link_type": "DocType",
+                    "link_to": "Cheque Bounce Case",
+                    "hidden": 0,
+                    "is_query_report": 0,
+                    "link_count": 0,
+                    "onboard": 1,
+                    "dependencies": "",
+                },
+            ]
+        )
+        shortcuts.append(
+            {
+                "type": "DocType",
+                "label": "Cheque Bounce Case",
+                "link_to": "Cheque Bounce Case",
+                "icon": "warning",
+                "color": "Red",
             }
         )
 
