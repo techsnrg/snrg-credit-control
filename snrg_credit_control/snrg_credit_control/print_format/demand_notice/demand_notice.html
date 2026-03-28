@@ -21,6 +21,9 @@
   .dn-shell {
     padding: 6px 8px 12px;
   }
+  .letter-head {
+    margin-bottom: 14px;
+  }
   .dn-title {
     font-size: 18px;
     font-weight: bold;
@@ -113,6 +116,10 @@
     margin: 10px 0 8px;
   }
 </style>
+
+{% if letter_head and not no_letterhead %}
+<div class="letter-head">{{ letter_head }}</div>
+{% endif %}
 
 <div class="dn-shell">
   <div class="dn-title">Payment Demand Notice (Pre-Litigation Legal Notice)</div>
