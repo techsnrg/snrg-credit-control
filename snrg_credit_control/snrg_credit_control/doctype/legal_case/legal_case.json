@@ -12,23 +12,32 @@
   "case_type",
   "date_marked_legal",
   "status",
-  "return_memo_date",
-  "notice_period_days",
-  "notice_deadline",
-  "notice_sent_date",
-  "payment_wait_days",
-  "payment_due_date",
-  "complaint_filing_days",
-  "complaint_filing_deadline",
-  "demand_notice",
   "marked_by",
   "assigned_counsel",
   "assigned_to",
   "source_reference_type",
   "source_reference_name",
+  "original_legal_amount",
   "total_claim_amount",
+  "current_outstanding_balance",
   "amount_recovered",
   "balance_to_recover",
+  "return_memo_date",
+  "notice_period_days",
+  "notice_deadline",
+  "notice_sent_date",
+  "last_notice_date",
+  "payment_wait_days",
+  "payment_due_date",
+  "complaint_filing_days",
+  "complaint_filing_deadline",
+  "next_action_due_by",
+  "next_action_due_by_reason",
+  "next_action_on_or_after",
+  "next_action_on_or_after_reason",
+  "last_payment_date",
+  "last_activity_date",
+  "demand_notice",
   "summary",
   "closure_date",
   "closure_reason"
@@ -81,56 +90,6 @@
    "reqd": 1
   },
   {
-   "fieldname": "return_memo_date",
-   "fieldtype": "Date",
-   "label": "Return Memo Date"
-  },
-  {
-   "fieldname": "notice_period_days",
-   "fieldtype": "Int",
-   "label": "Notice Period (Days)"
-  },
-  {
-   "fieldname": "notice_deadline",
-   "fieldtype": "Date",
-   "label": "Notice Deadline",
-   "read_only": 1
-  },
-  {
-   "fieldname": "notice_sent_date",
-   "fieldtype": "Date",
-   "label": "Notice Sent Date"
-  },
-  {
-   "fieldname": "payment_wait_days",
-   "fieldtype": "Int",
-   "label": "Payment Wait (Days)"
-  },
-  {
-   "fieldname": "payment_due_date",
-   "fieldtype": "Date",
-   "label": "Payment Due Date",
-   "read_only": 1
-  },
-  {
-   "fieldname": "complaint_filing_days",
-   "fieldtype": "Int",
-   "label": "Complaint Filing (Days)"
-  },
-  {
-   "fieldname": "complaint_filing_deadline",
-   "fieldtype": "Date",
-   "label": "Complaint Filing Deadline",
-   "read_only": 1
-  },
-  {
-   "fieldname": "demand_notice",
-   "fieldtype": "Link",
-   "label": "Demand Notice",
-   "options": "Demand Notice",
-   "read_only": 1
-  },
-  {
    "fieldname": "marked_by",
    "fieldtype": "Link",
    "label": "Marked By",
@@ -163,19 +122,126 @@
    "read_only": 1
   },
   {
+   "fieldname": "original_legal_amount",
+   "fieldtype": "Currency",
+   "label": "Original Legal Amount",
+   "read_only": 1
+  },
+  {
    "fieldname": "total_claim_amount",
    "fieldtype": "Currency",
-   "label": "Total Claim Amount"
+   "label": "Tracked Claim Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "current_outstanding_balance",
+   "fieldtype": "Currency",
+   "label": "Current Outstanding Balance",
+   "read_only": 1
   },
   {
    "fieldname": "amount_recovered",
    "fieldtype": "Currency",
-   "label": "Amount Recovered"
+   "label": "Amount Recovered",
+   "read_only": 1
   },
   {
    "fieldname": "balance_to_recover",
    "fieldtype": "Currency",
    "label": "Balance To Recover",
+   "read_only": 1
+  },
+  {
+   "fieldname": "return_memo_date",
+   "fieldtype": "Date",
+   "label": "Return Memo Date"
+  },
+  {
+   "fieldname": "notice_period_days",
+   "fieldtype": "Int",
+   "label": "Notice Period (Days)"
+  },
+  {
+   "fieldname": "notice_deadline",
+   "fieldtype": "Date",
+   "label": "Notice Deadline",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notice_sent_date",
+   "fieldtype": "Date",
+   "label": "Notice Sent Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_notice_date",
+   "fieldtype": "Date",
+   "label": "Last Notice Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "payment_wait_days",
+   "fieldtype": "Int",
+   "label": "Payment Wait (Days)"
+  },
+  {
+   "fieldname": "payment_due_date",
+   "fieldtype": "Date",
+   "label": "Payment Due Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "complaint_filing_days",
+   "fieldtype": "Int",
+   "label": "Complaint Filing (Days)"
+  },
+  {
+   "fieldname": "complaint_filing_deadline",
+   "fieldtype": "Date",
+   "label": "Complaint Filing Deadline",
+   "read_only": 1
+  },
+  {
+   "fieldname": "next_action_due_by",
+   "fieldtype": "Date",
+   "label": "Action Due By",
+   "read_only": 1
+  },
+  {
+   "fieldname": "next_action_due_by_reason",
+   "fieldtype": "Small Text",
+   "label": "Action Due By Reason",
+   "read_only": 1
+  },
+  {
+   "fieldname": "next_action_on_or_after",
+   "fieldtype": "Date",
+   "label": "Action On Or After",
+   "read_only": 1
+  },
+  {
+   "fieldname": "next_action_on_or_after_reason",
+   "fieldtype": "Small Text",
+   "label": "Action On Or After Reason",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_payment_date",
+   "fieldtype": "Date",
+   "label": "Last Payment Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_activity_date",
+   "fieldtype": "Date",
+   "label": "Last Activity Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "demand_notice",
+   "fieldtype": "Link",
+   "label": "Demand Notice",
+   "options": "Demand Notice",
    "read_only": 1
   },
   {

@@ -559,6 +559,8 @@ def _ensure_credit_control_workspace():
     has_legal_case = frappe.db.exists("DocType", "Legal Case")
     has_legal_case_settings = frappe.db.exists("DocType", "Legal Case Settings")
     has_legal_case_activity = frappe.db.exists("DocType", "Legal Case Activity")
+    has_legal_tracker = frappe.db.exists("Report", "Legal Tracker")
+    has_legal_payments = frappe.db.exists("Report", "Legal Payments")
 
     content_blocks = [
         {
@@ -821,6 +823,66 @@ def _ensure_credit_control_workspace():
                 "color": "Red",
             }
         )
+        if has_legal_tracker:
+            content_blocks.append(
+                {
+                    "id": "legal_tracker_shortcut",
+                    "type": "shortcut",
+                    "data": {"shortcut_name": "Legal Tracker", "col": 3},
+                }
+            )
+            links.append(
+                {
+                    "label": "Legal Tracker",
+                    "type": "Link",
+                    "link_type": "Report",
+                    "link_to": "Legal Tracker",
+                    "hidden": 0,
+                    "is_query_report": 0,
+                    "link_count": 0,
+                    "onboard": 1,
+                    "dependencies": "",
+                }
+            )
+            shortcuts.append(
+                {
+                    "type": "Report",
+                    "label": "Legal Tracker",
+                    "link_to": "Legal Tracker",
+                    "icon": "list",
+                    "color": "Orange",
+                }
+            )
+        if has_legal_payments:
+            content_blocks.append(
+                {
+                    "id": "legal_payments_shortcut",
+                    "type": "shortcut",
+                    "data": {"shortcut_name": "Legal Payments", "col": 3},
+                }
+            )
+            links.append(
+                {
+                    "label": "Legal Payments",
+                    "type": "Link",
+                    "link_type": "Report",
+                    "link_to": "Legal Payments",
+                    "hidden": 0,
+                    "is_query_report": 0,
+                    "link_count": 0,
+                    "onboard": 0,
+                    "dependencies": "",
+                }
+            )
+            shortcuts.append(
+                {
+                    "type": "Report",
+                    "label": "Legal Payments",
+                    "link_to": "Legal Payments",
+                    "icon": "bank",
+                    "color": "Blue",
+                }
+            )
         if has_legal_case_settings:
             content_blocks.append(
                 {

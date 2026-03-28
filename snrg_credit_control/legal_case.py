@@ -2,6 +2,7 @@ import frappe
 from frappe import _
 from frappe.utils import flt, today
 
+from snrg_credit_control.credit_status import get_total_outstanding
 
 ACTIVE_LEGAL_STATUSES = {
     "Marked to Legal",
@@ -27,6 +28,74 @@ def get_default_company():
         or frappe.db.get_single_value("Global Defaults", "default_company")
         or ""
     )
+
+
+def get_current_outstanding_balance(customer, company=""):
+    if not customer:
+        return 0
+    resolved_company = company or get_default_company()
+    if not resolved_company:
+        return 0
+    return max(flt(get_total_outstanding(customer, resolved_company)), 0)
+
+
+def resolve_initial_legal_amount(customer, company="", fallback=0):
+    snapshot_amount = get_current_outstanding_balance(customer, company)
+    if snapshot_amount > 0:
+        return snapshot_amount
+    return max(flt(fallback), 0)
+
+
+def get_last_payment_date(customer, company="", from_date=None):
+    if not customer:
+        return None
+
+    filters = {
+        "docstatus": 1,
+        "party_type": "Customer",
+        "party": customer,
+        "payment_type": "Receive",
+    }
+    if company:
+        filters["company"] = company
+    if from_date:
+        filters["posting_date"] = (">=", from_date)
+
+    return frappe.db.get_value(
+        "Payment Entry",
+        filters,
+        "posting_date",
+        order_by="posting_date desc, modified desc",
+    )
+
+
+def get_last_notice_date(legal_case):
+    if not legal_case:
+        return None
+
+    return frappe.db.sql(
+        """
+        SELECT MAX(notice_date)
+        FROM `tabDemand Notice`
+        WHERE legal_case = %s
+          AND docstatus = 1
+        """,
+        (legal_case,),
+    )[0][0]
+
+
+def get_last_activity_date(legal_case):
+    if not legal_case:
+        return None
+
+    return frappe.db.sql(
+        """
+        SELECT MAX(activity_date)
+        FROM `tabLegal Case Activity`
+        WHERE legal_case = %s
+        """,
+        (legal_case,),
+    )[0][0]
 
 
 def get_active_legal_case(customer, company=None, exclude_name=None):
@@ -136,20 +205,27 @@ def create_or_open_legal_case(
     if existing:
         return existing
 
+    resolved_company = company or get_default_company()
+    opening_amount = resolve_initial_legal_amount(
+        customer=customer,
+        company=resolved_company,
+        fallback=total_claim_amount,
+    )
     customer_name = frappe.db.get_value("Customer", customer, "customer_name") or customer
     case_doc = frappe.get_doc(
         {
             "doctype": "Legal Case",
             "case_title": build_legal_case_title(customer_name, case_type),
             "customer": customer,
-            "company": company or get_default_company(),
+            "company": resolved_company,
             "case_type": case_type,
             "source_reference_type": source_reference_type,
             "source_reference_name": source_reference_name,
             "date_marked_legal": today(),
             "status": "Marked to Legal",
             "marked_by": frappe.session.user,
-            "total_claim_amount": flt(total_claim_amount),
+            "original_legal_amount": opening_amount,
+            "total_claim_amount": opening_amount,
         }
     )
     case_doc.insert(ignore_permissions=True)
@@ -159,7 +235,7 @@ def create_or_open_legal_case(
         activity_date=case_doc.date_marked_legal,
         reference_doctype=source_reference_type or "",
         reference_name=source_reference_name or "",
-        amount=case_doc.total_claim_amount,
+        amount=case_doc.original_legal_amount,
         remarks=f"Case opened as {case_doc.case_type}.",
     )
     return case_doc.name
@@ -233,21 +309,15 @@ def create_demand_notice_from_legal_case(legal_case):
     )
     notice_doc.insert(ignore_permissions=True)
 
-    frappe.db.set_value(
-        "Legal Case",
-        legal_case_doc.name,
-        {
-            "demand_notice": notice_doc.name,
-            "status": "Notice Preparation",
-        },
-        update_modified=False,
-    )
+    legal_case_doc.demand_notice = notice_doc.name
+    legal_case_doc.status = "Notice Preparation"
+    legal_case_doc.save(ignore_permissions=True)
     add_legal_case_activity(
         legal_case_doc.name,
         "Demand Notice Created",
         reference_doctype="Demand Notice",
         reference_name=notice_doc.name,
-        amount=notice_doc.grand_total_due or legal_case_doc.total_claim_amount,
+        amount=notice_doc.grand_total_due or legal_case_doc.original_legal_amount,
         remarks="Demand Notice created from Legal Case.",
     )
 

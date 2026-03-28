@@ -88,16 +88,11 @@ class DemandNotice(Document):
     def _sync_legal_case_on_submit(self):
         if not self.legal_case:
             return
-        frappe.db.set_value(
-            "Legal Case",
-            self.legal_case,
-            {
-                "demand_notice": self.name,
-                "status": "Notice Sent",
-                "notice_sent_date": self.notice_date,
-            },
-            update_modified=False,
-        )
+        legal_case = frappe.get_doc("Legal Case", self.legal_case)
+        legal_case.demand_notice = self.name
+        legal_case.status = "Notice Sent"
+        legal_case.notice_sent_date = self.notice_date
+        legal_case.save(ignore_permissions=True)
         add_legal_case_activity(
             self.legal_case,
             "Demand Notice Submitted",
@@ -111,15 +106,12 @@ class DemandNotice(Document):
     def _sync_legal_case_on_cancel(self):
         if not self.legal_case:
             return
-        frappe.db.set_value(
-            "Legal Case",
-            self.legal_case,
-            {
-                "demand_notice": "",
-                "notice_sent_date": None,
-            },
-            update_modified=False,
-        )
+        legal_case = frappe.get_doc("Legal Case", self.legal_case)
+        if legal_case.demand_notice == self.name:
+            legal_case.demand_notice = ""
+        if legal_case.notice_sent_date == self.notice_date:
+            legal_case.notice_sent_date = None
+        legal_case.save(ignore_permissions=True)
         add_legal_case_activity(
             self.legal_case,
             "Demand Notice Cancelled",
