@@ -131,15 +131,11 @@
 
   <div class="dn-meta">
     <p><strong>Date:</strong> {{ frappe.utils.formatdate(doc.notice_date) }}</p>
-    {% if doc.notice_number %}
-    <p><strong>Notice No.:</strong> {{ doc.notice_number }}</p>
-    {% endif %}
   </div>
 
   <div class="dn-to-block">
     <p><strong>To:</strong></p>
     <p>{{ doc.customer_name }}</p>
-    <p>{{ doc.company }}</p>
     {% if doc.address_display %}
       {% for line in doc.address_display.split('\n') %}
       <p>{{ line }}</p>
@@ -161,48 +157,29 @@
   <p class="dn-body">
     As per our records, an amount of
     <strong>{{ frappe.utils.fmt_money(doc.total_outstanding, currency=currency) }}</strong>
-    remains unpaid as of <strong>{{ frappe.utils.formatdate(doc.notice_date) }}</strong>, despite the agreed credit terms
-    of <strong>7 days</strong> having elapsed.
+    remains unpaid as of <strong>{{ frappe.utils.formatdate(doc.notice_date) }}</strong>.
   </p>
-
-  <div class="dn-section-title">Details of Outstanding:</div>
-  <ul class="dn-summary">
-    <li>Total Outstanding Amount: <strong>{{ frappe.utils.fmt_money(doc.total_outstanding, currency=currency) }}</strong></li>
-    <li>No. of Invoices: <strong>{{ stats.invoice_count }}</strong></li>
-    <li>
-      Oldest Invoice Date:
-      <strong>{% if stats.oldest_invoice_date %}{{ frappe.utils.formatdate(stats.oldest_invoice_date) }}{% else %}-{% endif %}</strong>
-    </li>
-    <li>Maximum Delay: <strong>{{ stats.max_delay }}</strong> days overdue</li>
-  </ul>
 
   <p class="dn-body">
     Despite multiple reminders and follow-ups, the payment has not been received till date.
     This conduct is a breach of agreed commercial terms and has caused financial strain on our operations.
   </p>
 
-  <div class="dn-section-title">Take Notice That:</div>
-  <ul class="dn-notice-list">
-    <li>You are hereby called upon to clear the entire outstanding amount within <strong>7 (seven) days</strong> from receipt of this notice.</li>
-    <li>
-      In case of failure to comply, we shall be constrained to initiate appropriate legal proceedings against you
-      without any further notice, including but not limited to:
-      <ul class="dn-sub-list">
-        <li>Recovery proceedings under applicable civil laws</li>
-        <li>Proceedings under the <strong>MSME Development Act, 2006</strong>, if applicable</li>
-        <li>Initiation of action under <strong>Negotiable Instruments Act, 1881</strong>, in case of cheque dishonour</li>
-        <li>Reporting to relevant regulatory authorities for financial non-compliance</li>
-      </ul>
-    </li>
-    <li>
-      Please note that <strong>interest @ {{ doc.interest_rate or 0 }}% per annum</strong> (or as per agreed terms)
-      is being levied on the outstanding amount and will continue to accrue until full and final settlement.
-    </li>
-  </ul>
+  <p class="dn-body">
+    You are hereby called upon to clear the entire outstanding amount within
+    <strong>7 (seven) days</strong> from receipt of this notice. In case of failure to comply,
+    we shall be constrained to initiate appropriate legal proceedings against you
+    <strong>without any further notice</strong>.
+  </p>
+
+  <p class="dn-body">
+    Please note that <strong>interest @ {{ doc.interest_rate or 0 }}% per annum</strong>
+    (or as per agreed terms) is being levied on the outstanding amount and will continue to accrue
+    until full and final settlement.
+  </p>
 
   <div class="dn-rule"></div>
 
-  <div class="dn-section-title">Final Opportunity:</div>
   <p class="dn-final">
     This notice may be treated as a final opportunity to resolve the matter amicably and avoid escalation.
     You are advised to make the payment within the stipulated time or contact the undersigned immediately
