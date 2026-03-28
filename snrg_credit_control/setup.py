@@ -24,6 +24,7 @@ def after_install():
     _ensure_employee_signatory_fields()
     _ensure_demand_notice_settings()
     _ensure_credit_control_workspace()
+    _ensure_demand_notice_default_print_format()
     frappe.db.commit()
 
 
@@ -37,6 +38,7 @@ def after_migrate():
     _ensure_employee_signatory_fields()
     _ensure_demand_notice_settings()
     _ensure_credit_control_workspace()
+    _ensure_demand_notice_default_print_format()
     frappe.db.commit()
 
 
@@ -418,6 +420,34 @@ def _ensure_demand_notice_settings():
         "payment_deadline_days": 7,
         "default_legal_text": _DEFAULT_LEGAL_TEXT,
     }).insert(ignore_permissions=True)
+
+
+def _ensure_demand_notice_default_print_format():
+    if not frappe.db.exists("DocType", "Demand Notice"):
+        return
+
+    if not frappe.db.exists("Print Format", "Demand Notice"):
+        return
+
+    doctype_meta = frappe.get_meta("DocType")
+    if doctype_meta.has_field("default_print_format"):
+        frappe.db.set_value(
+            "DocType",
+            "Demand Notice",
+            "default_print_format",
+            "Demand Notice",
+            update_modified=False,
+        )
+
+    print_format_meta = frappe.get_meta("Print Format")
+    if print_format_meta.has_field("default"):
+        frappe.db.set_value(
+            "Print Format",
+            "Demand Notice",
+            "default",
+            1,
+            update_modified=False,
+        )
 
 
 # ---------------------------------------------------------------------------
