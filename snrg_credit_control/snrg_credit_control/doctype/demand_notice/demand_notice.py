@@ -37,7 +37,7 @@ class DemandNotice(Document):
                 self.interest_rate = flt(settings.default_interest_rate or 18)
 
             if not self.payment_deadline and self.notice_date:
-                deadline_days = int(settings.payment_deadline_days or 14)
+                deadline_days = int(settings.payment_deadline_days or 7)
                 self.payment_deadline = add_days(getdate(self.notice_date), deadline_days)
 
             if not self.legal_consequences_text and settings.default_legal_text:

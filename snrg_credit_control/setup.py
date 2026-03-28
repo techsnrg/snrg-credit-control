@@ -403,12 +403,13 @@ def _ensure_demand_notice_settings():
             frappe.db.set_single_value(
                 "Demand Notice Settings", "interest_start_after_days", 60
             )
+        frappe.db.set_single_value("Demand Notice Settings", "payment_deadline_days", 7)
         return
     frappe.get_doc({
         "doctype": "Demand Notice Settings",
         "default_interest_rate": 18,
         "interest_start_after_days": 60,
-        "payment_deadline_days": 14,
+        "payment_deadline_days": 7,
         "default_legal_text": _DEFAULT_LEGAL_TEXT,
     }).insert(ignore_permissions=True)
 

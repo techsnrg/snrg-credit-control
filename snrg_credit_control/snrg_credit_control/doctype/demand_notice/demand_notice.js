@@ -54,7 +54,7 @@ frappe.ui.form.on("Demand Notice", {
                 field: "payment_deadline_days",
             },
             callback(r) {
-                const days = r.message || 14;
+                const days = r.message || 7;
                 const deadline = frappe.datetime.add_days(frm.doc.notice_date, days);
                 frm.set_value("payment_deadline", deadline);
             },
@@ -103,7 +103,7 @@ function _prefill_from_settings(frm) {
 
             // Set payment deadline based on today + deadline_days
             if (!frm.doc.payment_deadline && frm.doc.notice_date) {
-                const days = s.payment_deadline_days || 14;
+                const days = s.payment_deadline_days || 7;
                 const deadline = frappe.datetime.add_days(frm.doc.notice_date, days);
                 frm.set_value("payment_deadline", deadline);
             }

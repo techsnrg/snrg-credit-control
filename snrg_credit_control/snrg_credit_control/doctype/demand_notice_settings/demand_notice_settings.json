@@ -29,7 +29,7 @@
    "reqd": 1
   },
   {
-   "default": "14",
+   "default": "7",
    "description": "Number of days from the notice date to set as the payment deadline",
    "fieldname": "payment_deadline_days",
    "fieldtype": "Int",
