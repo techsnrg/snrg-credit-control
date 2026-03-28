@@ -15,6 +15,7 @@ doctype_js = {
     "Quotation": "public/js/quotation.js",
     "Journal Entry": "public/js/journal_entry.js",
     "Cheque Bounce Case": "public/js/cheque_bounce_case.js",
+    "Legal Case": "public/js/legal_case.js",
 }
 
 doctype_list_js = {

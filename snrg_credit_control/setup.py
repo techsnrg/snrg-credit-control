@@ -24,6 +24,7 @@ def after_install():
     _ensure_report()
     _ensure_employee_signatory_fields()
     _ensure_demand_notice_settings()
+    _ensure_legal_case_settings()
     _ensure_credit_control_workspace()
     _ensure_demand_notice_default_print_format()
     frappe.db.commit()
@@ -39,6 +40,7 @@ def after_migrate():
     _ensure_report()
     _ensure_employee_signatory_fields()
     _ensure_demand_notice_settings()
+    _ensure_legal_case_settings()
     _ensure_credit_control_workspace()
     _ensure_demand_notice_default_print_format()
     frappe.db.commit()
@@ -507,6 +509,17 @@ def _ensure_demand_notice_settings():
     }).insert(ignore_permissions=True)
 
 
+def _ensure_legal_case_settings():
+    if frappe.db.exists("Legal Case Settings", "Legal Case Settings"):
+        return
+    frappe.get_doc({
+        "doctype": "Legal Case Settings",
+        "default_notice_period_days": 15,
+        "default_payment_wait_days": 15,
+        "default_complaint_filing_days": 30,
+    }).insert(ignore_permissions=True)
+
+
 def _ensure_demand_notice_default_print_format():
     if not frappe.db.exists("DocType", "Demand Notice"):
         return
@@ -544,6 +557,7 @@ def _ensure_credit_control_workspace():
     has_demand_notice_settings = frappe.db.exists("DocType", "Demand Notice Settings")
     has_cheque_bounce_case = frappe.db.exists("DocType", "Cheque Bounce Case")
     has_legal_case = frappe.db.exists("DocType", "Legal Case")
+    has_legal_case_settings = frappe.db.exists("DocType", "Legal Case Settings")
 
     content_blocks = [
         {
@@ -806,6 +820,36 @@ def _ensure_credit_control_workspace():
                 "color": "Red",
             }
         )
+        if has_legal_case_settings:
+            content_blocks.append(
+                {
+                    "id": "legal_case_settings_shortcut",
+                    "type": "shortcut",
+                    "data": {"shortcut_name": "Legal Case Settings", "col": 3},
+                }
+            )
+            links.append(
+                {
+                    "label": "Legal Case Settings",
+                    "type": "Link",
+                    "link_type": "DocType",
+                    "link_to": "Legal Case Settings",
+                    "hidden": 0,
+                    "is_query_report": 0,
+                    "link_count": 0,
+                    "onboard": 0,
+                    "dependencies": "",
+                }
+            )
+            shortcuts.append(
+                {
+                    "type": "DocType",
+                    "label": "Legal Case Settings",
+                    "link_to": "Legal Case Settings",
+                    "icon": "settings",
+                    "color": "Grey",
+                }
+            )
 
     workspace_values = {
         "doctype": "Workspace",

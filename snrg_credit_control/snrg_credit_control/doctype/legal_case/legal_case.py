@@ -1,9 +1,11 @@
 import frappe
 from frappe.model.document import Document
+from frappe.utils import add_days, getdate
 from frappe.utils import flt
 
 from snrg_credit_control.legal_case import (
     ACTIVE_LEGAL_STATUSES,
+    get_legal_case_settings,
     get_active_legal_case,
     sync_customer_legal_marker,
 )
@@ -27,6 +29,13 @@ class LegalCase(Document):
         if not self.case_title and self.customer:
             customer_name = frappe.db.get_value("Customer", self.customer, "customer_name") or self.customer
             self.case_title = customer_name if not self.case_type else f"{customer_name} - {self.case_type}"
+        settings = get_legal_case_settings()
+        if not self.notice_period_days:
+            self.notice_period_days = settings.default_notice_period_days or 15
+        if not self.payment_wait_days:
+            self.payment_wait_days = settings.default_payment_wait_days or 15
+        if not self.complaint_filing_days:
+            self.complaint_filing_days = settings.default_complaint_filing_days or 30
 
     def _validate_unique_active_case(self):
         if not self.customer or self.status not in ACTIVE_LEGAL_STATUSES:
@@ -46,6 +55,22 @@ class LegalCase(Document):
         self.total_claim_amount = flt(self.total_claim_amount)
         self.amount_recovered = flt(self.amount_recovered)
         self.balance_to_recover = round(self.total_claim_amount - self.amount_recovered, 2)
+        if self.return_memo_date and self.notice_period_days:
+            self.notice_deadline = add_days(
+                getdate(self.return_memo_date),
+                int(self.notice_period_days),
+            )
+        if self.notice_sent_date and self.payment_wait_days:
+            payment_due = add_days(
+                getdate(self.notice_sent_date),
+                int(self.payment_wait_days),
+            )
+            self.payment_due_date = payment_due
+            if self.complaint_filing_days:
+                self.complaint_filing_deadline = add_days(
+                    payment_due,
+                    int(self.complaint_filing_days),
+                )
 
     def _sync_customer(self):
         if self.customer:

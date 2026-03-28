@@ -13,6 +13,7 @@
   "notice_date",
   "payment_deadline",
   "col_break_header",
+  "legal_case",
   "notice_number",
   "status",
   "interest_rate",
@@ -81,6 +82,13 @@
   {
    "fieldname": "col_break_header",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "legal_case",
+   "fieldtype": "Link",
+   "label": "Legal Case",
+   "options": "Legal Case",
+   "read_only": 1
   },
   {
    "fieldname": "notice_number",

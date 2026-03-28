@@ -21,9 +21,11 @@ class DemandNotice(Document):
     def before_submit(self):
         self.notice_number = self.name
         self.status = "Issued"
+        self._sync_legal_case_on_submit()
 
     def on_cancel(self):
         self.status = "Cancelled"
+        self._sync_legal_case_on_cancel()
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -81,6 +83,33 @@ class DemandNotice(Document):
     def _set_prepared_by(self):
         if not self.prepared_by:
             self.prepared_by = frappe.session.user
+
+    def _sync_legal_case_on_submit(self):
+        if not self.legal_case:
+            return
+        frappe.db.set_value(
+            "Legal Case",
+            self.legal_case,
+            {
+                "demand_notice": self.name,
+                "status": "Notice Sent",
+                "notice_sent_date": self.notice_date,
+            },
+            update_modified=False,
+        )
+
+    def _sync_legal_case_on_cancel(self):
+        if not self.legal_case:
+            return
+        frappe.db.set_value(
+            "Legal Case",
+            self.legal_case,
+            {
+                "demand_notice": "",
+                "notice_sent_date": None,
+            },
+            update_modified=False,
+        )
 
     def _recalculate_totals(self):
         """Walk child rows and recompute summary totals."""

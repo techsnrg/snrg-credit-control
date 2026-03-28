@@ -156,6 +156,7 @@ function _set_fetch_button(frm) {
     // and the mandatory fields are present
     frm.remove_custom_button("Fetch Overdue Invoices");
 
+    if (frm.doc.legal_case) return;
     if (frm.doc.docstatus !== 0) return;
     if (!frm.doc.customer || !frm.doc.company) return;
 

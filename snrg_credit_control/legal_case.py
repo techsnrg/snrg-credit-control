@@ -113,6 +113,18 @@ def create_or_open_legal_case(
     return case_doc.name
 
 
+def get_legal_case_settings():
+    if frappe.db.exists("DocType", "Legal Case Settings"):
+        return frappe.get_single("Legal Case Settings")
+    return frappe._dict(
+        {
+            "default_notice_period_days": 15,
+            "default_payment_wait_days": 15,
+            "default_complaint_filing_days": 30,
+        }
+    )
+
+
 @frappe.whitelist()
 def create_or_open_customer_legal_case(customer):
     case_name = create_or_open_legal_case(customer=customer)
@@ -141,3 +153,35 @@ def create_or_open_legal_case_from_cheque_bounce(cheque_bounce_case):
         )
 
     return {"name": case_name}
+
+
+@frappe.whitelist()
+def create_demand_notice_from_legal_case(legal_case):
+    legal_case_doc = frappe.get_doc("Legal Case", legal_case)
+    existing_notice = frappe.db.get_value("Demand Notice", {"legal_case": legal_case_doc.name})
+    if existing_notice:
+        return {"name": existing_notice}
+
+    notice_doc = frappe.get_doc(
+        {
+            "doctype": "Demand Notice",
+            "customer": legal_case_doc.customer,
+            "company": legal_case_doc.company,
+            "notice_date": today(),
+            "legal_case": legal_case_doc.name,
+        }
+    )
+    notice_doc.insert(ignore_permissions=True)
+
+    frappe.db.set_value(
+        "Legal Case",
+        legal_case_doc.name,
+        {
+            "demand_notice": notice_doc.name,
+            "status": "Notice Preparation",
+        },
+        update_modified=False,
+    )
+
+    sync_customer_legal_marker(legal_case_doc.customer)
+    return {"name": notice_doc.name}

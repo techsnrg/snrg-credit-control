@@ -12,6 +12,15 @@
   "case_type",
   "date_marked_legal",
   "status",
+  "return_memo_date",
+  "notice_period_days",
+  "notice_deadline",
+  "notice_sent_date",
+  "payment_wait_days",
+  "payment_due_date",
+  "complaint_filing_days",
+  "complaint_filing_deadline",
+  "demand_notice",
   "marked_by",
   "assigned_counsel",
   "assigned_to",
@@ -70,6 +79,56 @@
    "label": "Status",
    "options": "Marked to Legal\nDocuments Pending\nUnder Review\nNotice Preparation\nNotice Sent\nFollow-up in Progress\nSettlement Discussion\nPartially Recovered\nFully Recovered\nComplaint / Case Filing\nIn Proceedings\nClosed",
    "reqd": 1
+  },
+  {
+   "fieldname": "return_memo_date",
+   "fieldtype": "Date",
+   "label": "Return Memo Date"
+  },
+  {
+   "fieldname": "notice_period_days",
+   "fieldtype": "Int",
+   "label": "Notice Period (Days)"
+  },
+  {
+   "fieldname": "notice_deadline",
+   "fieldtype": "Date",
+   "label": "Notice Deadline",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notice_sent_date",
+   "fieldtype": "Date",
+   "label": "Notice Sent Date"
+  },
+  {
+   "fieldname": "payment_wait_days",
+   "fieldtype": "Int",
+   "label": "Payment Wait (Days)"
+  },
+  {
+   "fieldname": "payment_due_date",
+   "fieldtype": "Date",
+   "label": "Payment Due Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "complaint_filing_days",
+   "fieldtype": "Int",
+   "label": "Complaint Filing (Days)"
+  },
+  {
+   "fieldname": "complaint_filing_deadline",
+   "fieldtype": "Date",
+   "label": "Complaint Filing Deadline",
+   "read_only": 1
+  },
+  {
+   "fieldname": "demand_notice",
+   "fieldtype": "Link",
+   "label": "Demand Notice",
+   "options": "Demand Notice",
+   "read_only": 1
   },
   {
    "fieldname": "marked_by",
