@@ -13,6 +13,7 @@ class ChequeBounceCase(Document):
         self._validate_unique_journal_entry()
         self._sync_from_journal_entry()
         self._set_status()
+        self._sync_legal_case_defaults()
 
     def on_update(self):
         self._sync_journal_entry()
@@ -46,6 +47,23 @@ class ChequeBounceCase(Document):
             return
 
         self.status = get_initial_cheque_bounce_status(self)
+
+    def _sync_legal_case_defaults(self):
+        if not self.legal_case:
+            return
+
+        legal_case = frappe.get_doc("Legal Case", self.legal_case)
+        if not legal_case.total_claim_amount:
+            legal_case.total_claim_amount = self.bounce_amount
+        if not legal_case.source_reference_type:
+            legal_case.source_reference_type = "Cheque Bounce Case"
+        if not legal_case.source_reference_name:
+            legal_case.source_reference_name = self.name
+        if not legal_case.case_type:
+            legal_case.case_type = "Cheque Bounce"
+        if not legal_case.company:
+            legal_case.company = self.company
+        legal_case.save(ignore_permissions=True)
 
     def _sync_journal_entry(self):
         if not self.journal_entry:

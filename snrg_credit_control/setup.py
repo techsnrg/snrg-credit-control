@@ -90,6 +90,43 @@ _CUSTOMER_FIELDS = [
         "default": "75",
         "insert_after": "credit_limits",  # placed after the credit limits table
     },
+    {
+        "fieldname": "custom_is_under_legal",
+        "fieldtype": "Check",
+        "label": "Is Under Legal",
+        "read_only": 1,
+        "insert_after": "custom_credit_lock_days",
+    },
+    {
+        "fieldname": "custom_active_legal_case",
+        "fieldtype": "Link",
+        "label": "Active Legal Case",
+        "options": "Legal Case",
+        "read_only": 1,
+        "insert_after": "custom_is_under_legal",
+    },
+    {
+        "fieldname": "custom_legal_status",
+        "fieldtype": "Data",
+        "label": "Legal Status",
+        "read_only": 1,
+        "insert_after": "custom_active_legal_case",
+    },
+    {
+        "fieldname": "custom_legal_marked_on",
+        "fieldtype": "Date",
+        "label": "Marked To Legal On",
+        "read_only": 1,
+        "insert_after": "custom_legal_status",
+    },
+    {
+        "fieldname": "custom_legal_marked_by",
+        "fieldtype": "Link",
+        "label": "Marked To Legal By",
+        "options": "User",
+        "read_only": 1,
+        "insert_after": "custom_legal_marked_on",
+    },
 ]
 
 
@@ -506,6 +543,7 @@ def _ensure_credit_control_workspace():
     has_demand_notice = frappe.db.exists("DocType", "Demand Notice")
     has_demand_notice_settings = frappe.db.exists("DocType", "Demand Notice Settings")
     has_cheque_bounce_case = frappe.db.exists("DocType", "Cheque Bounce Case")
+    has_legal_case = frappe.db.exists("DocType", "Legal Case")
 
     content_blocks = [
         {
@@ -716,6 +754,55 @@ def _ensure_credit_control_workspace():
                 "label": "Cheque Bounce Case",
                 "link_to": "Cheque Bounce Case",
                 "icon": "warning",
+                "color": "Red",
+            }
+        )
+
+    if has_legal_case:
+        content_blocks.extend(
+            [
+                {
+                    "id": "legal_case_header",
+                    "type": "header",
+                    "data": {"text": "Legal Recovery", "col": 12},
+                },
+                {
+                    "id": "legal_case_shortcut",
+                    "type": "shortcut",
+                    "data": {"shortcut_name": "Legal Case", "col": 3},
+                },
+            ]
+        )
+        links.extend(
+            [
+                {
+                    "label": "Legal Recovery",
+                    "type": "Card Break",
+                    "hidden": 0,
+                    "is_query_report": 0,
+                    "link_count": 0,
+                    "onboard": 0,
+                    "dependencies": "",
+                },
+                {
+                    "label": "Legal Case",
+                    "type": "Link",
+                    "link_type": "DocType",
+                    "link_to": "Legal Case",
+                    "hidden": 0,
+                    "is_query_report": 0,
+                    "link_count": 0,
+                    "onboard": 1,
+                    "dependencies": "",
+                },
+            ]
+        )
+        shortcuts.append(
+            {
+                "type": "DocType",
+                "label": "Legal Case",
+                "link_to": "Legal Case",
+                "icon": "briefcase",
                 "color": "Red",
             }
         )

@@ -14,6 +14,7 @@
   "status",
   "cheque_scan",
   "bank_memo_scan",
+  "legal_case",
   "legal_owner",
   "assigned_to",
   "demand_notice",
@@ -79,6 +80,13 @@
    "fieldname": "bank_memo_scan",
    "fieldtype": "Attach",
    "label": "Scanned Copy of Bank Memo"
+  },
+  {
+   "fieldname": "legal_case",
+   "fieldtype": "Link",
+   "label": "Legal Case",
+   "options": "Legal Case",
+   "read_only": 1
   },
   {
    "fieldname": "legal_owner",

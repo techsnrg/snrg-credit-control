@@ -1,0 +1,184 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:LC-{YYYY}-{#####}",
+ "creation": "2026-03-29 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "case_title",
+  "customer",
+  "company",
+  "case_type",
+  "date_marked_legal",
+  "status",
+  "marked_by",
+  "assigned_counsel",
+  "assigned_to",
+  "source_reference_type",
+  "source_reference_name",
+  "total_claim_amount",
+  "amount_recovered",
+  "balance_to_recover",
+  "summary",
+  "closure_date",
+  "closure_reason"
+ ],
+ "fields": [
+  {
+   "fieldname": "case_title",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Case Title",
+   "reqd": 1
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Customer",
+   "options": "Customer",
+   "reqd": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "case_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Case Type",
+   "options": "Outstanding Recovery\nCheque Bounce\nMixed Recovery",
+   "reqd": 1
+  },
+  {
+   "default": "Today",
+   "fieldname": "date_marked_legal",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Date Marked To Legal",
+   "reqd": 1
+  },
+  {
+   "default": "Marked to Legal",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "Marked to Legal\nDocuments Pending\nUnder Review\nNotice Preparation\nNotice Sent\nFollow-up in Progress\nSettlement Discussion\nPartially Recovered\nFully Recovered\nComplaint / Case Filing\nIn Proceedings\nClosed",
+   "reqd": 1
+  },
+  {
+   "fieldname": "marked_by",
+   "fieldtype": "Link",
+   "label": "Marked By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "assigned_counsel",
+   "fieldtype": "Link",
+   "label": "Assigned Counsel",
+   "options": "User"
+  },
+  {
+   "fieldname": "assigned_to",
+   "fieldtype": "Link",
+   "label": "Assigned To",
+   "options": "User"
+  },
+  {
+   "fieldname": "source_reference_type",
+   "fieldtype": "Data",
+   "label": "Source Reference Type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "source_reference_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Source Reference",
+   "options": "source_reference_type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_claim_amount",
+   "fieldtype": "Currency",
+   "label": "Total Claim Amount"
+  },
+  {
+   "fieldname": "amount_recovered",
+   "fieldtype": "Currency",
+   "label": "Amount Recovered"
+  },
+  {
+   "fieldname": "balance_to_recover",
+   "fieldtype": "Currency",
+   "label": "Balance To Recover",
+   "read_only": 1
+  },
+  {
+   "fieldname": "summary",
+   "fieldtype": "Long Text",
+   "label": "Summary"
+  },
+  {
+   "fieldname": "closure_date",
+   "fieldtype": "Date",
+   "label": "Closure Date"
+  },
+  {
+   "fieldname": "closure_reason",
+   "fieldtype": "Small Text",
+   "label": "Closure Reason"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-03-29 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Snrg Credit Control",
+ "name": "Legal Case",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Legal",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

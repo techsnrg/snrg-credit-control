@@ -10,15 +10,18 @@ after_migrate = "snrg_credit_control.setup.after_migrate"
 
 # Inject JS into the Sales Order form
 doctype_js = {
+    "Customer": "public/js/customer.js",
     "Sales Order": "public/js/sales_order.js",
     "Quotation": "public/js/quotation.js",
     "Journal Entry": "public/js/journal_entry.js",
+    "Cheque Bounce Case": "public/js/cheque_bounce_case.js",
 }
 
 doctype_list_js = {
     "Sales Order": "public/js/sales_order_list.js",
     "Quotation": "public/js/quotation_list.js",
     "Cheque Bounce Case": "public/js/cheque_bounce_case_list.js",
+    "Legal Case": "public/js/legal_case_list.js",
 }
 
 # Python event hooks for Sales Order
