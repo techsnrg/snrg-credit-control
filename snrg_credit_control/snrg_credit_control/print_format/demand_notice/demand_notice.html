@@ -11,7 +11,7 @@
 
 <style>
   @page {
-    margin: 20mm 14mm 24mm 14mm;
+    margin: 20mm 14mm;
   }
   body, table, td, th {
     font-family: "Times New Roman", Times, serif;
@@ -19,24 +19,13 @@
     color: #000;
   }
   .dn-shell {
-    position: relative;
-    min-height: 100%;
-    padding: 6px 8px 96px;
-  }
-  .dn-letterhead {
-    margin-bottom: 16px;
-  }
-  .dn-brand img {
-    display: block;
-    width: 265px;
-    max-width: 100%;
-    height: auto;
+    padding: 6px 8px 12px;
   }
   .dn-title {
     font-size: 18px;
     font-weight: bold;
     text-transform: uppercase;
-    margin: 10px 0 14px;
+    margin: 6px 0 14px;
     text-align: center;
   }
   .dn-meta,
@@ -123,38 +112,9 @@
     max-height: 70px;
     margin: 10px 0 8px;
   }
-  .dn-footer {
-    position: fixed;
-    left: 14mm;
-    right: 14mm;
-    bottom: 8mm;
-    color: #22386f;
-    text-align: center;
-    font-size: 8px;
-  }
-  .dn-footer-copy {
-    padding: 0 20px 4px;
-    line-height: 1.45;
-  }
-  .dn-footer-copy strong {
-    display: block;
-    font-size: 9px;
-    margin-bottom: 2px;
-  }
-  .dn-footer-band {
-    height: 12px;
-    background: #2d3f74;
-    margin-top: 4px;
-  }
 </style>
 
 <div class="dn-shell">
-  <div class="dn-letterhead">
-    <div class="dn-brand">
-      <img src="/assets/snrg_credit_control/images/gold-coast-logo.png" alt="Gold Coast Electricals">
-    </div>
-  </div>
-
   <div class="dn-title">Payment Demand Notice (Pre-Litigation Legal Notice)</div>
 
   <div class="dn-meta">
@@ -266,19 +226,5 @@
     {% if doc.official_mobile %}
     <p>{{ doc.official_mobile }}</p>
     {% endif %}
-  </div>
-
-  <div class="dn-footer">
-    <div class="dn-footer-copy">
-      <strong>SNRG ELECTRICALS INDIA PRIVATE LIMITED</strong>
-      Registered Address: Plot No. 1, Pocket - K, Sector 3, Bawana, Delhi 110039 India
-      <br>
-      Corporate Office: A-2, Block A, Sector 63, Gautam Buddh Nagar, Noida 201301, Uttar Pradesh, India
-      <br>
-      Toll Free: 1800-309-7841 | Tel: 0120-4206800 | Email: info@snrgindia.com | Website: www.goldcoastelectricals.com
-      <br>
-      CIN: U31909DL2021PTC376852
-    </div>
-    <div class="dn-footer-band"></div>
   </div>
 </div>
