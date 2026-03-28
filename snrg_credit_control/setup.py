@@ -21,7 +21,7 @@ def after_install():
     _ensure_so_fields()
     _ensure_quotation_fields()
     _ensure_report()
-    _ensure_employee_bar_council_field()
+    _ensure_employee_signatory_fields()
     _ensure_demand_notice_settings()
     _ensure_credit_control_workspace()
     frappe.db.commit()
@@ -34,7 +34,7 @@ def after_migrate():
     _ensure_so_fields()
     _ensure_quotation_fields()
     _ensure_report()
-    _ensure_employee_bar_council_field()
+    _ensure_employee_signatory_fields()
     _ensure_demand_notice_settings()
     _ensure_credit_control_workspace()
     frappe.db.commit()
@@ -371,12 +371,18 @@ def _ensure_custom_field(doctype, field_def):
 # Employee — Bar Council Number custom field
 # ---------------------------------------------------------------------------
 
-def _ensure_employee_bar_council_field():
+def _ensure_employee_signatory_fields():
     _ensure_custom_field("Employee", {
         "fieldname": "custom_bar_council_number",
         "fieldtype": "Data",
         "label": "Bar Council Number",
         "insert_after": "designation",
+    })
+    _ensure_custom_field("Employee", {
+        "fieldname": "custom_signature_image",
+        "fieldtype": "Attach Image",
+        "label": "Signature Image",
+        "insert_after": "custom_bar_council_number",
     })
 
 

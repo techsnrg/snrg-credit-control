@@ -120,7 +120,7 @@ function _prefill_signatory(frm) {
                 user_id: frappe.session.user,
                 status: "Active",
             },
-            fields: ["employee_name", "designation", "custom_bar_council_number"],
+            fields: ["employee_name", "designation", "custom_bar_council_number", "custom_signature_image"],
             limit: 1,
         },
         callback(r) {
@@ -134,6 +134,9 @@ function _prefill_signatory(frm) {
             }
             if (!frm.doc.bar_council_number) {
                 frm.set_value("bar_council_number", emp.custom_bar_council_number || "");
+            }
+            if (!frm.doc.signature_image) {
+                frm.set_value("signature_image", emp.custom_signature_image || "");
             }
         },
     });

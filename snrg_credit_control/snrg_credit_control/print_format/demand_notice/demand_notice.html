@@ -21,7 +21,7 @@
   .dn-shell {
     position: relative;
     min-height: 100%;
-    padding: 6px 8px 120px;
+    padding: 6px 8px 24px;
   }
   .dn-letterhead {
     margin-bottom: 16px;
@@ -115,15 +115,20 @@
   }
   .dn-signatory {
     margin-top: 18px;
+    page-break-inside: avoid;
+  }
+  .dn-signature-image {
+    display: block;
+    max-width: 180px;
+    max-height: 70px;
+    margin: 10px 0 8px;
   }
   .dn-footer {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
     color: #22386f;
     text-align: center;
     font-size: 8px;
+    margin-top: 22px;
+    page-break-inside: avoid;
   }
   .dn-footer-copy {
     padding: 10px 20px 6px;
@@ -244,7 +249,11 @@
 
   <div class="dn-signatory">
     <p><strong>For SNRG Electricals India Private Limited</strong></p>
+    {% if doc.signature_image %}
+    <img class="dn-signature-image" src="{{ doc.signature_image }}" alt="Authorised Signature">
+    {% else %}
     <br><br><br>
+    {% endif %}
     <p><strong>{{ doc.authorised_signatory }}</strong></p>
     {% if doc.signatory_designation %}
     <p>{{ doc.signatory_designation }}</p>

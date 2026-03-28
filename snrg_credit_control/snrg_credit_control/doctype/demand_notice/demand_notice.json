@@ -30,6 +30,7 @@
   "legal_consequences_text",
   "section_signatory",
   "authorised_signatory",
+  "signature_image",
   "signatory_designation",
   "bar_council_number",
   "section_internal",
@@ -186,6 +187,12 @@
    "fieldname": "authorised_signatory",
    "fieldtype": "Data",
    "label": "Authorised Signatory"
+  },
+  {
+   "fieldname": "signature_image",
+   "fieldtype": "Attach Image",
+   "label": "Signature Image",
+   "read_only": 1
   },
   {
    "fieldname": "signatory_designation",

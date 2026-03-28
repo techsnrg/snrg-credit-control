@@ -48,6 +48,7 @@ class DemandNotice(Document):
                 self.authorised_signatory = signatory["employee_name"]
                 self.signatory_designation = signatory["designation"]
                 self.bar_council_number = signatory["bar_council_number"]
+                self.signature_image = signatory["signature_image"]
 
     def _set_customer_name(self):
         if self.customer and not self.customer_name:
