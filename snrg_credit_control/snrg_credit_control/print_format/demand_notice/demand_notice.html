@@ -1,15 +1,31 @@
 {% set currency = doc.currency or "INR" %}
-{% set fmt_amount = namespace() %}
+{% set stats = namespace(oldest_invoice_date=None, max_delay=0, invoice_count=(doc.invoices | length)) %}
+{% for inv in doc.invoices %}
+  {% if not stats.oldest_invoice_date or inv.posting_date < stats.oldest_invoice_date %}
+    {% set stats.oldest_invoice_date = inv.posting_date %}
+  {% endif %}
+  {% if (inv.overdue_days or 0) > stats.max_delay %}
+    {% set stats.max_delay = inv.overdue_days or 0 %}
+  {% endif %}
+{% endfor %}
 
 <style>
   body, table, td, th { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #222; }
-  .dn-header { width: 100%; margin-bottom: 24px; }
-  .dn-ref-block { text-align: right; }
+  .dn-title { text-align: center; font-size: 16px; font-weight: bold; text-transform: uppercase; margin-bottom: 24px; }
+  .dn-header { width: 100%; margin-bottom: 18px; }
+  .dn-ref-block { text-align: right; vertical-align: top; }
   .dn-ref-block p { margin: 2px 0; }
   .dn-to-block { margin-bottom: 18px; }
   .dn-to-block p { margin: 2px 0; }
-  .dn-subject { font-size: 13px; font-weight: bold; text-decoration: underline; margin: 18px 0 12px; }
-  .dn-body { margin-bottom: 16px; line-height: 1.6; }
+  .dn-subject { font-size: 13px; font-weight: bold; margin: 18px 0 12px; }
+  .dn-body { margin-bottom: 14px; line-height: 1.65; text-align: justify; }
+  .dn-summary { margin: 10px 0 16px 18px; padding: 0; }
+  .dn-summary li { margin: 5px 0; }
+  .dn-section-title { font-size: 13px; font-weight: bold; text-transform: uppercase; margin: 16px 0 8px; }
+  .dn-notice-list { margin: 8px 0 16px 18px; padding: 0; }
+  .dn-notice-list li { margin: 7px 0; }
+  .dn-sub-list { margin: 7px 0 0 18px; padding: 0; }
+  .dn-sub-list li { margin: 4px 0; }
   .dn-invoice-table { width: 100%; border-collapse: collapse; margin: 16px 0; }
   .dn-invoice-table th {
     background: #f0f0f0;
@@ -33,10 +49,14 @@
   .dn-grand-total { font-size: 14px; font-weight: bold; background: #fef9c3; }
   .dn-deadline { font-weight: bold; color: #c0392b; margin: 14px 0; }
   .dn-legal { margin: 18px 0; line-height: 1.7; text-align: justify; }
+  .dn-final { margin: 16px 0; line-height: 1.65; text-align: justify; }
+  .dn-ignore { margin: 16px 0; }
   .dn-signatory { margin-top: 48px; }
   .dn-signatory-line { border-top: 1px solid #333; width: 200px; margin-bottom: 4px; }
   .dn-signatory p { margin: 2px 0; font-size: 12px; }
 </style>
+
+<div class="dn-title">Payment Demand Notice (Final Notice Before Legal Action)</div>
 
 <!-- Reference block (date + notice number) -->
 <table class="dn-header">
@@ -63,15 +83,66 @@
 </div>
 
 <!-- Subject -->
-<p class="dn-subject">SUBJECT: DEMAND NOTICE FOR OUTSTANDING PAYMENT</p>
+<p class="dn-subject">Subject: Immediate Payment Demand for Outstanding Dues</p>
 
 <!-- Opening -->
 <p class="dn-body">
-  Dear Sir / Madam,<br><br>
-  We draw your attention to the following outstanding invoices against your account with us.
-  Despite our repeated requests, the amounts detailed below remain unpaid. You are hereby
-  formally called upon to settle the entire outstanding dues immediately.
+  Dear Sir/Madam,
 </p>
+
+<p class="dn-body">
+  This is with reference to the outstanding dues payable by you to <strong>{{ doc.company }}</strong>
+  against the invoices raised for the supply of goods.
+</p>
+
+<p class="dn-body">
+  As per our records, an amount of
+  <strong>{{ frappe.utils.fmt_money(doc.total_outstanding, currency=currency) }}</strong>
+  remains unpaid as of {{ frappe.utils.formatdate(doc.notice_date) }}, despite the agreed credit terms having elapsed.
+</p>
+
+<div class="dn-section-title">Details of Outstanding</div>
+<ul class="dn-summary">
+  <li>Total Outstanding Amount: <strong>{{ frappe.utils.fmt_money(doc.total_outstanding, currency=currency) }}</strong></li>
+  <li>No. of Invoices: <strong>{{ stats.invoice_count }}</strong></li>
+  <li>Oldest Invoice Date:
+    <strong>
+      {% if stats.oldest_invoice_date %}
+        {{ frappe.utils.formatdate(stats.oldest_invoice_date) }}
+      {% else %}
+        -
+      {% endif %}
+    </strong>
+  </li>
+  <li>Maximum Delay: <strong>{{ stats.max_delay }}</strong> days overdue</li>
+</ul>
+
+<p class="dn-body">
+  Despite multiple reminders and follow-ups, the payment has not been received till date.
+  This conduct is a breach of agreed commercial terms and has caused financial strain on our operations.
+</p>
+
+<div class="dn-section-title">Take Notice That</div>
+<ul class="dn-notice-list">
+  <li>
+    You are hereby called upon to clear the entire outstanding amount on or before
+    <strong>{{ frappe.utils.formatdate(doc.payment_deadline) }}</strong>.
+  </li>
+  <li>
+    In case of failure to comply, we shall be constrained to initiate appropriate legal proceedings
+    against you without any further notice, including but not limited to:
+    <ul class="dn-sub-list">
+      <li>Recovery proceedings under applicable civil laws.</li>
+      <li>Proceedings under the MSME Development Act, 2006, if applicable.</li>
+      <li>Initiation of action under the Negotiable Instruments Act, 1881, in case of cheque dishonour.</li>
+      <li>Reporting to relevant regulatory authorities for financial non-compliance.</li>
+    </ul>
+  </li>
+  <li>
+    Please note that interest @ <strong>{{ doc.interest_rate or 0 }}% per annum</strong>
+    is being levied on the outstanding amount and will continue to accrue until full and final settlement.
+  </li>
+</ul>
 
 <!-- Invoice table -->
 <table class="dn-invoice-table">
@@ -117,18 +188,23 @@
   </tr>
 </table>
 
-<!-- Payment deadline -->
-<p class="dn-deadline">
-  Payment in full must be received on or before:
-  {{ frappe.utils.formatdate(doc.payment_deadline) }}
-</p>
-
 <!-- Legal consequences -->
 {% if doc.legal_consequences_text %}
 <div class="dn-legal">
   {{ doc.legal_consequences_text | replace('\n', '<br>') }}
 </div>
 {% endif %}
+
+<div class="dn-section-title">Final Opportunity</div>
+<p class="dn-final">
+  This notice may be treated as a final opportunity to resolve the matter amicably and avoid escalation.
+  You are advised to make the payment within the stipulated time or contact the undersigned immediately
+  with a concrete payment plan.
+</p>
+
+<p class="dn-ignore">
+  Kindly ignore this notice if the payment has already been made and share the details for reconciliation.
+</p>
 
 <!-- Signatory -->
 <div class="dn-signatory">
