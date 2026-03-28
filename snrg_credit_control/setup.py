@@ -459,10 +459,3 @@ def _ensure_credit_control_workspace():
         return
 
     frappe.get_doc(workspace_values).insert(ignore_permissions=True)
-
-
-def execute_patch_ensure_credit_control_workspace():
-    _ensure_module()
-    _ensure_report()
-    _ensure_demand_notice_settings()
-    _ensure_credit_control_workspace()

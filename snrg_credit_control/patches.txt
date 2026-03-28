@@ -1,1 +1,1 @@
-snrg_credit_control.setup.execute_patch_ensure_credit_control_workspace
+snrg_credit_control.patches.ensure_credit_control_workspace
