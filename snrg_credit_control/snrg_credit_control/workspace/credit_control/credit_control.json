@@ -1,7 +1,7 @@
 {
  "category": "Modules",
  "charts": [],
- "content": "[{\"id\":\"credit_control_header\",\"type\":\"header\",\"data\":{\"text\":\"Credit Management\",\"col\":12}},{\"id\":\"credit_ptp_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Credit PTP\",\"col\":3}},{\"id\":\"credit_report_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Credit Control Report\",\"col\":3}},{\"id\":\"demand_notice_header\",\"type\":\"header\",\"data\":{\"text\":\"Demand Notices\",\"col\":12}},{\"id\":\"demand_notice_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Demand Notice\",\"col\":3}},{\"id\":\"demand_notice_settings_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Demand Notice Settings\",\"col\":3}}]",
+ "content": "[{\"id\":\"credit_control_header\",\"type\":\"header\",\"data\":{\"text\":\"Credit Management\",\"col\":12}},{\"id\":\"credit_ptp_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Credit PTP\",\"col\":3}},{\"id\":\"credit_report_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Credit Control Report\",\"col\":3}}]",
  "creation": "2026-03-28 12:00:00.000000",
  "developer_mode_only": 0,
  "disable_user_customization": 0,
@@ -44,37 +44,6 @@
    "link_type": "Report",
    "onboard": 1,
    "type": "Link"
-  },
-  {
-   "dependencies": "",
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Demand Notices",
-   "link_count": 0,
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "dependencies": "",
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Demand Notice",
-   "link_count": 0,
-   "link_to": "Demand Notice",
-   "link_type": "DocType",
-   "onboard": 1,
-   "type": "Link"
-  },
-  {
-   "dependencies": "",
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Demand Notice Settings",
-   "link_count": 0,
-   "link_to": "Demand Notice Settings",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
   }
  ],
  "modified": "2026-03-28 12:00:00.000000",
@@ -97,18 +66,6 @@
    "label": "Credit Control Report",
    "link_to": "Credit Control Report",
    "type": "Report"
-  },
-  {
-   "color": "Orange",
-   "label": "Demand Notice",
-   "link_to": "Demand Notice",
-   "type": "DocType"
-  },
-  {
-   "color": "Grey",
-   "label": "Demand Notice Settings",
-   "link_to": "Demand Notice Settings",
-   "type": "DocType"
   }
  ],
  "title": "Credit Control"
