@@ -57,10 +57,6 @@
   .dn-to-block {
     margin-bottom: 10px;
   }
-  .dn-rule {
-    border-top: 1px solid #a0a0a0;
-    margin: 12px 0;
-  }
   .dn-subject {
     font-size: 14px;
     font-weight: bold;
@@ -91,6 +87,30 @@
   .dn-ignore {
     margin: 0 0 12px;
     text-align: justify;
+  }
+  .dn-table-title {
+    font-size: 13px;
+    font-weight: bold;
+    margin: 14px 0 8px;
+  }
+  .dn-invoice-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8px 0 16px;
+  }
+  .dn-invoice-table th,
+  .dn-invoice-table td {
+    border: 1px solid #999;
+    padding: 6px 7px;
+    vertical-align: top;
+  }
+  .dn-invoice-table th {
+    font-weight: bold;
+    text-align: left;
+  }
+  .dn-invoice-table .num {
+    text-align: right;
+    white-space: nowrap;
   }
   .dn-signatory {
     margin-top: 18px;
@@ -143,8 +163,6 @@
     {% endif %}
   </div>
 
-  <div class="dn-rule"></div>
-
   <p class="dn-subject">Subject: Immediate Payment Demand for Outstanding Dues</p>
 
   <p class="dn-body">Dear Sir/Madam,</p>
@@ -178,7 +196,40 @@
     until full and final settlement.
   </p>
 
-  <div class="dn-rule"></div>
+  <div class="dn-table-title">Outstanding Invoice Details</div>
+  <table class="dn-invoice-table">
+    <thead>
+      <tr>
+        <th>Invoice No.</th>
+        <th>Invoice Date</th>
+        <th>Due Date</th>
+        <th class="num">Outstanding</th>
+        <th class="num">Days Overdue</th>
+        <th class="num">Interest</th>
+        <th class="num">Total Payable</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for inv in doc.invoices %}
+      <tr>
+        <td>{{ inv.sales_invoice }}</td>
+        <td>{{ frappe.utils.formatdate(inv.posting_date) if inv.posting_date else "-" }}</td>
+        <td>{{ frappe.utils.formatdate(inv.due_date) if inv.due_date else "-" }}</td>
+        <td class="num">{{ frappe.utils.fmt_money(inv.outstanding_amount, currency=currency) }}</td>
+        <td class="num">{{ inv.overdue_days or 0 }}</td>
+        <td class="num">{{ frappe.utils.fmt_money(inv.interest_amount, currency=currency) }}</td>
+        <td class="num">{{ frappe.utils.fmt_money(inv.total_payable, currency=currency) }}</td>
+      </tr>
+      {% endfor %}
+      <tr>
+        <td colspan="3"><strong>Total</strong></td>
+        <td class="num"><strong>{{ frappe.utils.fmt_money(doc.total_outstanding, currency=currency) }}</strong></td>
+        <td class="num"><strong>{{ stats.max_delay }}</strong></td>
+        <td class="num"><strong>{{ frappe.utils.fmt_money(doc.total_interest, currency=currency) }}</strong></td>
+        <td class="num"><strong>{{ frappe.utils.fmt_money(doc.grand_total_due, currency=currency) }}</strong></td>
+      </tr>
+    </tbody>
+  </table>
 
   <p class="dn-final">
     This notice may be treated as a final opportunity to resolve the matter amicably and avoid escalation.
@@ -186,13 +237,9 @@
     with a concrete payment plan.
   </p>
 
-  <div class="dn-rule"></div>
-
   <p class="dn-ignore">
     Kindly ignore this notice if the payment has already been made and share the details for reconciliation.
   </p>
-
-  <div class="dn-rule"></div>
 
   <div class="dn-signatory">
     <p><strong>For SNRG Electricals India Private Limited</strong></p>
