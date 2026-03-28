@@ -19,6 +19,9 @@ def after_install():
     _ensure_so_fields()
     _ensure_quotation_fields()
     _ensure_report()
+    _ensure_employee_bar_council_field()
+    _ensure_demand_notice_settings()
+    _ensure_credit_control_workspace()
     frappe.db.commit()
 
 
@@ -29,6 +32,9 @@ def after_migrate():
     _ensure_so_fields()
     _ensure_quotation_fields()
     _ensure_report()
+    _ensure_employee_bar_council_field()
+    _ensure_demand_notice_settings()
+    _ensure_credit_control_workspace()
     frappe.db.commit()
 
 
@@ -357,3 +363,106 @@ def _ensure_custom_field(doctype, field_def):
     doc = {"doctype": "Custom Field", "dt": doctype}
     doc.update(field_def)
     frappe.get_doc(doc).insert(ignore_permissions=True)
+
+
+# ---------------------------------------------------------------------------
+# Employee — Bar Council Number custom field
+# ---------------------------------------------------------------------------
+
+def _ensure_employee_bar_council_field():
+    _ensure_custom_field("Employee", {
+        "fieldname": "custom_bar_council_number",
+        "fieldtype": "Data",
+        "label": "Bar Council Number",
+        "insert_after": "designation",
+    })
+
+
+# ---------------------------------------------------------------------------
+# Demand Notice Settings — default singleton record
+# ---------------------------------------------------------------------------
+
+_DEFAULT_LEGAL_TEXT = (
+    "TAKE NOTICE that the sum stated above is due and payable forthwith. "
+    "Should the outstanding amount not be received in full by the payment deadline "
+    "stated herein, we reserve the right to:\n\n"
+    "1. Initiate legal proceedings for recovery of the outstanding amount together "
+    "with interest, costs and legal fees without further notice.\n"
+    "2. Report the default to relevant credit bureaus and regulatory authorities.\n"
+    "3. Suspend all credit facilities and withhold further supply of goods or services.\n\n"
+    "This notice is issued without prejudice to any other rights and remedies "
+    "available to us under law."
+)
+
+
+def _ensure_demand_notice_settings():
+    if frappe.db.exists("Demand Notice Settings", "Demand Notice Settings"):
+        return
+    frappe.get_doc({
+        "doctype": "Demand Notice Settings",
+        "default_interest_rate": 18,
+        "payment_deadline_days": 14,
+        "default_legal_text": _DEFAULT_LEGAL_TEXT,
+    }).insert(ignore_permissions=True)
+
+
+# ---------------------------------------------------------------------------
+# Credit Control Workspace
+# ---------------------------------------------------------------------------
+
+def _ensure_credit_control_workspace():
+    workspace_values = {
+        "doctype": "Workspace",
+        "name": "Credit Control",
+        "title": "Credit Control",
+        "label": "Credit Control",
+        "module": "Snrg Credit Control",
+        "icon": "credit-card",
+        "is_hidden": 0,
+        "public": 1,
+        "parent_page": "",
+        "for_user": "",
+        "content": "[]",
+        "shortcuts": [
+            {
+                "type": "DocType",
+                "label": "Credit PTP",
+                "link_to": "Credit PTP",
+                "icon": "shield",
+            },
+            {
+                "type": "Report",
+                "label": "Credit Control Report",
+                "link_to": "Credit Control Report",
+                "icon": "list",
+                "doc_view": "",
+            },
+            {
+                "type": "DocType",
+                "label": "Demand Notice",
+                "link_to": "Demand Notice",
+                "icon": "file-text",
+            },
+            {
+                "type": "DocType",
+                "label": "Demand Notice Settings",
+                "link_to": "Demand Notice Settings",
+                "icon": "settings",
+            },
+        ],
+    }
+
+    if frappe.db.exists("Workspace", "Credit Control"):
+        workspace = frappe.get_doc("Workspace", "Credit Control")
+        workspace.update(workspace_values)
+        workspace.save(ignore_permissions=True)
+        return
+
+    frappe.get_doc(workspace_values).insert(ignore_permissions=True)
+
+
+def execute_patch_ensure_credit_control_workspace():
+    _ensure_module()
+    _ensure_report()
+    _ensure_demand_notice_settings()
+    _ensure_credit_control_workspace()
