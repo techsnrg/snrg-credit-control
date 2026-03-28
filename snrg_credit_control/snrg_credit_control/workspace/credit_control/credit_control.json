@@ -1,7 +1,7 @@
 {
  "category": "Modules",
  "charts": [],
- "content": "[{\"id\":\"credit_control_header\",\"type\":\"header\",\"data\":{\"text\":\"Credit Management\",\"col\":12}},{\"id\":\"credit_ptp_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Credit PTP\",\"col\":3}},{\"id\":\"credit_report_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Credit Control Report\",\"col\":3}},{\"id\":\"demand_notice_header\",\"type\":\"header\",\"data\":{\"text\":\"Demand Notices\",\"col\":12}},{\"id\":\"demand_notice_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Demand Notice\",\"col\":3}},{\"id\":\"demand_notice_settings_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Demand Notice Settings\",\"col\":3}},{\"id\":\"cheque_bounce_header\",\"type\":\"header\",\"data\":{\"text\":\"Cheque Bounce\",\"col\":12}},{\"id\":\"cheque_bounce_case_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Cheque Bounce Case\",\"col\":3}},{\"id\":\"legal_case_header\",\"type\":\"header\",\"data\":{\"text\":\"Legal Recovery\",\"col\":12}},{\"id\":\"legal_case_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Legal Case\",\"col\":3}},{\"id\":\"legal_case_settings_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Legal Case Settings\",\"col\":3}}]",
+ "content": "[{\"id\":\"credit_control_header\",\"type\":\"header\",\"data\":{\"text\":\"Credit Management\",\"col\":12}},{\"id\":\"credit_ptp_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Credit PTP\",\"col\":3}},{\"id\":\"credit_report_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Credit Control Report\",\"col\":3}},{\"id\":\"demand_notice_header\",\"type\":\"header\",\"data\":{\"text\":\"Demand Notices\",\"col\":12}},{\"id\":\"demand_notice_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Demand Notice\",\"col\":3}},{\"id\":\"demand_notice_settings_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Demand Notice Settings\",\"col\":3}},{\"id\":\"cheque_bounce_header\",\"type\":\"header\",\"data\":{\"text\":\"Cheque Bounce\",\"col\":12}},{\"id\":\"cheque_bounce_case_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Cheque Bounce Case\",\"col\":3}},{\"id\":\"legal_case_header\",\"type\":\"header\",\"data\":{\"text\":\"Legal Recovery\",\"col\":12}},{\"id\":\"legal_case_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Legal Case\",\"col\":3}},{\"id\":\"legal_case_settings_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Legal Case Settings\",\"col\":3}},{\"id\":\"legal_case_activity_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Legal Case Activity\",\"col\":3}}]",
  "creation": "2026-03-28 12:00:00.000000",
  "developer_mode_only": 0,
  "disable_user_customization": 0,
@@ -126,6 +126,17 @@
    "link_type": "DocType",
    "onboard": 0,
    "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Legal Case Activity",
+   "link_count": 0,
+   "link_to": "Legal Case Activity",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
   }
  ],
  "modified": "2026-03-28 12:00:00.000000",
@@ -177,6 +188,12 @@
    "color": "Grey",
    "label": "Legal Case Settings",
    "link_to": "Legal Case Settings",
+   "type": "DocType"
+  },
+  {
+   "color": "Blue",
+   "label": "Legal Case Activity",
+   "link_to": "Legal Case Activity",
    "type": "DocType"
   }
  ],

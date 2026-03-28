@@ -558,6 +558,7 @@ def _ensure_credit_control_workspace():
     has_cheque_bounce_case = frappe.db.exists("DocType", "Cheque Bounce Case")
     has_legal_case = frappe.db.exists("DocType", "Legal Case")
     has_legal_case_settings = frappe.db.exists("DocType", "Legal Case Settings")
+    has_legal_case_activity = frappe.db.exists("DocType", "Legal Case Activity")
 
     content_blocks = [
         {
@@ -848,6 +849,36 @@ def _ensure_credit_control_workspace():
                     "link_to": "Legal Case Settings",
                     "icon": "settings",
                     "color": "Grey",
+                }
+            )
+        if has_legal_case_activity:
+            content_blocks.append(
+                {
+                    "id": "legal_case_activity_shortcut",
+                    "type": "shortcut",
+                    "data": {"shortcut_name": "Legal Case Activity", "col": 3},
+                }
+            )
+            links.append(
+                {
+                    "label": "Legal Case Activity",
+                    "type": "Link",
+                    "link_type": "DocType",
+                    "link_to": "Legal Case Activity",
+                    "hidden": 0,
+                    "is_query_report": 0,
+                    "link_count": 0,
+                    "onboard": 0,
+                    "dependencies": "",
+                }
+            )
+            shortcuts.append(
+                {
+                    "type": "DocType",
+                    "label": "Legal Case Activity",
+                    "link_to": "Legal Case Activity",
+                    "icon": "history",
+                    "color": "Blue",
                 }
             )
 

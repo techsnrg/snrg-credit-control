@@ -5,6 +5,7 @@ from frappe.utils import flt
 
 from snrg_credit_control.legal_case import (
     ACTIVE_LEGAL_STATUSES,
+    add_legal_case_activity,
     get_legal_case_settings,
     get_active_legal_case,
     sync_customer_legal_marker,
@@ -12,6 +13,20 @@ from snrg_credit_control.legal_case import (
 
 
 class LegalCase(Document):
+    def before_save(self):
+        if self.name and not self.is_new():
+            previous = frappe.db.get_value(
+                "Legal Case",
+                self.name,
+                ["status", "amount_recovered"],
+                as_dict=True,
+            ) or {}
+            self._previous_status = previous.get("status")
+            self._previous_amount_recovered = flt(previous.get("amount_recovered"))
+        else:
+            self._previous_status = None
+            self._previous_amount_recovered = 0
+
     def validate(self):
         self._set_defaults()
         self._validate_unique_active_case()
@@ -19,6 +34,7 @@ class LegalCase(Document):
 
     def on_update(self):
         self._sync_customer()
+        self._record_activity_updates()
 
     def on_trash(self):
         self._sync_customer()
@@ -75,3 +91,29 @@ class LegalCase(Document):
     def _sync_customer(self):
         if self.customer:
             sync_customer_legal_marker(self.customer)
+
+    def _record_activity_updates(self):
+        previous_status = getattr(self, "_previous_status", None)
+        previous_amount = flt(getattr(self, "_previous_amount_recovered", 0))
+
+        if previous_status and previous_status != self.status:
+            activity_type = "Case Closed" if self.status == "Closed" else "Status Updated"
+            add_legal_case_activity(
+                self.name,
+                activity_type,
+                reference_doctype="Legal Case",
+                reference_name=self.name,
+                remarks=f"Status changed from {previous_status} to {self.status}.",
+            )
+
+        current_amount = flt(self.amount_recovered)
+        if current_amount != previous_amount:
+            delta = round(current_amount - previous_amount, 2)
+            add_legal_case_activity(
+                self.name,
+                "Recovery Updated",
+                reference_doctype="Legal Case",
+                reference_name=self.name,
+                amount=delta,
+                remarks=f"Recovered amount updated from {previous_amount} to {current_amount}.",
+            )

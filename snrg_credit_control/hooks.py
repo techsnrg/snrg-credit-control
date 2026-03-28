@@ -23,6 +23,7 @@ doctype_list_js = {
     "Quotation": "public/js/quotation_list.js",
     "Cheque Bounce Case": "public/js/cheque_bounce_case_list.js",
     "Legal Case": "public/js/legal_case_list.js",
+    "Legal Case Activity": "public/js/legal_case_activity_list.js",
 }
 
 # Python event hooks for Sales Order

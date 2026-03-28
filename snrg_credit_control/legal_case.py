@@ -75,6 +75,49 @@ def sync_customer_legal_marker(customer):
     frappe.db.set_value("Customer", customer, values, update_modified=False)
 
 
+def add_legal_case_activity(
+    legal_case,
+    activity_type,
+    activity_date=None,
+    reference_doctype="",
+    reference_name="",
+    amount=0,
+    remarks="",
+):
+    if not legal_case:
+        return None
+
+    exists = frappe.db.exists(
+        "Legal Case Activity",
+        {
+            "legal_case": legal_case,
+            "activity_type": activity_type,
+            "activity_date": activity_date or today(),
+            "reference_doctype": reference_doctype,
+            "reference_name": reference_name,
+            "remarks": remarks,
+        },
+    )
+    if exists:
+        return exists
+
+    activity_doc = frappe.get_doc(
+        {
+            "doctype": "Legal Case Activity",
+            "legal_case": legal_case,
+            "activity_date": activity_date or today(),
+            "activity_type": activity_type,
+            "reference_doctype": reference_doctype,
+            "reference_name": reference_name,
+            "amount": flt(amount),
+            "remarks": remarks,
+            "performed_by": frappe.session.user,
+        }
+    )
+    activity_doc.insert(ignore_permissions=True)
+    return activity_doc.name
+
+
 def build_legal_case_title(customer_name, case_type):
     if not case_type:
         return customer_name
@@ -110,6 +153,15 @@ def create_or_open_legal_case(
         }
     )
     case_doc.insert(ignore_permissions=True)
+    add_legal_case_activity(
+        case_doc.name,
+        "Marked to Legal",
+        activity_date=case_doc.date_marked_legal,
+        reference_doctype=source_reference_type or "",
+        reference_name=source_reference_name or "",
+        amount=case_doc.total_claim_amount,
+        remarks=f"Case opened as {case_doc.case_type}.",
+    )
     return case_doc.name
 
 
@@ -151,6 +203,14 @@ def create_or_open_legal_case_from_cheque_bounce(cheque_bounce_case):
             case_name,
             update_modified=False,
         )
+        add_legal_case_activity(
+            case_name,
+            "Cheque Bounce Intake",
+            reference_doctype="Cheque Bounce Case",
+            reference_name=bounce_case.name,
+            amount=bounce_case.bounce_amount,
+            remarks=bounce_case.narration or "",
+        )
 
     return {"name": case_name}
 
@@ -181,6 +241,14 @@ def create_demand_notice_from_legal_case(legal_case):
             "status": "Notice Preparation",
         },
         update_modified=False,
+    )
+    add_legal_case_activity(
+        legal_case_doc.name,
+        "Demand Notice Created",
+        reference_doctype="Demand Notice",
+        reference_name=notice_doc.name,
+        amount=notice_doc.grand_total_due or legal_case_doc.total_claim_amount,
+        remarks="Demand Notice created from Legal Case.",
     )
 
     sync_customer_legal_marker(legal_case_doc.customer)

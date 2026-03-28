@@ -6,6 +6,7 @@ from snrg_credit_control.demand_notice_utils import (
     fetch_invoices_for_notice,
     get_employee_signatory_details,
 )
+from snrg_credit_control.legal_case import add_legal_case_activity
 
 
 class DemandNotice(Document):
@@ -97,6 +98,15 @@ class DemandNotice(Document):
             },
             update_modified=False,
         )
+        add_legal_case_activity(
+            self.legal_case,
+            "Demand Notice Submitted",
+            activity_date=self.notice_date,
+            reference_doctype="Demand Notice",
+            reference_name=self.name,
+            amount=self.grand_total_due,
+            remarks="Demand Notice submitted.",
+        )
 
     def _sync_legal_case_on_cancel(self):
         if not self.legal_case:
@@ -109,6 +119,15 @@ class DemandNotice(Document):
                 "notice_sent_date": None,
             },
             update_modified=False,
+        )
+        add_legal_case_activity(
+            self.legal_case,
+            "Demand Notice Cancelled",
+            activity_date=today(),
+            reference_doctype="Demand Notice",
+            reference_name=self.name,
+            amount=self.grand_total_due,
+            remarks="Demand Notice cancelled.",
         )
 
     def _recalculate_totals(self):
