@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_rename": 0,
- "autoname": "format:DN-{YYYY}-{#####}",
+ "autoname": "format:DMN-{YYYY}-{#####}",
  "creation": "2026-03-28 00:00:00.000000",
  "default_print_format": "Demand Notice",
  "doctype": "DocType",
