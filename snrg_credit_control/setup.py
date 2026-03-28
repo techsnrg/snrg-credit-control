@@ -399,10 +399,15 @@ _DEFAULT_LEGAL_TEXT = (
 
 def _ensure_demand_notice_settings():
     if frappe.db.exists("Demand Notice Settings", "Demand Notice Settings"):
+        if not frappe.db.get_single_value("Demand Notice Settings", "interest_start_after_days"):
+            frappe.db.set_single_value(
+                "Demand Notice Settings", "interest_start_after_days", 60
+            )
         return
     frappe.get_doc({
         "doctype": "Demand Notice Settings",
         "default_interest_rate": 18,
+        "interest_start_after_days": 60,
         "payment_deadline_days": 14,
         "default_legal_text": _DEFAULT_LEGAL_TEXT,
     }).insert(ignore_permissions=True)

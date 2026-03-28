@@ -99,6 +99,9 @@ class DemandNotice(Document):
             self.customer,
             self.company,
             flt(self.interest_rate or 18),
+            frappe.db.get_single_value(
+                "Demand Notice Settings", "interest_start_after_days"
+            ) or 60,
         )
 
         if not rows:

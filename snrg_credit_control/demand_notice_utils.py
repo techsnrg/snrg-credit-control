@@ -43,7 +43,7 @@ def get_overdue_invoices_for_notice(customer, company):
 # Interest Calculation
 # ---------------------------------------------------------------------------
 
-def calculate_interest(outstanding_amount, overdue_days, annual_rate):
+def calculate_interest(outstanding_amount, overdue_days, annual_rate, threshold_days=60):
     """
     Simple interest formula:  I = P × (R / 100) × (T / 365)
 
@@ -51,18 +51,23 @@ def calculate_interest(outstanding_amount, overdue_days, annual_rate):
         outstanding_amount (float): Principal — the unpaid invoice amount.
         overdue_days (int): Days elapsed since invoice posting_date.
         annual_rate (float): Annual interest rate as a percentage (e.g. 18.0).
+        threshold_days (int): Grace period before interest starts accruing.
 
     Returns:
         float: Interest amount rounded to 2 decimal places.
                Returns 0.0 if any argument is missing or zero.
     """
-    if not outstanding_amount or not overdue_days or not annual_rate:
+    if not outstanding_amount or overdue_days is None or not annual_rate:
         return 0.0
     if overdue_days <= 0:
         return 0.0
 
+    chargeable_days = max(0, int(overdue_days) - int(threshold_days or 0))
+    if chargeable_days <= 0:
+        return 0.0
+
     rate_decimal = flt(annual_rate) / 100.0
-    time_fraction = flt(overdue_days) / 365.0
+    time_fraction = flt(chargeable_days) / 365.0
     interest = flt(outstanding_amount) * rate_decimal * time_fraction
     return round(interest, 2)
 
@@ -71,7 +76,7 @@ def calculate_interest(outstanding_amount, overdue_days, annual_rate):
 # Orchestrator
 # ---------------------------------------------------------------------------
 
-def fetch_invoices_for_notice(customer, company, interest_rate):
+def fetch_invoices_for_notice(customer, company, interest_rate, threshold_days=60):
     """
     Fetch overdue invoices for a customer, compute per-invoice interest,
     and return rows ready to populate the Demand Notice Invoice child table.
@@ -80,6 +85,7 @@ def fetch_invoices_for_notice(customer, company, interest_rate):
         customer (str): Customer docname.
         company (str): Company docname.
         interest_rate (float): Annual interest rate % from Demand Notice Settings.
+        threshold_days (int): Days to wait before interest begins to accrue.
 
     Returns:
         list of dicts, each matching Demand Notice Invoice fields:
@@ -97,6 +103,7 @@ def fetch_invoices_for_notice(customer, company, interest_rate):
             flt(inv.outstanding_amount),
             overdue_days,
             flt(interest_rate),
+            threshold_days,
         )
         rows.append({
             "sales_invoice": inv.name,

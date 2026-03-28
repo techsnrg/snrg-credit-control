@@ -5,6 +5,7 @@
  "engine": "InnoDB",
  "field_order": [
   "default_interest_rate",
+  "interest_start_after_days",
   "payment_deadline_days",
   "default_company",
   "section_legal_text",
@@ -17,6 +18,14 @@
    "fieldname": "default_interest_rate",
    "fieldtype": "Float",
    "label": "Default Annual Interest Rate (%)",
+   "reqd": 1
+  },
+  {
+   "default": "60",
+   "description": "Interest starts accruing only after this many overdue days",
+   "fieldname": "interest_start_after_days",
+   "fieldtype": "Int",
+   "label": "Interest Starts After (Days)",
    "reqd": 1
   },
   {
