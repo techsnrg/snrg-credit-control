@@ -5,6 +5,8 @@ Runs after `bench install-app` and after every `bench migrate`.
 Idempotent: safe to run multiple times.
 """
 
+import json
+
 import frappe
 
 
@@ -411,6 +413,173 @@ def _ensure_demand_notice_settings():
 # ---------------------------------------------------------------------------
 
 def _ensure_credit_control_workspace():
+    has_demand_notice = frappe.db.exists("DocType", "Demand Notice")
+    has_demand_notice_settings = frappe.db.exists("DocType", "Demand Notice Settings")
+
+    content_blocks = [
+        {
+            "id": "credit_control_header",
+            "type": "header",
+            "data": {"text": "Credit Management", "col": 12},
+        },
+        {
+            "id": "credit_ptp_shortcut",
+            "type": "shortcut",
+            "data": {"shortcut_name": "Credit PTP", "col": 3},
+        },
+        {
+            "id": "credit_report_shortcut",
+            "type": "shortcut",
+            "data": {"shortcut_name": "Credit Control Report", "col": 3},
+        },
+    ]
+
+    links = [
+        {
+            "label": "Credit Management",
+            "type": "Card Break",
+            "hidden": 0,
+            "is_query_report": 0,
+            "link_count": 0,
+            "onboard": 0,
+            "dependencies": "",
+        },
+        {
+            "label": "Credit PTP",
+            "type": "Link",
+            "link_type": "DocType",
+            "link_to": "Credit PTP",
+            "hidden": 0,
+            "is_query_report": 0,
+            "link_count": 0,
+            "onboard": 1,
+            "dependencies": "",
+        },
+        {
+            "label": "Credit Control Report",
+            "type": "Link",
+            "link_type": "Report",
+            "link_to": "Credit Control Report",
+            "hidden": 0,
+            "is_query_report": 0,
+            "link_count": 0,
+            "onboard": 1,
+            "dependencies": "",
+        },
+    ]
+
+    shortcuts = [
+        {
+            "type": "DocType",
+            "label": "Credit PTP",
+            "link_to": "Credit PTP",
+            "icon": "shield",
+            "color": "Blue",
+        },
+        {
+            "type": "Report",
+            "label": "Credit Control Report",
+            "link_to": "Credit Control Report",
+            "icon": "list",
+            "doc_view": "",
+            "color": "Green",
+        },
+    ]
+
+    if has_demand_notice or has_demand_notice_settings:
+        content_blocks.append(
+            {
+                "id": "demand_notice_header",
+                "type": "header",
+                "data": {"text": "Demand Notices", "col": 12},
+            }
+        )
+
+    if has_demand_notice:
+        content_blocks.append(
+            {
+                "id": "demand_notice_shortcut",
+                "type": "shortcut",
+                "data": {"shortcut_name": "Demand Notice", "col": 3},
+            }
+        )
+        links.extend(
+            [
+                {
+                    "label": "Demand Notices",
+                    "type": "Card Break",
+                    "hidden": 0,
+                    "is_query_report": 0,
+                    "link_count": 0,
+                    "onboard": 0,
+                    "dependencies": "",
+                },
+                {
+                    "label": "Demand Notice",
+                    "type": "Link",
+                    "link_type": "DocType",
+                    "link_to": "Demand Notice",
+                    "hidden": 0,
+                    "is_query_report": 0,
+                    "link_count": 0,
+                    "onboard": 1,
+                    "dependencies": "",
+                },
+            ]
+        )
+        shortcuts.append(
+            {
+                "type": "DocType",
+                "label": "Demand Notice",
+                "link_to": "Demand Notice",
+                "icon": "file-text",
+                "color": "Orange",
+            }
+        )
+
+    if has_demand_notice_settings:
+        content_blocks.append(
+            {
+                "id": "demand_notice_settings_shortcut",
+                "type": "shortcut",
+                "data": {"shortcut_name": "Demand Notice Settings", "col": 3},
+            }
+        )
+        if not has_demand_notice:
+            links.append(
+                {
+                    "label": "Demand Notices",
+                    "type": "Card Break",
+                    "hidden": 0,
+                    "is_query_report": 0,
+                    "link_count": 0,
+                    "onboard": 0,
+                    "dependencies": "",
+                }
+            )
+        links.append(
+            {
+                "label": "Demand Notice Settings",
+                "type": "Link",
+                "link_type": "DocType",
+                "link_to": "Demand Notice Settings",
+                "hidden": 0,
+                "is_query_report": 0,
+                "link_count": 0,
+                "onboard": 0,
+                "dependencies": "",
+            }
+        )
+        shortcuts.append(
+            {
+                "type": "DocType",
+                "label": "Demand Notice Settings",
+                "link_to": "Demand Notice Settings",
+                "icon": "settings",
+                "color": "Grey",
+            }
+        )
+
     workspace_values = {
         "doctype": "Workspace",
         "name": "Credit Control",
@@ -430,58 +599,10 @@ def _ensure_credit_control_workspace():
         "parent_page": "",
         "for_user": "",
         "restrict_to_domain": "",
-        "content": """[{"id":"credit_control_header","type":"header","data":{"text":"Credit Management","col":12}},{"id":"credit_ptp_shortcut","type":"shortcut","data":{"shortcut_name":"Credit PTP","col":3}},{"id":"credit_report_shortcut","type":"shortcut","data":{"shortcut_name":"Credit Control Report","col":3}}]""",
-        "links": [
-            {
-                "label": "Credit Management",
-                "type": "Card Break",
-                "hidden": 0,
-                "is_query_report": 0,
-                "link_count": 0,
-                "onboard": 0,
-                "dependencies": "",
-            },
-            {
-                "label": "Credit PTP",
-                "type": "Link",
-                "link_type": "DocType",
-                "link_to": "Credit PTP",
-                "hidden": 0,
-                "is_query_report": 0,
-                "link_count": 0,
-                "onboard": 1,
-                "dependencies": "",
-            },
-            {
-                "label": "Credit Control Report",
-                "type": "Link",
-                "link_type": "Report",
-                "link_to": "Credit Control Report",
-                "hidden": 0,
-                "is_query_report": 0,
-                "link_count": 0,
-                "onboard": 1,
-                "dependencies": "",
-            },
-        ],
+        "content": json.dumps(content_blocks, separators=(",", ":")),
+        "links": links,
         "roles": [],
-        "shortcuts": [
-            {
-                "type": "DocType",
-                "label": "Credit PTP",
-                "link_to": "Credit PTP",
-                "icon": "shield",
-                "color": "Blue",
-            },
-            {
-                "type": "Report",
-                "label": "Credit Control Report",
-                "link_to": "Credit Control Report",
-                "icon": "list",
-                "doc_view": "",
-                "color": "Green",
-            },
-        ],
+        "shortcuts": shortcuts,
     }
 
     if frappe.db.exists("Workspace", "Credit Control"):

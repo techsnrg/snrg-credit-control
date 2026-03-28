@@ -1,0 +1,11 @@
+{
+ "custom_format": 0,
+ "disabled": 0,
+ "doc_type": "Demand Notice",
+ "doctype": "Print Format",
+ "module": "Snrg Credit Control",
+ "name": "Demand Notice",
+ "print_format_type": "Jinja",
+ "raw_printing": 0,
+ "standard": "Yes"
+}

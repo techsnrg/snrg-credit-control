@@ -1,0 +1,70 @@
+{
+ "actions": [],
+ "creation": "2026-03-28 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "default_interest_rate",
+  "payment_deadline_days",
+  "default_company",
+  "section_legal_text",
+  "default_legal_text"
+ ],
+ "fields": [
+  {
+   "default": "18",
+   "description": "Annual simple interest rate (%) applied to outstanding invoice amounts",
+   "fieldname": "default_interest_rate",
+   "fieldtype": "Float",
+   "label": "Default Annual Interest Rate (%)",
+   "reqd": 1
+  },
+  {
+   "default": "14",
+   "description": "Number of days from the notice date to set as the payment deadline",
+   "fieldname": "payment_deadline_days",
+   "fieldtype": "Int",
+   "label": "Payment Deadline (Days from Notice Date)",
+   "reqd": 1
+  },
+  {
+   "fieldname": "default_company",
+   "fieldtype": "Link",
+   "label": "Default Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "section_legal_text",
+   "fieldtype": "Section Break",
+   "label": "Default Legal Text"
+  },
+  {
+   "description": "This text is pre-filled on every new Demand Notice and can be edited per notice",
+   "fieldname": "default_legal_text",
+   "fieldtype": "Long Text",
+   "label": "Default Legal Consequences Text"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-03-28 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Snrg Credit Control",
+ "name": "Demand Notice Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "read": 1,
+   "role": "System Manager",
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "Accounts Manager",
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC"
+}

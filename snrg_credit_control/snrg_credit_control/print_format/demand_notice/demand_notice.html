@@ -1,0 +1,145 @@
+{% set currency = doc.currency or "INR" %}
+{% set fmt_amount = namespace() %}
+
+<style>
+  body, table, td, th { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #222; }
+  .dn-header { width: 100%; margin-bottom: 24px; }
+  .dn-ref-block { text-align: right; }
+  .dn-ref-block p { margin: 2px 0; }
+  .dn-to-block { margin-bottom: 18px; }
+  .dn-to-block p { margin: 2px 0; }
+  .dn-subject { font-size: 13px; font-weight: bold; text-decoration: underline; margin: 18px 0 12px; }
+  .dn-body { margin-bottom: 16px; line-height: 1.6; }
+  .dn-invoice-table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+  .dn-invoice-table th {
+    background: #f0f0f0;
+    border: 1px solid #ccc;
+    padding: 7px 9px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .dn-invoice-table td {
+    border: 1px solid #ddd;
+    padding: 6px 9px;
+    vertical-align: top;
+  }
+  .dn-invoice-table .num { text-align: right; }
+  .dn-totals-table { width: 50%; margin-left: auto; border-collapse: collapse; margin-top: 8px; }
+  .dn-totals-table td { padding: 5px 10px; border: 1px solid #ddd; }
+  .dn-totals-table .lbl { font-weight: bold; }
+  .dn-grand-total { font-size: 14px; font-weight: bold; background: #fef9c3; }
+  .dn-deadline { font-weight: bold; color: #c0392b; margin: 14px 0; }
+  .dn-legal { margin: 18px 0; line-height: 1.7; text-align: justify; }
+  .dn-signatory { margin-top: 48px; }
+  .dn-signatory-line { border-top: 1px solid #333; width: 200px; margin-bottom: 4px; }
+  .dn-signatory p { margin: 2px 0; font-size: 12px; }
+</style>
+
+<!-- Reference block (date + notice number) -->
+<table class="dn-header">
+  <tr>
+    <td></td>
+    <td class="dn-ref-block" style="width:220px;">
+      <p><strong>Date:</strong> {{ frappe.utils.formatdate(doc.notice_date) }}</p>
+      {% if doc.notice_number %}
+      <p><strong>Notice No.:</strong> {{ doc.notice_number }}</p>
+      {% endif %}
+    </td>
+  </tr>
+</table>
+
+<!-- Addressee -->
+<div class="dn-to-block">
+  <p><strong>To,</strong></p>
+  <p><strong>{{ doc.customer_name }}</strong></p>
+  {% if doc.address_display %}
+    {% for line in doc.address_display.split('\n') %}
+      <p>{{ line }}</p>
+    {% endfor %}
+  {% endif %}
+</div>
+
+<!-- Subject -->
+<p class="dn-subject">SUBJECT: DEMAND NOTICE FOR OUTSTANDING PAYMENT</p>
+
+<!-- Opening -->
+<p class="dn-body">
+  Dear Sir / Madam,<br><br>
+  We draw your attention to the following outstanding invoices against your account with us.
+  Despite our repeated requests, the amounts detailed below remain unpaid. You are hereby
+  formally called upon to settle the entire outstanding dues immediately.
+</p>
+
+<!-- Invoice table -->
+<table class="dn-invoice-table">
+  <thead>
+    <tr>
+      <th>Invoice No.</th>
+      <th>Invoice Date</th>
+      <th>Due Date</th>
+      <th class="num">Outstanding ({{ currency }})</th>
+      <th class="num">Days Overdue</th>
+      <th class="num">Interest ({{ currency }})</th>
+      <th class="num">Total Payable ({{ currency }})</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for inv in doc.invoices %}
+    <tr>
+      <td>{{ inv.sales_invoice }}</td>
+      <td>{{ frappe.utils.formatdate(inv.posting_date) }}</td>
+      <td>{{ frappe.utils.formatdate(inv.due_date) if inv.due_date else "—" }}</td>
+      <td class="num">{{ frappe.utils.fmt_money(inv.outstanding_amount, currency=currency) }}</td>
+      <td class="num">{{ inv.overdue_days }}</td>
+      <td class="num">{{ frappe.utils.fmt_money(inv.interest_amount, currency=currency) }}</td>
+      <td class="num">{{ frappe.utils.fmt_money(inv.total_payable, currency=currency) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<!-- Totals -->
+<table class="dn-totals-table">
+  <tr>
+    <td class="lbl">Total Outstanding</td>
+    <td class="num">{{ frappe.utils.fmt_money(doc.total_outstanding, currency=currency) }}</td>
+  </tr>
+  <tr>
+    <td class="lbl">Interest on Overdue</td>
+    <td class="num">{{ frappe.utils.fmt_money(doc.total_interest, currency=currency) }}</td>
+  </tr>
+  <tr class="dn-grand-total">
+    <td class="lbl">GRAND TOTAL DUE</td>
+    <td class="num">{{ frappe.utils.fmt_money(doc.grand_total_due, currency=currency) }}</td>
+  </tr>
+</table>
+
+<!-- Payment deadline -->
+<p class="dn-deadline">
+  Payment in full must be received on or before:
+  {{ frappe.utils.formatdate(doc.payment_deadline) }}
+</p>
+
+<!-- Legal consequences -->
+{% if doc.legal_consequences_text %}
+<div class="dn-legal">
+  {{ doc.legal_consequences_text | replace('\n', '<br>') }}
+</div>
+{% endif %}
+
+<!-- Signatory -->
+<div class="dn-signatory">
+  <p>For <strong>{{ doc.company }}</strong>,</p>
+  <br><br>
+  <div class="dn-signatory-line"></div>
+  <p><strong>{{ doc.authorised_signatory }}</strong></p>
+  {% if doc.signatory_designation %}
+  <p>{{ doc.signatory_designation }}</p>
+  {% endif %}
+  {% if doc.bar_council_number %}
+  <p>Bar Council No.: {{ doc.bar_council_number }}</p>
+  {% endif %}
+</div>

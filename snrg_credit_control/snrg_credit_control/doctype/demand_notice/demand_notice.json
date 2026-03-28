@@ -1,0 +1,270 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "format:DN-.YYYY.-.#####",
+ "creation": "2026-03-28 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "customer",
+  "customer_name",
+  "company",
+  "notice_date",
+  "payment_deadline",
+  "col_break_header",
+  "notice_number",
+  "status",
+  "interest_rate",
+  "currency",
+  "section_address",
+  "customer_address",
+  "address_display",
+  "section_invoices",
+  "invoices",
+  "section_totals",
+  "total_outstanding",
+  "col_break_totals",
+  "total_interest",
+  "grand_total_due",
+  "section_notice_content",
+  "legal_consequences_text",
+  "section_signatory",
+  "authorised_signatory",
+  "signatory_designation",
+  "bar_council_number",
+  "section_internal",
+  "internal_notes",
+  "prepared_by"
+ ],
+ "fields": [
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Customer",
+   "options": "Customer",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "customer.customer_name",
+   "fieldname": "customer_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Customer Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "default": "Today",
+   "fieldname": "notice_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Date of Notice",
+   "reqd": 1
+  },
+  {
+   "fieldname": "payment_deadline",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Payment Deadline",
+   "reqd": 1
+  },
+  {
+   "fieldname": "col_break_header",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "notice_number",
+   "fieldtype": "Data",
+   "label": "Notice Number",
+   "read_only": 1
+  },
+  {
+   "default": "Draft",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "Draft\nIssued\nCancelled",
+   "read_only": 1
+  },
+  {
+   "fieldname": "interest_rate",
+   "fieldtype": "Float",
+   "label": "Annual Interest Rate (%)",
+   "description": "Simple interest rate per annum applied to outstanding amounts"
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_address",
+   "fieldtype": "Section Break",
+   "label": "Customer Address",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "customer_address",
+   "fieldtype": "Link",
+   "label": "Address",
+   "options": "Address"
+  },
+  {
+   "fieldname": "address_display",
+   "fieldtype": "Text",
+   "label": "Address Display",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_invoices",
+   "fieldtype": "Section Break",
+   "label": "Outstanding Invoices"
+  },
+  {
+   "fieldname": "invoices",
+   "fieldtype": "Table",
+   "label": "Invoices",
+   "options": "Demand Notice Invoice"
+  },
+  {
+   "fieldname": "section_totals",
+   "fieldtype": "Section Break",
+   "label": "Summary"
+  },
+  {
+   "fieldname": "total_outstanding",
+   "fieldtype": "Currency",
+   "label": "Total Outstanding",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_break_totals",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total_interest",
+   "fieldtype": "Currency",
+   "label": "Total Interest",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "bold": 1,
+   "fieldname": "grand_total_due",
+   "fieldtype": "Currency",
+   "label": "Grand Total Due",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_notice_content",
+   "fieldtype": "Section Break",
+   "label": "Legal Notice Content"
+  },
+  {
+   "fieldname": "legal_consequences_text",
+   "fieldtype": "Long Text",
+   "label": "Legal Consequences Text"
+  },
+  {
+   "fieldname": "section_signatory",
+   "fieldtype": "Section Break",
+   "label": "Authorised Signatory"
+  },
+  {
+   "fieldname": "authorised_signatory",
+   "fieldtype": "Data",
+   "label": "Authorised Signatory"
+  },
+  {
+   "fieldname": "signatory_designation",
+   "fieldtype": "Data",
+   "label": "Designation"
+  },
+  {
+   "fieldname": "bar_council_number",
+   "fieldtype": "Data",
+   "label": "Bar Council Number"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_internal",
+   "fieldtype": "Section Break",
+   "label": "Internal Notes"
+  },
+  {
+   "fieldname": "internal_notes",
+   "fieldtype": "Small Text",
+   "label": "Internal Notes"
+  },
+  {
+   "fieldname": "prepared_by",
+   "fieldtype": "Link",
+   "label": "Prepared By",
+   "options": "User",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-03-28 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Snrg Credit Control",
+ "name": "Demand Notice",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "cancel": 1,
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}
