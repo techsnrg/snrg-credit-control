@@ -1,5 +1,7 @@
 {% set currency = doc.currency or "INR" %}
 {% set stats = namespace(oldest_invoice_date=None, max_delay=0, invoice_count=(doc.invoices | length)) %}
+{% set letter_head_content = letter_head.content if letter_head is mapping else letter_head %}
+{% set letter_head_footer = letter_head.footer if letter_head is mapping else "" %}
 {% for inv in doc.invoices %}
   {% if not stats.oldest_invoice_date or inv.posting_date < stats.oldest_invoice_date %}
     {% set stats.oldest_invoice_date = inv.posting_date %}
@@ -19,10 +21,18 @@
     color: #000;
   }
   .dn-shell {
-    padding: 6px 8px 12px;
+    position: relative;
+    min-height: 100%;
+    padding: 6px 8px 86px;
   }
   .letter-head {
     margin-bottom: 14px;
+  }
+  .letter-head-footer {
+    position: fixed;
+    left: 14mm;
+    right: 14mm;
+    bottom: 8mm;
   }
   .dn-title {
     font-size: 18px;
@@ -117,8 +127,8 @@
   }
 </style>
 
-{% if letter_head and not no_letterhead %}
-<div class="letter-head">{{ letter_head }}</div>
+{% if letter_head_content and not no_letterhead %}
+<div class="letter-head">{{ letter_head_content }}</div>
 {% endif %}
 
 <div class="dn-shell">
@@ -235,3 +245,7 @@
     {% endif %}
   </div>
 </div>
+
+{% if letter_head_footer and not no_letterhead %}
+<div class="letter-head-footer">{{ letter_head_footer }}</div>
+{% endif %}
