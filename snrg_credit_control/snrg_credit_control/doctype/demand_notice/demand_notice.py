@@ -12,6 +12,7 @@ class DemandNotice(Document):
 
     def validate(self):
         self._set_defaults_on_new()
+        self._set_signatory_details()
         self._set_customer_name()
         self._set_currency()
         self._set_prepared_by()
@@ -43,12 +44,24 @@ class DemandNotice(Document):
             if not self.legal_consequences_text and settings.default_legal_text:
                 self.legal_consequences_text = settings.default_legal_text
 
-            if not self.authorised_signatory:
-                signatory = get_employee_signatory_details(frappe.session.user)
-                self.authorised_signatory = signatory["employee_name"]
-                self.signatory_designation = signatory["designation"]
-                self.bar_council_number = signatory["bar_council_number"]
-                self.signature_image = signatory["signature_image"]
+    def _set_signatory_details(self):
+        if (
+            self.authorised_signatory
+            and self.signatory_designation
+            and self.bar_council_number
+            and self.signature_image
+        ):
+            return
+
+        signatory = get_employee_signatory_details(frappe.session.user)
+        if not self.authorised_signatory:
+            self.authorised_signatory = signatory["employee_name"]
+        if not self.signatory_designation:
+            self.signatory_designation = signatory["designation"]
+        if not self.bar_council_number:
+            self.bar_council_number = signatory["bar_council_number"]
+        if not self.signature_image:
+            self.signature_image = signatory["signature_image"]
 
     def _set_customer_name(self):
         if self.customer and not self.customer_name:
