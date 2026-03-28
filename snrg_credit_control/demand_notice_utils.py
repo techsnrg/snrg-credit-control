@@ -131,13 +131,20 @@ def get_employee_signatory_details(user):
         user (str): Frappe User ID (e.g. 'nikhil@snrgindia.com').
 
     Returns:
-        dict with keys: employee_name, designation, bar_council_number, signature_image
-        All values default to empty string if not found.
+        dict with keys: employee_name, designation, bar_council_number,
+        official_mobile, signature_image. All values default to empty string
+        if not found.
     """
     emp = frappe.db.get_value(
         "Employee",
         {"user_id": user, "status": "Active"},
-        ["employee_name", "designation", "custom_bar_council_number", "custom_signature_image"],
+        [
+            "employee_name",
+            "designation",
+            "custom_bar_council_number",
+            "custom_official_mobile",
+            "custom_signature_image",
+        ],
         as_dict=True,
     )
     if not emp:
@@ -145,11 +152,13 @@ def get_employee_signatory_details(user):
             "employee_name": "",
             "designation": "",
             "bar_council_number": "",
+            "official_mobile": "",
             "signature_image": "",
         }
     return {
         "employee_name": emp.employee_name or "",
         "designation": emp.designation or "",
         "bar_council_number": emp.custom_bar_council_number or "",
+        "official_mobile": emp.custom_official_mobile or "",
         "signature_image": emp.custom_signature_image or "",
     }

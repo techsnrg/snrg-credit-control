@@ -49,6 +49,7 @@ class DemandNotice(Document):
             self.authorised_signatory
             and self.signatory_designation
             and self.bar_council_number
+            and self.official_mobile
             and self.signature_image
         ):
             return
@@ -60,6 +61,8 @@ class DemandNotice(Document):
             self.signatory_designation = signatory["designation"]
         if not self.bar_council_number:
             self.bar_council_number = signatory["bar_council_number"]
+        if not self.official_mobile:
+            self.official_mobile = signatory["official_mobile"]
         if not self.signature_image:
             self.signature_image = signatory["signature_image"]
 

@@ -34,6 +34,7 @@
   "signature_image",
   "signatory_designation",
   "bar_council_number",
+  "official_mobile",
   "section_internal",
   "internal_notes",
   "prepared_by"
@@ -204,6 +205,12 @@
    "fieldname": "bar_council_number",
    "fieldtype": "Data",
    "label": "Bar Council Number"
+  },
+  {
+   "fieldname": "official_mobile",
+   "fieldtype": "Data",
+   "label": "Official Mobile",
+   "read_only": 1
   },
   {
    "collapsible": 1,
