@@ -14,6 +14,7 @@ class LegalDesk {
     this.page = page;
     this.wrapper = $(wrapper);
     this.currentCase = null;
+    this.currentCustomer = null;
     this.manualActions = [
       "Call Made",
       "Visit Done",
@@ -37,22 +38,23 @@ class LegalDesk {
 
   make_filters() {
     const target = this.wrapper.find(".legal-desk-filter");
-    this.caseFilter = frappe.ui.form.make_control({
+    this.customerFilter = frappe.ui.form.make_control({
       parent: target,
       df: {
-      label: "Legal Case",
-      fieldname: "legal_case",
+      label: "Customer",
+      fieldname: "customer",
       fieldtype: "Link",
-      options: "Legal Case",
-      placeholder: "Select a Legal Case",
+      options: "Customer",
+      placeholder: "Select a Customer",
       change: () => {
-        this.currentCase = this.caseFilter.get_value();
+        this.currentCustomer = this.customerFilter.get_value();
+        this.currentCase = null;
         this.refresh();
       },
       },
       render_input: true,
     });
-    this.caseFilter.refresh();
+    this.customerFilter.refresh();
   }
 
   make_actions_menu() {
@@ -65,7 +67,7 @@ class LegalDesk {
     this.wrapper.find(".layout-main-section").html(`
       <div class="legal-desk-page">
         <div style="border:1px solid #e5e7eb; border-radius:14px; background:#fff; padding:16px 18px; margin-bottom:16px;">
-          <div style="font-size:12px; color:#6b7280; text-transform:uppercase; letter-spacing:.04em; margin-bottom:8px;">Open Legal Case</div>
+          <div style="font-size:12px; color:#6b7280; text-transform:uppercase; letter-spacing:.04em; margin-bottom:8px;">Open Customer Legal Desk</div>
           <div class="legal-desk-filter"></div>
         </div>
         <div class="legal-desk-summary" style="display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px;"></div>
@@ -83,7 +85,7 @@ class LegalDesk {
 
     if (routeOptions.legal_case) {
       this.currentCase = routeOptions.legal_case;
-      this.caseFilter.set_value(routeOptions.legal_case);
+      this.loadCustomerFromCase(routeOptions.legal_case);
       frappe.route_options = null;
       this.refresh();
       return;
@@ -91,7 +93,7 @@ class LegalDesk {
 
     if (route.length > 1 && route[1]) {
       this.currentCase = route[1];
-      this.caseFilter.set_value(route[1]);
+      this.loadCustomerFromCase(route[1]);
       this.refresh();
       return;
     }
@@ -100,7 +102,7 @@ class LegalDesk {
   }
 
   refresh() {
-    if (!this.currentCase) {
+    if (!this.currentCustomer && !this.currentCase) {
       this.render_empty_state();
       return;
     }
@@ -108,17 +110,25 @@ class LegalDesk {
     this.set_loading_state();
 
     frappe.call({
-      method: "snrg_credit_control.legal_case.get_legal_desk_context",
+      method: this.currentCustomer
+        ? "snrg_credit_control.legal_case.get_customer_legal_desk_context"
+        : "snrg_credit_control.legal_case.get_legal_desk_context",
       args: {
         legal_case: this.currentCase,
+        customer: this.currentCustomer,
       },
       callback: (r) => {
         const context = r.message;
         if (!context) {
-          this.render_empty_state("Unable to load this legal case.");
+          this.render_empty_state("Unable to load this customer's legal desk.");
           return;
         }
 
+        this.currentCase = context.case.name;
+        this.currentCustomer = context.case.customer;
+        if (this.customerFilter && this.customerFilter.get_value() !== context.case.customer) {
+          this.customerFilter.set_value(context.case.customer);
+        }
         this.render_summary(context.case);
         this.render_timeline(context.timeline || []);
         this.render_side_panel(context.case, context.notices || []);
@@ -136,7 +146,7 @@ class LegalDesk {
   }
 
   render_empty_state(message) {
-    const text = message || "Select a Legal Case to open its desk view.";
+    const text = message || "Select a Customer to open the legal desk view.";
     this.wrapper.find(".legal-desk-summary").html("");
     this.wrapper.find(".legal-desk-timeline-panel").html(this.panel("Timeline", `<div class="text-muted">${text}</div>`));
     this.wrapper.find(".legal-desk-side-panel").html(this.panel("Case Details", `<div class="text-muted">${text}</div>`));
@@ -227,7 +237,7 @@ class LegalDesk {
 
   open_action_dialog(activityType) {
     if (!this.currentCase) {
-      frappe.msgprint("Select a Legal Case first.");
+      frappe.msgprint("Select a customer with an active Legal Case first.");
       return;
     }
 
@@ -334,5 +344,18 @@ class LegalDesk {
     const dateLabel = frappe.datetime.str_to_user(date);
     const safeReason = reason ? `<div style="margin-top:4px; font-size:12px; color:#6b7280; font-weight:400;">${frappe.utils.escape_html(reason)}</div>` : "";
     return `<div>${dateLabel}</div>${safeReason}`;
+  }
+
+  loadCustomerFromCase(legalCase) {
+    frappe.db.get_value("Legal Case", legalCase, "customer").then((r) => {
+      const customer = r.message && r.message.customer;
+      if (!customer) {
+        return;
+      }
+      this.currentCustomer = customer;
+      if (this.customerFilter && this.customerFilter.get_value() !== customer) {
+        this.customerFilter.set_value(customer);
+      }
+    });
   }
 }

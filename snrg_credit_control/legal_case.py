@@ -397,6 +397,18 @@ def get_legal_desk_context(legal_case):
 
 
 @frappe.whitelist()
+def get_customer_legal_desk_context(customer):
+    if not customer:
+        frappe.throw("Customer is required.")
+
+    legal_case = get_active_legal_case(customer)
+    if not legal_case:
+        frappe.throw("No active Legal Case was found for this customer.")
+
+    return get_legal_desk_context(legal_case)
+
+
+@frappe.whitelist()
 def log_legal_case_action(legal_case, activity_type, remarks="", amount=0, activity_date=None):
     if not legal_case:
         frappe.throw("Legal Case is required.")
