@@ -569,6 +569,7 @@ def _ensure_credit_control_workspace():
     has_legal_case_activity = frappe.db.exists("DocType", "Legal Case Activity")
     has_legal_tracker = frappe.db.exists("Report", "Legal Tracker")
     has_legal_payments = frappe.db.exists("Report", "Legal Payments")
+    has_legal_desk = frappe.db.exists("Page", "legal-desk")
 
     content_blocks = [
         {
@@ -859,6 +860,36 @@ def _ensure_credit_control_workspace():
                     "link_to": "Legal Tracker",
                     "icon": "list",
                     "color": "Orange",
+                }
+            )
+        if has_legal_desk:
+            content_blocks.append(
+                {
+                    "id": "legal_desk_shortcut",
+                    "type": "shortcut",
+                    "data": {"shortcut_name": "Legal Desk", "col": 3},
+                }
+            )
+            links.append(
+                {
+                    "label": "Legal Desk",
+                    "type": "Link",
+                    "link_type": "Page",
+                    "link_to": "legal-desk",
+                    "hidden": 0,
+                    "is_query_report": 0,
+                    "link_count": 0,
+                    "onboard": 1,
+                    "dependencies": "",
+                }
+            )
+            shortcuts.append(
+                {
+                    "type": "Page",
+                    "label": "Legal Desk",
+                    "link_to": "legal-desk",
+                    "icon": "dashboard",
+                    "color": "Red",
                 }
             )
         if has_legal_payments:

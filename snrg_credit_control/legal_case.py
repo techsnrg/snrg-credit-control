@@ -353,3 +353,89 @@ def get_legal_case_timeline(legal_case):
             row["reference_route"] = f"/app/{frappe.scrub(row['reference_doctype'])}/{row['reference_name']}"
 
     return activities
+
+
+@frappe.whitelist()
+def get_legal_desk_context(legal_case):
+    if not legal_case:
+        frappe.throw("Legal Case is required.")
+
+    case_doc = frappe.get_doc("Legal Case", legal_case)
+    timeline = get_legal_case_timeline(legal_case)
+
+    notices = frappe.get_all(
+        "Demand Notice",
+        filters={"legal_case": legal_case},
+        fields=["name", "notice_date", "status", "grand_total_due", "docstatus"],
+        order_by="notice_date desc, modified desc",
+    )
+
+    return {
+        "case": {
+            "name": case_doc.name,
+            "case_title": case_doc.case_title,
+            "customer": case_doc.customer,
+            "company": case_doc.company,
+            "status": case_doc.status,
+            "assigned_counsel": case_doc.assigned_counsel,
+            "assigned_to": case_doc.assigned_to,
+            "original_legal_amount": case_doc.original_legal_amount,
+            "current_outstanding_balance": case_doc.current_outstanding_balance,
+            "amount_recovered": case_doc.amount_recovered,
+            "next_action_due_by": case_doc.next_action_due_by,
+            "next_action_due_by_reason": case_doc.next_action_due_by_reason,
+            "next_action_on_or_after": case_doc.next_action_on_or_after,
+            "next_action_on_or_after_reason": case_doc.next_action_on_or_after_reason,
+            "last_notice_date": case_doc.last_notice_date,
+            "last_payment_date": case_doc.last_payment_date,
+            "last_activity_date": case_doc.last_activity_date,
+            "summary": case_doc.summary,
+        },
+        "timeline": timeline,
+        "notices": notices,
+    }
+
+
+@frappe.whitelist()
+def log_legal_case_action(legal_case, activity_type, remarks="", amount=0, activity_date=None):
+    if not legal_case:
+        frappe.throw("Legal Case is required.")
+    if not activity_type:
+        frappe.throw("Activity Type is required.")
+
+    allowed_manual_actions = {
+        "Call Made",
+        "Visit Done",
+        "Email Sent",
+        "WhatsApp Sent",
+        "Meeting Held",
+        "Settlement Discussed",
+        "Counsel Note Added",
+    }
+    if activity_type not in allowed_manual_actions:
+        frappe.throw("Unsupported manual legal activity type.")
+
+    activity_doc = frappe.get_doc(
+        {
+            "doctype": "Legal Case Activity",
+            "legal_case": legal_case,
+            "activity_type": activity_type,
+            "activity_date": activity_date or today(),
+            "amount": flt(amount),
+            "remarks": remarks or "",
+            "performed_by": frappe.session.user,
+        }
+    )
+    activity_doc.insert(ignore_permissions=True)
+
+    latest_activity_date = get_last_activity_date(legal_case)
+    if latest_activity_date:
+        frappe.db.set_value(
+            "Legal Case",
+            legal_case,
+            "last_activity_date",
+            latest_activity_date,
+            update_modified=False,
+        )
+
+    return {"name": activity_doc.name}

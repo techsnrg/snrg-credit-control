@@ -45,7 +45,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Activity Type",
-   "options": "Marked to Legal\nCheque Bounce Intake\nDemand Notice Created\nDemand Notice Submitted\nDemand Notice Cancelled\nRecovery Updated\nStatus Updated\nCase Closed",
+   "options": "Marked to Legal\nCheque Bounce Intake\nDemand Notice Created\nDemand Notice Submitted\nDemand Notice Cancelled\nRecovery Updated\nStatus Updated\nCase Closed\nCall Made\nVisit Done\nEmail Sent\nWhatsApp Sent\nMeeting Held\nSettlement Discussed\nCounsel Note Added",
    "reqd": 1
   },
   {

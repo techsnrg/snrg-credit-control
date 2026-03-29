@@ -1,0 +1,29 @@
+{
+ "content": null,
+ "creation": "2026-03-30 00:00:00.000000",
+ "docstatus": 0,
+ "doctype": "Page",
+ "icon": "octicon octicon-briefcase",
+ "idx": 0,
+ "modified": "2026-03-30 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Snrg Credit Control",
+ "name": "legal-desk",
+ "owner": "Administrator",
+ "page_name": "legal-desk",
+ "roles": [
+  {
+   "role": "System Manager"
+  },
+  {
+   "role": "Legal"
+  },
+  {
+   "role": "Accounts Manager"
+  }
+ ],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "title": "Legal Desk"
+}
