@@ -323,3 +323,33 @@ def create_demand_notice_from_legal_case(legal_case):
 
     sync_customer_legal_marker(legal_case_doc.customer)
     return {"name": notice_doc.name}
+
+
+@frappe.whitelist()
+def get_legal_case_timeline(legal_case):
+    if not legal_case:
+        return []
+
+    activities = frappe.get_all(
+        "Legal Case Activity",
+        filters={"legal_case": legal_case},
+        fields=[
+            "name",
+            "activity_date",
+            "activity_type",
+            "reference_doctype",
+            "reference_name",
+            "amount",
+            "remarks",
+            "performed_by",
+            "creation",
+        ],
+        order_by="activity_date desc, creation desc",
+    )
+
+    for row in activities:
+        row["reference_route"] = ""
+        if row.get("reference_doctype") and row.get("reference_name"):
+            row["reference_route"] = f"/app/{frappe.scrub(row['reference_doctype'])}/{row['reference_name']}"
+
+    return activities

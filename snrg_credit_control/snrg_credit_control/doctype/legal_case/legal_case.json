@@ -48,6 +48,8 @@
   "section_links_and_notes",
   "demand_notice",
   "summary",
+  "section_timeline",
+  "timeline_html",
   "col_break_closure",
   "closure_date",
   "closure_reason"
@@ -299,6 +301,16 @@
    "fieldname": "summary",
    "fieldtype": "Long Text",
    "label": "Summary"
+  },
+  {
+   "fieldname": "section_timeline",
+   "fieldtype": "Section Break",
+   "label": "Timeline"
+  },
+  {
+   "fieldname": "timeline_html",
+   "fieldtype": "HTML",
+   "label": "Timeline"
   },
   {
    "fieldname": "col_break_closure",
