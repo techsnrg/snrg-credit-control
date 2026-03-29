@@ -7,6 +7,7 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "section_notice_header",
   "customer",
   "customer_name",
   "company",
@@ -20,6 +21,7 @@
   "currency",
   "section_address",
   "customer_address",
+  "col_break_address",
   "address_display",
   "section_invoices",
   "invoices",
@@ -33,14 +35,21 @@
   "section_signatory",
   "authorised_signatory",
   "signature_image",
+  "col_break_signatory",
   "signatory_designation",
   "bar_council_number",
   "official_mobile",
   "section_internal",
   "internal_notes",
+  "col_break_internal",
   "prepared_by"
  ],
  "fields": [
+  {
+   "fieldname": "section_notice_header",
+   "fieldtype": "Section Break",
+   "label": "Notice Details"
+  },
   {
    "fieldname": "customer",
    "fieldtype": "Link",
@@ -131,6 +140,10 @@
    "options": "Address"
   },
   {
+   "fieldname": "col_break_address",
+   "fieldtype": "Column Break"
+  },
+  {
    "fieldname": "address_display",
    "fieldtype": "Text",
    "label": "Address Display",
@@ -205,6 +218,10 @@
    "read_only": 1
   },
   {
+   "fieldname": "col_break_signatory",
+   "fieldtype": "Column Break"
+  },
+  {
    "fieldname": "signatory_designation",
    "fieldtype": "Data",
    "label": "Designation"
@@ -230,6 +247,10 @@
    "fieldname": "internal_notes",
    "fieldtype": "Small Text",
    "label": "Internal Notes"
+  },
+  {
+   "fieldname": "col_break_internal",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "prepared_by",

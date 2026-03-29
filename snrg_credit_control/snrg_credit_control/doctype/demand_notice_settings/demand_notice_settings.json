@@ -4,14 +4,21 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "section_notice_defaults",
   "default_interest_rate",
   "interest_start_after_days",
   "payment_deadline_days",
+  "col_break_notice_defaults",
   "default_company",
   "section_legal_text",
   "default_legal_text"
  ],
  "fields": [
+  {
+   "fieldname": "section_notice_defaults",
+   "fieldtype": "Section Break",
+   "label": "Notice Defaults"
+  },
   {
    "default": "18",
    "description": "Annual simple interest rate (%) applied to outstanding invoice amounts",
@@ -35,6 +42,10 @@
    "fieldtype": "Int",
    "label": "Payment Deadline (Days from Notice Date)",
    "reqd": 1
+  },
+  {
+   "fieldname": "col_break_notice_defaults",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "default_company",

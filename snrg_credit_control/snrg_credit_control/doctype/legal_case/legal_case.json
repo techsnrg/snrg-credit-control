@@ -6,43 +6,58 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "section_case_overview",
   "case_title",
   "customer",
   "company",
   "case_type",
   "date_marked_legal",
   "status",
+  "col_break_case_overview",
   "marked_by",
   "assigned_counsel",
   "assigned_to",
   "source_reference_type",
   "source_reference_name",
+  "section_financial_snapshot",
   "original_legal_amount",
   "total_claim_amount",
   "current_outstanding_balance",
+  "col_break_financial_snapshot",
   "amount_recovered",
   "balance_to_recover",
+  "last_payment_date",
+  "last_notice_date",
+  "last_activity_date",
+  "section_deadlines",
   "return_memo_date",
   "notice_period_days",
   "notice_deadline",
+  "col_break_deadlines",
   "notice_sent_date",
-  "last_notice_date",
   "payment_wait_days",
   "payment_due_date",
   "complaint_filing_days",
   "complaint_filing_deadline",
+  "section_next_actions",
   "next_action_due_by",
   "next_action_due_by_reason",
+  "col_break_next_actions",
   "next_action_on_or_after",
   "next_action_on_or_after_reason",
-  "last_payment_date",
-  "last_activity_date",
+  "section_links_and_notes",
   "demand_notice",
   "summary",
+  "col_break_closure",
   "closure_date",
   "closure_reason"
  ],
  "fields": [
+  {
+   "fieldname": "section_case_overview",
+   "fieldtype": "Section Break",
+   "label": "Case Overview"
+  },
   {
    "fieldname": "case_title",
    "fieldtype": "Data",
@@ -90,6 +105,10 @@
    "reqd": 1
   },
   {
+   "fieldname": "col_break_case_overview",
+   "fieldtype": "Column Break"
+  },
+  {
    "fieldname": "marked_by",
    "fieldtype": "Link",
    "label": "Marked By",
@@ -122,6 +141,11 @@
    "read_only": 1
   },
   {
+   "fieldname": "section_financial_snapshot",
+   "fieldtype": "Section Break",
+   "label": "Financial Snapshot"
+  },
+  {
    "fieldname": "original_legal_amount",
    "fieldtype": "Currency",
    "label": "Original Legal Amount",
@@ -140,6 +164,10 @@
    "read_only": 1
   },
   {
+   "fieldname": "col_break_financial_snapshot",
+   "fieldtype": "Column Break"
+  },
+  {
    "fieldname": "amount_recovered",
    "fieldtype": "Currency",
    "label": "Amount Recovered",
@@ -150,6 +178,29 @@
    "fieldtype": "Currency",
    "label": "Balance To Recover",
    "read_only": 1
+  },
+  {
+   "fieldname": "last_payment_date",
+   "fieldtype": "Date",
+   "label": "Last Payment Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_notice_date",
+   "fieldtype": "Date",
+   "label": "Last Notice Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_activity_date",
+   "fieldtype": "Date",
+   "label": "Last Activity Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_deadlines",
+   "fieldtype": "Section Break",
+   "label": "Deadlines"
   },
   {
    "fieldname": "return_memo_date",
@@ -168,15 +219,13 @@
    "read_only": 1
   },
   {
+   "fieldname": "col_break_deadlines",
+   "fieldtype": "Column Break"
+  },
+  {
    "fieldname": "notice_sent_date",
    "fieldtype": "Date",
    "label": "Notice Sent Date",
-   "read_only": 1
-  },
-  {
-   "fieldname": "last_notice_date",
-   "fieldtype": "Date",
-   "label": "Last Notice Date",
    "read_only": 1
   },
   {
@@ -202,6 +251,11 @@
    "read_only": 1
   },
   {
+   "fieldname": "section_next_actions",
+   "fieldtype": "Section Break",
+   "label": "Next Action Tracking"
+  },
+  {
    "fieldname": "next_action_due_by",
    "fieldtype": "Date",
    "label": "Action Due By",
@@ -212,6 +266,10 @@
    "fieldtype": "Small Text",
    "label": "Action Due By Reason",
    "read_only": 1
+  },
+  {
+   "fieldname": "col_break_next_actions",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "next_action_on_or_after",
@@ -226,16 +284,9 @@
    "read_only": 1
   },
   {
-   "fieldname": "last_payment_date",
-   "fieldtype": "Date",
-   "label": "Last Payment Date",
-   "read_only": 1
-  },
-  {
-   "fieldname": "last_activity_date",
-   "fieldtype": "Date",
-   "label": "Last Activity Date",
-   "read_only": 1
+   "fieldname": "section_links_and_notes",
+   "fieldtype": "Section Break",
+   "label": "Links And Notes"
   },
   {
    "fieldname": "demand_notice",
@@ -248,6 +299,10 @@
    "fieldname": "summary",
    "fieldtype": "Long Text",
    "label": "Summary"
+  },
+  {
+   "fieldname": "col_break_closure",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "closure_date",

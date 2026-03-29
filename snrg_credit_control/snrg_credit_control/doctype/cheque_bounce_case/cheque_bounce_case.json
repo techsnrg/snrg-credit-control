@@ -6,22 +6,34 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "section_overview",
   "journal_entry",
   "company",
+  "col_break_overview",
   "customer",
   "bounce_entry_date",
   "bounce_amount",
   "status",
+  "section_documents",
   "cheque_scan",
+  "col_break_documents",
   "bank_memo_scan",
+  "section_assignments",
   "legal_case",
   "legal_owner",
+  "col_break_assignments",
   "assigned_to",
   "demand_notice",
+  "section_notes",
   "narration",
   "remarks"
  ],
  "fields": [
+  {
+   "fieldname": "section_overview",
+   "fieldtype": "Section Break",
+   "label": "Case Overview"
+  },
   {
    "fieldname": "journal_entry",
    "fieldtype": "Link",
@@ -37,6 +49,10 @@
    "options": "Company",
    "read_only": 1,
    "reqd": 1
+  },
+  {
+   "fieldname": "col_break_overview",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "customer",
@@ -72,14 +88,28 @@
    "reqd": 1
   },
   {
+   "fieldname": "section_documents",
+   "fieldtype": "Section Break",
+   "label": "Supporting Documents"
+  },
+  {
    "fieldname": "cheque_scan",
    "fieldtype": "Attach",
    "label": "Scanned Copy of Cheque"
   },
   {
+   "fieldname": "col_break_documents",
+   "fieldtype": "Column Break"
+  },
+  {
    "fieldname": "bank_memo_scan",
    "fieldtype": "Attach",
    "label": "Scanned Copy of Bank Memo"
+  },
+  {
+   "fieldname": "section_assignments",
+   "fieldtype": "Section Break",
+   "label": "Legal Follow Up"
   },
   {
    "fieldname": "legal_case",
@@ -95,6 +125,10 @@
    "options": "User"
   },
   {
+   "fieldname": "col_break_assignments",
+   "fieldtype": "Column Break"
+  },
+  {
    "fieldname": "assigned_to",
    "fieldtype": "Link",
    "label": "Assigned To",
@@ -105,6 +139,11 @@
    "fieldtype": "Link",
    "label": "Demand Notice",
    "options": "Demand Notice"
+  },
+  {
+   "fieldname": "section_notes",
+   "fieldtype": "Section Break",
+   "label": "Narration And Notes"
   },
   {
    "fieldname": "narration",

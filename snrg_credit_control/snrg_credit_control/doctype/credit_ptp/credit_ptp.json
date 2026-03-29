@@ -6,29 +6,39 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "section_reference_details",
   "sales_order",
   "customer",
   "customer_name",
   "company",
   "currency",
+  "col_break_reference_details",
   "requested_to_employee",
   "requested_by",
   "reference_label",
+  "section_commitment_details",
   "ptp_by",
   "ptp_by_name",
   "ptp_date",
   "commitment_date",
   "committed_amount",
+  "col_break_commitment_details",
   "received_amount",
   "difference_amount",
   "payment_mode",
   "cheque_number",
   "status",
+  "section_payment_tracking",
   "linked_payment_entries",
   "remarks",
   "payment_links"
  ],
  "fields": [
+  {
+   "fieldname": "section_reference_details",
+   "fieldtype": "Section Break",
+   "label": "Reference Details"
+  },
   {
    "fieldname": "sales_order",
    "fieldtype": "Link",
@@ -66,6 +76,10 @@
    "read_only": 1
   },
   {
+   "fieldname": "col_break_reference_details",
+   "fieldtype": "Column Break"
+  },
+  {
    "fieldname": "requested_to_employee",
    "fieldtype": "Link",
    "label": "Requested To",
@@ -84,6 +98,11 @@
    "fieldtype": "Data",
    "label": "Reference Label",
    "read_only": 1
+  },
+  {
+   "fieldname": "section_commitment_details",
+   "fieldtype": "Section Break",
+   "label": "Commitment Details"
   },
   {
    "fieldname": "ptp_by",
@@ -121,6 +140,10 @@
    "reqd": 1
   },
   {
+   "fieldname": "col_break_commitment_details",
+   "fieldtype": "Column Break"
+  },
+  {
    "fieldname": "received_amount",
    "fieldtype": "Currency",
    "label": "Received Amount",
@@ -152,6 +175,11 @@
    "in_list_view": 1,
    "label": "Status",
    "options": "Pending\nPartially Cleared\nCleared\nBroken\nSuperseded"
+  },
+  {
+   "fieldname": "section_payment_tracking",
+   "fieldtype": "Section Break",
+   "label": "Payment Tracking"
   },
   {
    "fieldname": "linked_payment_entries",

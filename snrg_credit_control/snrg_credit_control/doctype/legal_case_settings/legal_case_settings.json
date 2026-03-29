@@ -5,11 +5,18 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "section_legal_timeline",
   "default_notice_period_days",
   "default_payment_wait_days",
+  "col_break_legal_timeline",
   "default_complaint_filing_days"
  ],
  "fields": [
+  {
+   "fieldname": "section_legal_timeline",
+   "fieldtype": "Section Break",
+   "label": "Default Legal Timelines"
+  },
   {
    "default": "15",
    "fieldname": "default_notice_period_days",
@@ -23,6 +30,10 @@
    "fieldtype": "Int",
    "label": "Default Payment Wait (Days)",
    "reqd": 1
+  },
+  {
+   "fieldname": "col_break_legal_timeline",
+   "fieldtype": "Column Break"
   },
   {
    "default": "30",

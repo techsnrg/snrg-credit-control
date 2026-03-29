@@ -6,16 +6,24 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "section_activity_overview",
   "legal_case",
   "activity_date",
   "activity_type",
+  "col_break_activity_overview",
   "reference_doctype",
   "reference_name",
   "amount",
+  "section_activity_notes",
   "remarks",
   "performed_by"
  ],
  "fields": [
+  {
+   "fieldname": "section_activity_overview",
+   "fieldtype": "Section Break",
+   "label": "Activity Overview"
+  },
   {
    "fieldname": "legal_case",
    "fieldtype": "Link",
@@ -41,6 +49,10 @@
    "reqd": 1
   },
   {
+   "fieldname": "col_break_activity_overview",
+   "fieldtype": "Column Break"
+  },
+  {
    "fieldname": "reference_doctype",
    "fieldtype": "Data",
    "label": "Reference DocType",
@@ -57,6 +69,11 @@
    "fieldname": "amount",
    "fieldtype": "Currency",
    "label": "Amount"
+  },
+  {
+   "fieldname": "section_activity_notes",
+   "fieldtype": "Section Break",
+   "label": "Notes"
   },
   {
    "fieldname": "remarks",
