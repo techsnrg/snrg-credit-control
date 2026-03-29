@@ -143,9 +143,17 @@ def _ensure_customer_fields():
 
 _JOURNAL_ENTRY_FIELDS = [
     {
+        "fieldname": "custom_cheque_bounce_action",
+        "fieldtype": "Button",
+        "label": "Cheque Bounce Case",
+        "insert_after": "naming_series",
+        "allow_on_submit": 1,
+        "depends_on": "eval:doc.custom_is_cheque_bounce && doc.docstatus == 1",
+    },
+    {
         "fieldname": "custom_cheque_bounce_section",
         "fieldtype": "Section Break",
-        "label": "Cheque Bounce Tracking",
+        "label": "Cheque Bounce",
         "insert_after": "user_remark",
         "collapsible": 1,
         "allow_on_submit": 1,
