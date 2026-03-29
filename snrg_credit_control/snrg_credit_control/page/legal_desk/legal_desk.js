@@ -29,23 +29,30 @@ class LegalDesk {
 
   setup() {
     this.page.set_primary_action("Refresh", () => this.refresh(), "refresh");
-    this.make_filters();
     this.make_actions_menu();
     this.render_shell();
+    this.make_filters();
     this.read_route();
   }
 
   make_filters() {
-    this.caseFilter = this.page.add_field({
+    const target = this.wrapper.find(".legal-desk-filter");
+    this.caseFilter = frappe.ui.form.make_control({
+      parent: target,
+      df: {
       label: "Legal Case",
       fieldname: "legal_case",
       fieldtype: "Link",
       options: "Legal Case",
+      placeholder: "Select a Legal Case",
       change: () => {
         this.currentCase = this.caseFilter.get_value();
         this.refresh();
       },
+      },
+      render_input: true,
     });
+    this.caseFilter.refresh();
   }
 
   make_actions_menu() {
@@ -57,6 +64,10 @@ class LegalDesk {
   render_shell() {
     this.wrapper.find(".layout-main-section").html(`
       <div class="legal-desk-page">
+        <div style="border:1px solid #e5e7eb; border-radius:14px; background:#fff; padding:16px 18px; margin-bottom:16px;">
+          <div style="font-size:12px; color:#6b7280; text-transform:uppercase; letter-spacing:.04em; margin-bottom:8px;">Open Legal Case</div>
+          <div class="legal-desk-filter"></div>
+        </div>
         <div class="legal-desk-summary" style="display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px;"></div>
         <div style="display:grid; grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr); gap: 16px;">
           <div class="legal-desk-timeline-panel"></div>
