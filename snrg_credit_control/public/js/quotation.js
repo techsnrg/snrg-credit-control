@@ -46,8 +46,8 @@ function render_quotation_credit_chip(frm) {
     const projectedAvailable = creditLimit ? (creditLimit - exposure - quotationValue) : 0;
     const fmt = value => frappe.format(value, { fieldtype: "Currency", options: currency });
     const fmtSigned = value => {
-      const formatted = fmt(Math.abs(value));
-      return value < 0 ? `-${formatted}` : formatted;
+      const formatted = fmt(Math.abs(value)).replace(/^-+/, "");
+      return value < 0 ? `-\u00a0${formatted}` : formatted;
     };
 
     const themes = {
@@ -78,12 +78,12 @@ function render_quotation_credit_chip(frm) {
 
     const pill = `<span style="display:inline-flex;align-items:center;background:rgba(${theme.rgb},.12);border:1px solid rgba(${theme.rgb},.24);color:rgba(${theme.rgb},1);font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap;">${frappe.utils.escape_html(theme.badge)}</span>`;
     const step = (label, value, sign = "", valueStyle = "", accent = "") =>
-      `<div style="display:flex;align-items:center;gap:10px;min-width:220px;flex:1 1 220px;">
-        <div style="min-width:0;">
+      `<div style="display:flex;align-items:center;gap:10px;min-width:0;">
+        <div style="min-width:0;flex:1 1 auto;">
           <div style="font-size:11px;font-weight:600;opacity:.62;margin-bottom:4px;">${label}</div>
-          <div style="font-size:20px;font-weight:700;letter-spacing:-0.25px;${valueStyle}">${sign}${value}</div>
+          <div style="font-size:20px;font-weight:700;letter-spacing:-0.25px;white-space:nowrap;${valueStyle}">${sign}${value}</div>
         </div>
-        ${accent ? `<div style="font-size:18px;font-weight:700;opacity:.4;padding-top:16px;">${accent}</div>` : ""}
+        ${accent ? `<div style="font-size:18px;font-weight:700;opacity:.4;padding-top:16px;flex:0 0 auto;">${accent}</div>` : ""}
       </div>`;
     const availabilityTone = projectedAvailable < 0
       ? "color:#fca5a5;"
@@ -94,14 +94,14 @@ function render_quotation_credit_chip(frm) {
     const basePanel = "background:var(--control-bg, #f8f9fa);border:1px solid var(--border-color, #d1d8dd);";
     const calculationRow = stage === "preview"
       ? `
-          <div style="display:flex;align-items:flex-start;gap:18px 16px;flex-wrap:wrap;">
+          <div style="display:grid;grid-template-columns:repeat(3, minmax(0, 1fr));gap:18px 16px;align-items:flex-start;">
             ${step("Credit Limit", fmt(creditLimit), "", "", "−")}
             ${step("Current Exposure", fmt(exposure), "", "", "=")}
             ${step("Available Credit", fmtSigned(availableCredit), "", availabilityTone)}
           </div>
         `
       : `
-          <div style="display:flex;align-items:flex-start;gap:18px 16px;flex-wrap:wrap;">
+          <div style="display:grid;grid-template-columns:repeat(5, minmax(0, 1fr));gap:18px 16px;align-items:flex-start;">
             ${step("Credit Limit", fmt(creditLimit), "", "", "−")}
             ${step("Current Exposure", fmt(exposure), "", "", "=")}
             ${step("Available Credit", fmtSigned(availableCredit), "", availabilityTone, "−")}
@@ -123,10 +123,9 @@ function render_quotation_credit_chip(frm) {
           <div style="font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;opacity:.55;margin-bottom:10px;">Credit Calculation</div>
           ${calculationRow}
         </div>
-        <div style="border-top:1px solid rgba(140,140,140,.14);margin-top:12px;padding-top:12px;font-size:12px;opacity:.8;">
-          <span style="margin-right:18px;"><strong>Overdue Invoices:</strong> ${overdueCount}</span>
-          <span style="margin-right:18px;"><strong>Overdue Amount:</strong> ${fmt(overdueAmount)}</span>
-          <span><strong>Status:</strong> ${frappe.utils.escape_html(reason || "Within policy")}</span>
+        <div style="border-top:1px solid rgba(140,140,140,.14);margin-top:12px;padding-top:12px;font-size:12px;opacity:.8;display:flex;gap:24px;flex-wrap:wrap;align-items:center;">
+          <span><strong>Overdue Invoices:</strong> ${overdueCount}</span>
+          <span><strong>Overdue Amount:</strong> ${fmt(overdueAmount)}</span>
         </div>
       </div>
     `);
