@@ -587,6 +587,7 @@ class LegalDesk {
 
     this.wrapper.find(".legal-desk-route-link").off("click").on("click", (e) => {
       e.preventDefault();
+      e.stopPropagation();
       const doctype = $(e.currentTarget).attr("data-route-doctype");
       const name = $(e.currentTarget).attr("data-route-name");
       if (!doctype || !name) {
@@ -663,13 +664,13 @@ class LegalDesk {
 
     if (row.reference_route && row.reference_doctype && row.reference_name) {
       details.push(
-        `<span class="snrg-timeline-detail"><a href="#" class="legal-desk-route-link" data-route-doctype="${frappe.utils.escape_html(
+        `<span class="snrg-timeline-detail"><button type="button" class="legal-desk-route-link" data-route-doctype="${frappe.utils.escape_html(
           row.reference_doctype
         )}" data-route-name="${frappe.utils.escape_html(
           row.reference_name
-        )}" style="color:#2563eb; text-decoration:none;">${frappe.utils.escape_html(
+        )}" style="padding:0; border:0; background:none; color:#2563eb; text-decoration:none; font:inherit; font-weight:700; cursor:pointer;">${frappe.utils.escape_html(
           row.reference_doctype
-        )}: ${frappe.utils.escape_html(row.reference_name)}</a></span>`
+        )}: ${frappe.utils.escape_html(row.reference_name)}</button></span>`
       );
     }
 
@@ -750,7 +751,7 @@ class LegalDesk {
             ${company}
             ${
               this.currentCase
-                ? ` · Legal Case <a href="#" class="legal-desk-route-link" data-route-doctype="Legal Case" data-route-name="${caseName}">${caseName}</a>`
+                ? ` · Legal Case <button type="button" class="legal-desk-route-link" data-route-doctype="Legal Case" data-route-name="${caseName}" style="padding:0; border:0; background:none; color:#2563eb; text-decoration:none; font:inherit; font-weight:600; cursor:pointer;">${caseName}</button>`
                 : " · Customer communication feed"
             }
           </div>
