@@ -30,7 +30,6 @@ class LegalDesk {
 
   setup() {
     this.page.set_primary_action("Refresh", () => this.refresh(), "refresh");
-    this.make_actions_menu();
     this.render_shell();
     this.make_filters();
     this.read_route();
@@ -55,12 +54,6 @@ class LegalDesk {
       render_input: true,
     });
     this.customerFilter.refresh();
-  }
-
-  make_actions_menu() {
-    this.manualActions.forEach((label) => {
-      this.page.add_menu_item(label, () => this.open_action_dialog(label));
-    });
   }
 
   render_shell() {
@@ -179,6 +172,7 @@ class LegalDesk {
   }
 
   render_timeline(rows) {
+    const actionStrip = this.render_action_strip();
     const body = rows.length
       ? `<div style="position: relative; margin: 8px 0 4px 0; padding-left: 14px;">
            <div style="position: absolute; left: 4px; top: 8px; bottom: 8px; width: 2px; background: #dbe3f0;"></div>
@@ -186,7 +180,10 @@ class LegalDesk {
          </div>`
       : `<div class="text-muted">No activity has been logged for this legal case yet.</div>`;
 
-    this.wrapper.find(".legal-desk-timeline-panel").html(this.panel("Timeline", body));
+    this.wrapper.find(".legal-desk-timeline-panel").html(
+      this.panel("Timeline", `${actionStrip}${body}`)
+    );
+    this.bind_action_strip();
   }
 
   render_side_panel(legalCase, notices) {
@@ -300,6 +297,7 @@ class LegalDesk {
     const meta = [
       row.performed_by ? `By ${frappe.utils.escape_html(row.performed_by)}` : "",
       row.activity_date ? frappe.datetime.str_to_user(row.activity_date) : "",
+      row.creation ? frappe.datetime.str_to_user(row.creation) : "",
     ]
       .filter(Boolean)
       .join(" | ");
@@ -344,6 +342,39 @@ class LegalDesk {
     const dateLabel = frappe.datetime.str_to_user(date);
     const safeReason = reason ? `<div style="margin-top:4px; font-size:12px; color:#6b7280; font-weight:400;">${frappe.utils.escape_html(reason)}</div>` : "";
     return `<div>${dateLabel}</div>${safeReason}`;
+  }
+
+  render_action_strip() {
+    const disabled = !this.currentCase;
+    return `
+      <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px;">
+        ${this.manualActions
+          .map((label) => {
+            const safeLabel = frappe.utils.escape_html(label);
+            return `
+              <button
+                class="btn btn-default btn-sm legal-desk-action"
+                data-activity-type="${safeLabel}"
+                ${disabled ? "disabled" : ""}
+                style="border-radius:999px; padding:6px 12px;"
+              >
+                ${safeLabel}
+              </button>
+            `;
+          })
+          .join("")}
+      </div>
+    `;
+  }
+
+  bind_action_strip() {
+    this.wrapper.find(".legal-desk-action").off("click").on("click", (e) => {
+      const activityType = $(e.currentTarget).attr("data-activity-type");
+      if (!activityType) {
+        return;
+      }
+      this.open_action_dialog(activityType);
+    });
   }
 
   loadCustomerFromCase(legalCase) {
