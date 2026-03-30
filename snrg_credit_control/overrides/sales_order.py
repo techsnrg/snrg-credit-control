@@ -81,14 +81,25 @@ def _check_approver_guard(doc):
     """Block non-approvers from editing override cap / valid-till."""
     if doc.is_new():
         return
+
+    # Allow normal business users to submit an already-approved document
+    # without re-triggering the override editor guard on the submit save cycle.
+    if getattr(doc.flags, "in_submit", False):
+        return
+
     prev = frappe.db.get_value(
         "Sales Order",
         doc.name,
         ["custom_snrg_override_cap_amount", "custom_snrg_override_valid_till"],
         as_dict=True,
     ) or {}
-    changed_cap  = _val(doc.custom_snrg_override_cap_amount) != _val(prev.get("custom_snrg_override_cap_amount"))
-    changed_till = (doc.custom_snrg_override_valid_till or "") != (prev.get("custom_snrg_override_valid_till") or "")
+
+    changed_cap = _val(doc.custom_snrg_override_cap_amount) != _val(prev.get("custom_snrg_override_cap_amount"))
+
+    current_till = getdate(doc.custom_snrg_override_valid_till) if doc.custom_snrg_override_valid_till else None
+    previous_till = getdate(prev.get("custom_snrg_override_valid_till")) if prev.get("custom_snrg_override_valid_till") else None
+    changed_till = current_till != previous_till
+
     if (changed_cap or changed_till) and not _can_approve_request(doc):
         frappe.throw("Only Credit Approvers can set the Override Cap / Valid Till.")
 
