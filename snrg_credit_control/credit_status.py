@@ -186,6 +186,7 @@ def render_credit_details_html(snapshot, customer, customer_name, next_step_html
     next_step = next_step_html or ""
 
     breach = (effective_ar + amount) - credit_limit
+    available_balance = max(credit_limit - (effective_ar + amount), 0) if credit_limit else 0
 
     def breakdown_row(label, value, val_color=None, bold_val=False):
         value_color = f"color:{val_color};" if val_color else ""
@@ -236,6 +237,14 @@ def render_credit_details_html(snapshot, customer, customer_name, next_step_html
             f"<p style='margin:0;font-size:12px;color:#e67e22;'>Exceeds assigned credit limit</p>"
             f"</div>"
         )
+    elif count == 0:
+        breach_summary = (
+            f"<div>"
+            f"<p style='margin:0 0 2px;font-size:11px;color:#16a34a;font-weight:700;letter-spacing:.6px;text-transform:uppercase;'>&#9989; Available Balance</p>"
+            f"<p style='margin:0 0 2px;font-size:22px;font-weight:800;color:#16a34a;'>{fmt_money(available_balance, currency=cur)}</p>"
+            f"<p style='margin:0;font-size:12px;color:#16a34a;'>Within assigned credit limit</p>"
+            f"</div>"
+        )
 
     overdue_section = ""
     if count > 0:
@@ -259,7 +268,13 @@ def render_credit_details_html(snapshot, customer, customer_name, next_step_html
         )
 
     breach_section = ""
-    if limit_breach:
+    if limit_breach or count == 0:
+        total_exposure_color = "#c0392b" if limit_breach else "#16a34a"
+        total_exposure_note = (
+            f"vs limit {fmt_money(credit_limit, currency=cur)}"
+            if limit_breach
+            else f"available {fmt_money(available_balance, currency=cur)}"
+        )
         breach_section = (
             f"{hr}"
             f"<p style='margin:0 0 8px;font-size:12px;color:#888;'>&#128200; <strong>Credit Limit Breakdown</strong></p>"
@@ -270,9 +285,9 @@ def render_credit_details_html(snapshot, customer, customer_name, next_step_html
             f"{breakdown_row('&#128666; This Document', fmt_money(amount, currency=cur))}"
             f"<tr>"
             f"<td style='{padding}font-weight:700;font-size:13px;border-top:2px solid #ccc;'>&#9889; Total Exposure</td>"
-            f"<td style='{padding}text-align:right;font-weight:800;font-size:15px;color:#c0392b;border-top:2px solid #ccc;'>"
+            f"<td style='{padding}text-align:right;font-weight:800;font-size:15px;color:{total_exposure_color};border-top:2px solid #ccc;'>"
             f"{fmt_money(effective_ar + amount, currency=cur)}"
-            f"<br><span style='font-size:11px;color:#888;font-weight:400;'>vs limit {fmt_money(credit_limit, currency=cur)}</span>"
+            f"<br><span style='font-size:11px;color:#888;font-weight:400;'>{total_exposure_note}</span>"
             f"</td>"
             f"</tr>"
             f"</tbody></table>"
