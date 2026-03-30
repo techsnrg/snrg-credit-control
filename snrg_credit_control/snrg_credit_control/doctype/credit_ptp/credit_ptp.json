@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "format:PTP-.YYYY.-.#####",
+ "autoname": "format:PTP-{YYYY}-{#####}",
  "creation": "2026-03-24 00:00:00.000000",
  "doctype": "DocType",
  "engine": "InnoDB",
