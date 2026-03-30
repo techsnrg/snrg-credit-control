@@ -179,12 +179,7 @@ def render_credit_details_html(snapshot, customer, customer_name, next_step_html
     th_style = f"{padding}font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.6px;{border_bottom}"
     hr = "<hr style='border:none;border-top:1px solid #e0e0e0;margin:14px 0;'>"
 
-    next_step = next_step_html or (
-        "<p style='margin:0;'>"
-        "<strong>&#128161; Credit Snapshot</strong><br>"
-        "This is a read-only credit view for the selected customer."
-        "</p>"
-    )
+    next_step = next_step_html or ""
 
     if count > 0:
         invoice_rows = ""
@@ -238,7 +233,7 @@ def render_credit_details_html(snapshot, customer, customer_name, next_step_html
             f"<td style='{padding}text-align:right;font-weight:800;font-size:16px;color:#c0392b;border-top:2px solid #ccc;'>{fmt_money(total_overdue, currency=cur)}</td>"
             f"</tr></tfoot>"
             f"</table>"
-            f"{hr}"
+            f"{hr if next_step else ''}"
             f"{next_step}"
         )
 
@@ -266,7 +261,7 @@ def render_credit_details_html(snapshot, customer, customer_name, next_step_html
         f"<td width='48%' style='padding:4px 0;vertical-align:top;'>"
         f"<p style='margin:0 0 2px;font-size:11px;color:#c0392b;font-weight:700;letter-spacing:.6px;text-transform:uppercase;'>&#128683; Breach Amount</p>"
         f"<p style='margin:0 0 2px;font-size:22px;font-weight:800;color:#c0392b;'>{fmt_money(breach, currency=cur)}</p>"
-        f"<p style='margin:0;font-size:12px;color:#e67e22;'>Exceeds approved credit limit</p>"
+        f"<p style='margin:0;font-size:12px;color:#e67e22;'>Exceeds assigned credit limit</p>"
         f"</td>"
         f"</tr>"
         f"</table>"
@@ -285,6 +280,6 @@ def render_credit_details_html(snapshot, customer, customer_name, next_step_html
         f"</td>"
         f"</tr>"
         f"</tbody></table>"
-        f"{hr}"
+        f"{hr if next_step else ''}"
         f"{next_step}"
     )
