@@ -15,14 +15,13 @@ class LegalDesk {
     this.wrapper = $(wrapper);
     this.currentCase = null;
     this.currentCustomer = null;
+    this.syncingCustomerFilter = false;
     this.manualActions = [
-      "Call Made",
-      "Visit Done",
-      "Email Sent",
-      "WhatsApp Sent",
-      "Meeting Held",
-      "Settlement Discussed",
-      "Counsel Note Added",
+      "Call",
+      "Visit",
+      "Email",
+      "WhatsApp",
+      "Notice",
     ];
 
     this.setup();
@@ -46,6 +45,9 @@ class LegalDesk {
       options: "Customer",
       placeholder: "Select a Customer",
       change: () => {
+        if (this.syncingCustomerFilter) {
+          return;
+        }
         this.currentCustomer = this.customerFilter.get_value();
         this.currentCase = null;
         this.refresh();
@@ -64,10 +66,7 @@ class LegalDesk {
           <div class="legal-desk-filter"></div>
         </div>
         <div class="legal-desk-summary" style="display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px;"></div>
-        <div style="display:grid; grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr); gap: 16px;">
-          <div class="legal-desk-timeline-panel"></div>
-          <div class="legal-desk-side-panel"></div>
-        </div>
+        <div class="legal-desk-timeline-panel"></div>
       </div>
     `);
   }
@@ -120,11 +119,12 @@ class LegalDesk {
         this.currentCase = context.case.name;
         this.currentCustomer = context.case.customer;
         if (this.customerFilter && this.customerFilter.get_value() !== context.case.customer) {
+          this.syncingCustomerFilter = true;
           this.customerFilter.set_value(context.case.customer);
+          this.syncingCustomerFilter = false;
         }
         this.render_summary(context.case);
         this.render_timeline(context.timeline || []);
-        this.render_side_panel(context.case, context.notices || []);
       },
       error: () => {
         this.render_empty_state("Unable to load Legal Desk right now.");
@@ -134,15 +134,13 @@ class LegalDesk {
 
   set_loading_state() {
     this.wrapper.find(".legal-desk-summary").html(this.render_loading_cards());
-    this.wrapper.find(".legal-desk-timeline-panel").html(this.panel("Timeline", `<div class="text-muted">Loading timeline...</div>`));
-    this.wrapper.find(".legal-desk-side-panel").html(this.panel("Case Details", `<div class="text-muted">Loading case details...</div>`));
+    this.wrapper.find(".legal-desk-timeline-panel").html(this.panel("Communication Feed", `<div class="text-muted">Loading activity feed...</div>`));
   }
 
   render_empty_state(message) {
     const text = message || "Select a Customer to open the legal desk view.";
     this.wrapper.find(".legal-desk-summary").html("");
-    this.wrapper.find(".legal-desk-timeline-panel").html(this.panel("Timeline", `<div class="text-muted">${text}</div>`));
-    this.wrapper.find(".legal-desk-side-panel").html(this.panel("Case Details", `<div class="text-muted">${text}</div>`));
+    this.wrapper.find(".legal-desk-timeline-panel").html(this.panel("Communication Feed", `<div class="text-muted">${text}</div>`));
   }
 
   render_summary(legalCase) {
@@ -181,55 +179,12 @@ class LegalDesk {
       : `<div class="text-muted">No activity has been logged for this legal case yet.</div>`;
 
     this.wrapper.find(".legal-desk-timeline-panel").html(
-      this.panel("Timeline", `${actionStrip}${body}`)
+      this.panel(
+        "Communication Feed",
+        `${this.render_feed_header()}${actionStrip}${body}`
+      )
     );
     this.bind_action_strip();
-  }
-
-  render_side_panel(legalCase, notices) {
-    const noticeList = notices.length
-      ? notices
-          .map(
-            (notice) => `
-              <div style="padding:10px 0; border-bottom:1px solid #eef2f7;">
-                <div style="font-weight:600;"><a href="/app/demand-notice/${notice.name}" style="color:#2563eb; text-decoration:none;">${frappe.utils.escape_html(notice.name)}</a></div>
-                <div style="font-size:12px; color:#6b7280; margin-top:4px;">
-                  ${notice.notice_date ? frappe.datetime.str_to_user(notice.notice_date) : "-"} | ${frappe.utils.escape_html(notice.status || "Draft")}
-                </div>
-                <div style="font-size:13px; color:#111827; margin-top:4px;">${format_currency(notice.grand_total_due || 0)}</div>
-              </div>
-            `
-          )
-          .join("")
-      : `<div class="text-muted">No linked demand notices yet.</div>`;
-
-    const summary = `
-      <div style="display:flex; flex-direction:column; gap:12px;">
-        <div>
-          <div style="font-size:12px; color:#6b7280; text-transform:uppercase;">Legal Case</div>
-          <div style="margin-top:4px; font-weight:700;"><a href="/app/legal-case/${legalCase.name}" style="color:#2563eb; text-decoration:none;">${frappe.utils.escape_html(legalCase.name)}</a></div>
-          <div style="margin-top:2px; color:#111827;">${frappe.utils.escape_html(legalCase.case_title || "")}</div>
-        </div>
-        <div>
-          <div style="font-size:12px; color:#6b7280; text-transform:uppercase;">Customer</div>
-          <div style="margin-top:4px; font-weight:600;">${frappe.utils.escape_html(legalCase.customer || "-")}</div>
-        </div>
-        <div>
-          <div style="font-size:12px; color:#6b7280; text-transform:uppercase;">Company</div>
-          <div style="margin-top:4px;">${frappe.utils.escape_html(legalCase.company || "-")}</div>
-        </div>
-        <div>
-          <div style="font-size:12px; color:#6b7280; text-transform:uppercase;">Summary</div>
-          <div style="margin-top:4px; color:#111827; white-space:pre-wrap;">${frappe.utils.escape_html(legalCase.summary || "-")}</div>
-        </div>
-        <div>
-          <div style="font-size:12px; color:#6b7280; text-transform:uppercase;">Demand Notices</div>
-          <div style="margin-top:6px;">${noticeList}</div>
-        </div>
-      </div>
-    `;
-
-    this.wrapper.find(".legal-desk-side-panel").html(this.panel("Case Details", summary));
   }
 
   open_action_dialog(activityType) {
@@ -297,7 +252,7 @@ class LegalDesk {
     const meta = [
       row.performed_by ? `By ${frappe.utils.escape_html(row.performed_by)}` : "",
       row.activity_date ? frappe.datetime.str_to_user(row.activity_date) : "",
-      row.creation ? frappe.datetime.str_to_user(row.creation) : "",
+      row.creation ? this.formatTime(row.creation) : "",
     ]
       .filter(Boolean)
       .join(" | ");
@@ -354,6 +309,7 @@ class LegalDesk {
             return `
               <button
                 class="btn btn-default btn-sm legal-desk-action"
+                type="button"
                 data-activity-type="${safeLabel}"
                 ${disabled ? "disabled" : ""}
                 style="border-radius:999px; padding:6px 12px;"
@@ -377,6 +333,34 @@ class LegalDesk {
     });
   }
 
+  render_feed_header() {
+    if (!this.currentCase) {
+      return "";
+    }
+
+    const caseName = frappe.utils.escape_html(this.currentCase);
+    const customer = frappe.utils.escape_html(this.currentCustomer || "-");
+
+    return `
+      <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; margin-bottom:14px; padding-bottom:12px; border-bottom:1px solid #eef2f7;">
+        <div>
+          <div style="font-size:12px; color:#6b7280; text-transform:uppercase; letter-spacing:.04em;">Active Thread</div>
+          <div style="margin-top:4px; font-size:15px; font-weight:700; color:#111827;">${customer}</div>
+          <div style="margin-top:2px; font-size:13px; color:#6b7280;">Legal Case: <a href="/app/legal-case/${caseName}" style="color:#2563eb; text-decoration:none;">${caseName}</a></div>
+        </div>
+      </div>
+    `;
+  }
+
+  formatTime(datetimeValue) {
+    if (!datetimeValue) {
+      return "";
+    }
+    const userValue = frappe.datetime.str_to_user(datetimeValue);
+    const parts = userValue.split(" ");
+    return parts.length > 1 ? parts.slice(1).join(" ") : userValue;
+  }
+
   loadCustomerFromCase(legalCase) {
     frappe.db.get_value("Legal Case", legalCase, "customer").then((r) => {
       const customer = r.message && r.message.customer;
@@ -385,7 +369,9 @@ class LegalDesk {
       }
       this.currentCustomer = customer;
       if (this.customerFilter && this.customerFilter.get_value() !== customer) {
+        this.syncingCustomerFilter = true;
         this.customerFilter.set_value(customer);
+        this.syncingCustomerFilter = false;
       }
     });
   }

@@ -416,6 +416,11 @@ def log_legal_case_action(legal_case, activity_type, remarks="", amount=0, activ
         frappe.throw("Activity Type is required.")
 
     allowed_manual_actions = {
+        "Call",
+        "Visit",
+        "Email",
+        "WhatsApp",
+        "Notice",
         "Call Made",
         "Visit Done",
         "Email Sent",
