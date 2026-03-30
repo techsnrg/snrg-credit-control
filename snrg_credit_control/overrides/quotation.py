@@ -65,12 +65,6 @@ def get_credit_details(customer, company, customer_name=None, currency=None, amo
         snapshot=snapshot,
         customer=customer,
         customer_name=customer_name or customer,
-        next_step_html=(
-            "<p style='margin:0;'>"
-            "<strong>&#128161; Credit Snapshot</strong><br>"
-            "This view helps the sales team understand overdue invoices and exposure before saving or submitting the quotation."
-            "</p>"
-        ),
     )
 
     return {
