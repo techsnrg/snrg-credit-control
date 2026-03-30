@@ -584,6 +584,16 @@ class LegalDesk {
       this.activeSourceFilter = filter;
       this.render_timeline(this.timelineRows);
     });
+
+    this.wrapper.find(".legal-desk-route-link").off("click").on("click", (e) => {
+      e.preventDefault();
+      const doctype = $(e.currentTarget).attr("data-route-doctype");
+      const name = $(e.currentTarget).attr("data-route-name");
+      if (!doctype || !name) {
+        return;
+      }
+      frappe.set_route("Form", doctype, name);
+    });
   }
 
   open_action_dialog(activityType) {
@@ -653,7 +663,11 @@ class LegalDesk {
 
     if (row.reference_route && row.reference_doctype && row.reference_name) {
       details.push(
-        `<span class="snrg-timeline-detail"><a href="${row.reference_route}" style="color:#2563eb; text-decoration:none;">${frappe.utils.escape_html(
+        `<span class="snrg-timeline-detail"><a href="#" class="legal-desk-route-link" data-route-doctype="${frappe.utils.escape_html(
+          row.reference_doctype
+        )}" data-route-name="${frappe.utils.escape_html(
+          row.reference_name
+        )}" style="color:#2563eb; text-decoration:none;">${frappe.utils.escape_html(
           row.reference_doctype
         )}: ${frappe.utils.escape_html(row.reference_name)}</a></span>`
       );
@@ -736,7 +750,7 @@ class LegalDesk {
             ${company}
             ${
               this.currentCase
-                ? ` · Legal Case <a href="/app/legal-case/${caseName}">${caseName}</a>`
+                ? ` · Legal Case <a href="#" class="legal-desk-route-link" data-route-doctype="Legal Case" data-route-name="${caseName}">${caseName}</a>`
                 : " · Customer communication feed"
             }
           </div>
