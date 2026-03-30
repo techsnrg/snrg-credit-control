@@ -1,7 +1,7 @@
 frappe.pages["legal-desk"].on_page_load = function (wrapper) {
   const page = frappe.ui.make_app_page({
     parent: wrapper,
-    title: "Legal Desk",
+    title: "Customer Desk",
     single_column: true,
   });
 
@@ -62,7 +62,7 @@ class LegalDesk {
     this.wrapper.find(".layout-main-section").html(`
       <div class="legal-desk-page">
         <div style="border:1px solid #e5e7eb; border-radius:14px; background:#fff; padding:16px 18px; margin-bottom:16px;">
-          <div style="font-size:12px; color:#6b7280; text-transform:uppercase; letter-spacing:.04em; margin-bottom:8px;">Open Customer Legal Desk</div>
+          <div style="font-size:12px; color:#6b7280; text-transform:uppercase; letter-spacing:.04em; margin-bottom:8px;">Open Customer Thread</div>
           <div class="legal-desk-filter"></div>
         </div>
         <div class="legal-desk-summary" style="display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px;"></div>
@@ -75,18 +75,28 @@ class LegalDesk {
     const route = frappe.get_route();
     const routeOptions = frappe.route_options || {};
 
-    if (routeOptions.legal_case) {
-      this.currentCase = routeOptions.legal_case;
-      this.loadCustomerFromCase(routeOptions.legal_case);
+    if (routeOptions.customer) {
+      this.currentCustomer = routeOptions.customer;
       frappe.route_options = null;
       this.refresh();
       return;
     }
 
+    if (routeOptions.legal_case) {
+      this.currentCase = routeOptions.legal_case;
+      this.loadCustomerFromCase(routeOptions.legal_case, () => this.refresh());
+      frappe.route_options = null;
+      return;
+    }
+
     if (route.length > 1 && route[1]) {
-      this.currentCase = route[1];
-      this.loadCustomerFromCase(route[1]);
-      this.refresh();
+      if ((route[1] || "").startsWith("LC-")) {
+        this.currentCase = route[1];
+        this.loadCustomerFromCase(route[1], () => this.refresh());
+      } else {
+        this.currentCustomer = route[1];
+        this.refresh();
+      }
       return;
     }
 
@@ -102,32 +112,29 @@ class LegalDesk {
     this.set_loading_state();
 
     frappe.call({
-      method: this.currentCustomer
-        ? "snrg_credit_control.legal_case.get_customer_legal_desk_context"
-        : "snrg_credit_control.legal_case.get_legal_desk_context",
+      method: "snrg_credit_control.customer_communication.get_customer_desk_context",
       args: {
-        legal_case: this.currentCase,
         customer: this.currentCustomer,
       },
       callback: (r) => {
         const context = r.message;
         if (!context) {
-          this.render_empty_state("Unable to load this customer's legal desk.");
+          this.render_empty_state("Unable to load this customer's communication feed.");
           return;
         }
 
-        this.currentCase = context.case.name;
-        this.currentCustomer = context.case.customer;
-        if (this.customerFilter && this.customerFilter.get_value() !== context.case.customer) {
+        this.currentCase = context.legal_case ? context.legal_case.name : null;
+        this.currentCustomer = context.customer.name;
+        if (this.customerFilter && this.customerFilter.get_value() !== context.customer.name) {
           this.syncingCustomerFilter = true;
-          this.customerFilter.set_value(context.case.customer);
+          this.customerFilter.set_value(context.customer.name);
           this.syncingCustomerFilter = false;
         }
-        this.render_summary(context.case);
+        this.render_summary(context.customer, context.legal_case);
         this.render_timeline(context.timeline || []);
       },
       error: () => {
-        this.render_empty_state("Unable to load Legal Desk right now.");
+        this.render_empty_state("Unable to load Customer Desk right now.");
       },
     });
   }
@@ -138,21 +145,21 @@ class LegalDesk {
   }
 
   render_empty_state(message) {
-    const text = message || "Select a Customer to open the legal desk view.";
+    const text = message || "Select a Customer to open the communication desk view.";
     this.wrapper.find(".legal-desk-summary").html("");
     this.wrapper.find(".legal-desk-timeline-panel").html(this.panel("Communication Feed", `<div class="text-muted">${text}</div>`));
   }
 
-  render_summary(legalCase) {
+  render_summary(customer, legalCase) {
     const cards = [
-      ["Status", legalCase.status || "-"],
-      ["Assigned Counsel", legalCase.assigned_counsel || "-"],
-      ["Original Legal Amount", format_currency(legalCase.original_legal_amount || 0)],
-      ["Current Outstanding", format_currency(legalCase.current_outstanding_balance || 0)],
-      ["Recovered", format_currency(legalCase.amount_recovered || 0)],
-      ["Action Due By", this.formatDateWithReason(legalCase.next_action_due_by, legalCase.next_action_due_by_reason)],
-      ["Action On Or After", this.formatDateWithReason(legalCase.next_action_on_or_after, legalCase.next_action_on_or_after_reason)],
-      ["Last Activity", legalCase.last_activity_date ? frappe.datetime.str_to_user(legalCase.last_activity_date) : "-"],
+      ["Current Outstanding", format_currency(customer.current_outstanding_balance || 0)],
+      ["Legal Status", legalCase ? legalCase.status || "Under Legal" : "Not in Legal"],
+      ["Assigned Counsel", legalCase ? legalCase.assigned_counsel || "-" : "-"],
+      ["Last Communication", customer.last_communication_at ? frappe.datetime.str_to_user(customer.last_communication_at) : "-"],
+      ["Last Payment", customer.last_payment_date ? frappe.datetime.str_to_user(customer.last_payment_date) : "-"],
+      ["Action Due By", legalCase ? this.formatDateWithReason(legalCase.next_action_due_by, legalCase.next_action_due_by_reason) : "-"],
+      ["Action On Or After", legalCase ? this.formatDateWithReason(legalCase.next_action_on_or_after, legalCase.next_action_on_or_after_reason) : "-"],
+      ["Original Legal Amount", legalCase ? format_currency(legalCase.original_legal_amount || 0) : "-"],
     ];
 
     this.wrapper.find(".legal-desk-summary").html(
@@ -176,7 +183,7 @@ class LegalDesk {
            <div style="position: absolute; left: 4px; top: 8px; bottom: 8px; width: 2px; background: #dbe3f0;"></div>
            ${rows.map((row) => this.timeline_item(row)).join("")}
          </div>`
-      : `<div class="text-muted">No activity has been logged for this legal case yet.</div>`;
+      : `<div class="text-muted">No communication has been logged for this customer yet.</div>`;
 
     this.wrapper.find(".legal-desk-timeline-panel").html(
       this.panel(
@@ -188,25 +195,20 @@ class LegalDesk {
   }
 
   open_action_dialog(activityType) {
-    if (!this.currentCase) {
-      frappe.msgprint("Select a customer with an active Legal Case first.");
+    if (!this.currentCustomer) {
+      frappe.msgprint("Select a customer first.");
       return;
     }
 
     const dialog = new frappe.ui.Dialog({
-      title: activityType,
+      title: `Log ${activityType}`,
       fields: [
         {
-          fieldname: "activity_date",
-          fieldtype: "Date",
-          label: "Action Date",
+          fieldname: "communication_at",
+          fieldtype: "Datetime",
+          label: "Communication At",
           reqd: 1,
-          default: frappe.datetime.get_today(),
-        },
-        {
-          fieldname: "amount",
-          fieldtype: "Currency",
-          label: "Amount",
+          default: frappe.datetime.now_datetime(),
         },
         {
           fieldname: "remarks",
@@ -218,16 +220,15 @@ class LegalDesk {
       primary_action_label: "Log Action",
       primary_action: (values) => {
         frappe.call({
-          method: "snrg_credit_control.legal_case.log_legal_case_action",
+          method: "snrg_credit_control.customer_communication.log_customer_communication",
           args: {
-            legal_case: this.currentCase,
-            activity_type: activityType,
-            activity_date: values.activity_date,
-            amount: values.amount,
+            customer: this.currentCustomer,
+            communication_type: activityType,
+            communication_at: values.communication_at,
             remarks: values.remarks,
           },
           freeze: true,
-          freeze_message: "Logging legal action...",
+          freeze_message: "Logging communication...",
           callback: () => {
             dialog.hide();
             this.refresh();
@@ -243,6 +244,9 @@ class LegalDesk {
     const amount = row.amount
       ? `<div style="margin-top: 6px; font-weight: 600; color: #1f2937;">Amount: ${format_currency(row.amount)}</div>`
       : "";
+    const source = row.source_label
+      ? `<span style="display:inline-flex; align-items:center; margin-top:6px; padding:3px 8px; border-radius:999px; background:#eef2ff; color:#4338ca; font-size:11px; font-weight:700;">${frappe.utils.escape_html(row.source_label)}</span>`
+      : "";
     const remarks = row.remarks
       ? `<div style="margin-top: 6px; color: #4b5563; white-space: pre-wrap;">${frappe.utils.escape_html(row.remarks)}</div>`
       : "";
@@ -251,8 +255,8 @@ class LegalDesk {
       : "";
     const meta = [
       row.performed_by ? `By ${frappe.utils.escape_html(row.performed_by)}` : "",
-      row.activity_date ? frappe.datetime.str_to_user(row.activity_date) : "",
-      row.creation ? this.formatTime(row.creation) : "",
+      row.activity_date || row.display_timestamp ? this.formatDate(row.activity_date || row.display_timestamp) : "",
+      row.display_timestamp ? this.formatTime(row.display_timestamp) : "",
     ]
       .filter(Boolean)
       .join(" | ");
@@ -262,6 +266,7 @@ class LegalDesk {
         <div style="position: absolute; left: -23px; top: 16px; width: 10px; height: 10px; border-radius: 999px; background: #2563eb;"></div>
         <div style="font-weight: 700; color: #111827;">${frappe.utils.escape_html(row.activity_type || "Activity")}</div>
         <div style="margin-top: 2px; font-size: 12px; color: #6b7280;">${meta}</div>
+        ${source}
         ${amount}
         ${remarks}
         ${reference}
@@ -300,7 +305,7 @@ class LegalDesk {
   }
 
   render_action_strip() {
-    const disabled = !this.currentCase;
+    const disabled = !this.currentCustomer;
     return `
       <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px;">
         ${this.manualActions
@@ -334,11 +339,11 @@ class LegalDesk {
   }
 
   render_feed_header() {
-    if (!this.currentCase) {
+    if (!this.currentCustomer) {
       return "";
     }
 
-    const caseName = frappe.utils.escape_html(this.currentCase);
+    const caseName = frappe.utils.escape_html(this.currentCase || "");
     const customer = frappe.utils.escape_html(this.currentCustomer || "-");
 
     return `
@@ -346,7 +351,9 @@ class LegalDesk {
         <div>
           <div style="font-size:12px; color:#6b7280; text-transform:uppercase; letter-spacing:.04em;">Active Thread</div>
           <div style="margin-top:4px; font-size:15px; font-weight:700; color:#111827;">${customer}</div>
-          <div style="margin-top:2px; font-size:13px; color:#6b7280;">Legal Case: <a href="/app/legal-case/${caseName}" style="color:#2563eb; text-decoration:none;">${caseName}</a></div>
+          <div style="margin-top:2px; font-size:13px; color:#6b7280;">
+            ${this.currentCase ? `Legal Case: <a href="/app/legal-case/${caseName}" style="color:#2563eb; text-decoration:none;">${caseName}</a>` : "Customer communication feed"}
+          </div>
         </div>
       </div>
     `;
@@ -361,7 +368,15 @@ class LegalDesk {
     return parts.length > 1 ? parts.slice(1).join(" ") : userValue;
   }
 
-  loadCustomerFromCase(legalCase) {
+  formatDate(value) {
+    if (!value) {
+      return "";
+    }
+    const userValue = frappe.datetime.str_to_user(value);
+    return userValue.split(" ")[0] || userValue;
+  }
+
+  loadCustomerFromCase(legalCase, callback) {
     frappe.db.get_value("Legal Case", legalCase, "customer").then((r) => {
       const customer = r.message && r.message.customer;
       if (!customer) {
@@ -372,6 +387,9 @@ class LegalDesk {
         this.syncingCustomerFilter = true;
         this.customerFilter.set_value(customer);
         this.syncingCustomerFilter = false;
+      }
+      if (callback) {
+        callback();
       }
     });
   }

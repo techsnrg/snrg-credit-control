@@ -131,7 +131,7 @@
    "dependencies": "",
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Legal Desk",
+   "label": "Customer Desk",
    "link_count": 0,
    "link_to": "legal-desk",
    "link_type": "Page",
@@ -225,7 +225,7 @@
   },
   {
    "color": "Red",
-   "label": "Legal Desk",
+   "label": "Customer Desk",
    "link_to": "legal-desk",
    "type": "Page"
   },

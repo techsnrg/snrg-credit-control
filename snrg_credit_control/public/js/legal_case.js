@@ -1,13 +1,14 @@
 frappe.ui.form.on("Legal Case", {
   refresh(frm) {
-    frm.remove_custom_button("Open Legal Desk");
+    frm.remove_custom_button("Open Customer Desk");
     frm.remove_custom_button("Create Demand Notice");
     frm.remove_custom_button("Open Demand Notice");
     render_legal_timeline(frm);
 
     if (!frm.is_new()) {
-      frm.add_custom_button("Open Legal Desk", function () {
-        frappe.set_route("legal-desk", frm.doc.name);
+      frm.add_custom_button("Open Customer Desk", function () {
+        frappe.route_options = { customer: frm.doc.customer, legal_case: frm.doc.name };
+        frappe.set_route("legal-desk");
       });
     }
 

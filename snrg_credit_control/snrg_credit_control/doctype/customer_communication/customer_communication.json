@@ -1,0 +1,147 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "hash",
+ "creation": "2026-03-30 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_communication_overview",
+  "customer",
+  "company",
+  "communication_type",
+  "communication_at",
+  "col_break_communication_overview",
+  "legal_case",
+  "reference_doctype",
+  "reference_name",
+  "performed_by",
+  "section_communication_notes",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_communication_overview",
+   "fieldtype": "Section Break",
+   "label": "Communication Overview"
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Customer",
+   "options": "Customer",
+   "reqd": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "communication_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Communication Type",
+   "options": "Call\nVisit\nEmail\nWhatsApp\nNotice",
+   "reqd": 1
+  },
+  {
+   "default": "Now",
+   "fieldname": "communication_at",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Communication At",
+   "reqd": 1
+  },
+  {
+   "fieldname": "col_break_communication_overview",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "legal_case",
+   "fieldtype": "Link",
+   "label": "Legal Case",
+   "options": "Legal Case",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reference_doctype",
+   "fieldtype": "Data",
+   "label": "Reference DocType",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reference_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Reference Name",
+   "options": "reference_doctype",
+   "read_only": 1
+  },
+  {
+   "fieldname": "performed_by",
+   "fieldtype": "Link",
+   "label": "Performed By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_communication_notes",
+   "fieldtype": "Section Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks",
+   "reqd": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-03-30 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Snrg Credit Control",
+ "name": "Customer Communication",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Legal",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "communication_at",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

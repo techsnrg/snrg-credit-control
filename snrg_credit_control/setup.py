@@ -561,6 +561,7 @@ def _ensure_demand_notice_default_print_format():
 # ---------------------------------------------------------------------------
 
 def _ensure_credit_control_workspace():
+    has_customer_communication = frappe.db.exists("DocType", "Customer Communication")
     has_demand_notice = frappe.db.exists("DocType", "Demand Notice")
     has_demand_notice_settings = frappe.db.exists("DocType", "Demand Notice Settings")
     has_cheque_bounce_case = frappe.db.exists("DocType", "Cheque Bounce Case")
@@ -784,6 +785,88 @@ def _ensure_credit_control_workspace():
             }
         )
 
+    if has_customer_communication or has_legal_desk:
+        content_blocks.append(
+            {
+                "id": "customer_communication_header",
+                "type": "header",
+                "data": {"text": "Customer Communications", "col": 12},
+            }
+        )
+        links.append(
+            {
+                "label": "Customer Communications",
+                "type": "Card Break",
+                "hidden": 0,
+                "is_query_report": 0,
+                "link_count": 0,
+                "onboard": 0,
+                "dependencies": "",
+            }
+        )
+
+    if has_legal_desk:
+        content_blocks.append(
+            {
+                "id": "customer_desk_shortcut",
+                "type": "shortcut",
+                "data": {"shortcut_name": "Customer Desk", "col": 3},
+            }
+        )
+        links.append(
+            {
+                "label": "Customer Desk",
+                "type": "Link",
+                "link_type": "Page",
+                "link_to": "legal-desk",
+                "hidden": 0,
+                "is_query_report": 0,
+                "link_count": 0,
+                "onboard": 1,
+                "dependencies": "",
+            }
+        )
+        shortcuts.append(
+            {
+                "type": "Page",
+                "label": "Customer Desk",
+                "link_to": "legal-desk",
+                "icon": "dashboard",
+                "color": "Blue",
+            }
+        )
+
+    if has_customer_communication:
+        content_blocks.append(
+            {
+                "id": "customer_communication_shortcut",
+                "type": "shortcut",
+                "data": {"shortcut_name": "Customer Communication", "col": 3},
+            }
+        )
+        links.append(
+            {
+                "label": "Customer Communication",
+                "type": "Link",
+                "link_type": "DocType",
+                "link_to": "Customer Communication",
+                "hidden": 0,
+                "is_query_report": 0,
+                "link_count": 0,
+                "onboard": 0,
+                "dependencies": "",
+            }
+        )
+        shortcuts.append(
+            {
+                "type": "DocType",
+                "label": "Customer Communication",
+                "link_to": "Customer Communication",
+                "icon": "phone",
+                "color": "Blue",
+            }
+        )
+
     if has_legal_case:
         content_blocks.extend(
             [
@@ -860,36 +943,6 @@ def _ensure_credit_control_workspace():
                     "link_to": "Legal Tracker",
                     "icon": "list",
                     "color": "Orange",
-                }
-            )
-        if has_legal_desk:
-            content_blocks.append(
-                {
-                    "id": "legal_desk_shortcut",
-                    "type": "shortcut",
-                    "data": {"shortcut_name": "Legal Desk", "col": 3},
-                }
-            )
-            links.append(
-                {
-                    "label": "Legal Desk",
-                    "type": "Link",
-                    "link_type": "Page",
-                    "link_to": "legal-desk",
-                    "hidden": 0,
-                    "is_query_report": 0,
-                    "link_count": 0,
-                    "onboard": 1,
-                    "dependencies": "",
-                }
-            )
-            shortcuts.append(
-                {
-                    "type": "Page",
-                    "label": "Legal Desk",
-                    "link_to": "legal-desk",
-                    "icon": "dashboard",
-                    "color": "Red",
                 }
             )
         if has_legal_payments:

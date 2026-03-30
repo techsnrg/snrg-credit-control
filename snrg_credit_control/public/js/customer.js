@@ -42,9 +42,15 @@ function render_customer_legal_pill(frm) {
 }
 
 function add_customer_legal_button(frm) {
+  frm.remove_custom_button("Open Customer Desk");
   frm.remove_custom_button("Mark to Legal");
   frm.remove_custom_button("Open Legal Case");
   if (frm.is_new()) return;
+
+  frm.add_custom_button("Open Customer Desk", function () {
+    frappe.route_options = { customer: frm.doc.name };
+    frappe.set_route("legal-desk");
+  });
 
   if (frm.doc.custom_active_legal_case) {
     frm.add_custom_button("Open Legal Case", function () {
