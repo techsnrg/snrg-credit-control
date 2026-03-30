@@ -350,7 +350,10 @@ def get_legal_case_timeline(legal_case):
     for row in activities:
         row["reference_route"] = ""
         if row.get("reference_doctype") and row.get("reference_name"):
-            row["reference_route"] = f"/app/{frappe.scrub(row['reference_doctype'])}/{row['reference_name']}"
+            route_name = (
+                row["reference_doctype"].replace("_", "-").replace(" ", "-").lower()
+            )
+            row["reference_route"] = f"/app/{route_name}/{row['reference_name']}"
 
     return activities
 

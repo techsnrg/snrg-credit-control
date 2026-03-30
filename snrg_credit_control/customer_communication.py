@@ -20,7 +20,8 @@ MANUAL_COMMUNICATION_TYPES = {"Call", "Visit", "Email", "WhatsApp", "Notice"}
 def build_reference_route(doctype, name):
     if not doctype or not name:
         return ""
-    return f"/app/{frappe.scrub(doctype)}/{name}"
+    route_name = doctype.replace("_", "-").replace(" ", "-").lower()
+    return f"/app/{route_name}/{name}"
 
 
 def build_feed_row(
