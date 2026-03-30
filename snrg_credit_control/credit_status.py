@@ -109,12 +109,15 @@ def build_credit_snapshot(customer, company, amount=0, currency=None, detail_lim
     if overdue_count > detail_limit:
         detail_lines.append(f"{more_prefix} +{overdue_count - detail_limit} more")
 
+    reasons = []
     if overdue_count > 0:
+        reasons.append("Overdue>Terms")
+    if limit_breach:
+        reasons.append("Over-Limit")
+
+    if reasons:
         status = "Credit Hold"
-        reason_code = "Overdue>Terms"
-    elif limit_breach:
-        status = "Credit Hold"
-        reason_code = "Over-Limit"
+        reason_code = " + ".join(reasons)
     else:
         status = "Credit OK"
         reason_code = ""
@@ -173,6 +176,7 @@ def render_credit_details_html(snapshot, customer, customer_name, next_step_html
     credit_limit = snapshot["credit_limit"]
     effective_ar = snapshot["effective_ar"]
     advances = snapshot["advances"]
+    limit_breach = snapshot["limit_breach"]
 
     padding = "padding:8px 6px;"
     border_bottom = "border-bottom:1px solid #e0e0e0;"
@@ -181,8 +185,20 @@ def render_credit_details_html(snapshot, customer, customer_name, next_step_html
 
     next_step = next_step_html or ""
 
+    breach = (effective_ar + amount) - credit_limit
+
+    def breakdown_row(label, value, val_color=None, bold_val=False):
+        value_color = f"color:{val_color};" if val_color else ""
+        value_weight = "font-weight:800;font-size:15px;" if bold_val else "font-weight:600;"
+        return (
+            f"<tr>"
+            f"<td style='{padding}{border_bottom}color:#666;'>{label}</td>"
+            f"<td style='{padding}{border_bottom}text-align:right;{value_weight}{value_color}'>{value}</td>"
+            f"</tr>"
+        )
+
+    invoice_rows = ""
     if count > 0:
-        invoice_rows = ""
         for row in rows[:15]:
             age = (today_date - getdate(row.posting_date)).days
             age_color = "#c0392b" if age > 90 else ("#e67e22" if age > 75 else "#555")
@@ -201,22 +217,29 @@ def render_credit_details_html(snapshot, customer, customer_name, next_step_html
                 f"&#8230; and {count - 15} more invoice(s)</td></tr>"
             )
 
-        return (
-            f"<table width='100%' cellpadding='0' cellspacing='0'>"
-            f"<tr>"
-            f"<td width='48%' style='padding:4px 12px 4px 0;vertical-align:top;'>"
-            f"<p style='margin:0 0 2px;font-size:11px;color:#888;font-weight:700;letter-spacing:.6px;text-transform:uppercase;'>&#128100; Customer</p>"
-            f"<p style='margin:0 0 2px;font-size:15px;font-weight:700;'>{escape_html(customer_name)}</p>"
-            f"<p style='margin:0;font-size:12px;color:#999;'>{escape_html(customer)}</p>"
-            f"</td>"
-            f"<td width='4%'></td>"
-            f"<td width='48%' style='padding:4px 0 4px 0;vertical-align:top;'>"
+    overdue_summary = ""
+    if count > 0:
+        overdue_summary = (
+            f"<div style='margin-bottom:{'10px' if limit_breach else '0'};'>"
             f"<p style='margin:0 0 2px;font-size:11px;color:#c0392b;font-weight:700;letter-spacing:.6px;text-transform:uppercase;'>&#9888;&#65039; Total Overdue</p>"
             f"<p style='margin:0 0 2px;font-size:22px;font-weight:800;color:#c0392b;'>{fmt_money(total_overdue, currency=cur)}</p>"
             f"<p style='margin:0;font-size:12px;color:#e67e22;'>{count} invoice{'s' if count != 1 else ''} &nbsp;&#183;&nbsp; older than {threshold} days</p>"
-            f"</td>"
-            f"</tr>"
-            f"</table>"
+            f"</div>"
+        )
+
+    breach_summary = ""
+    if limit_breach:
+        breach_summary = (
+            f"<div>"
+            f"<p style='margin:0 0 2px;font-size:11px;color:#c0392b;font-weight:700;letter-spacing:.6px;text-transform:uppercase;'>&#128683; Breach Amount</p>"
+            f"<p style='margin:0 0 2px;font-size:22px;font-weight:800;color:#c0392b;'>{fmt_money(breach, currency=cur)}</p>"
+            f"<p style='margin:0;font-size:12px;color:#e67e22;'>Exceeds assigned credit limit</p>"
+            f"</div>"
+        )
+
+    overdue_section = ""
+    if count > 0:
+        overdue_section = (
             f"{hr}"
             f"<p style='margin:0 0 8px;font-size:12px;color:#888;'>&#128203; <strong>Overdue Invoices</strong>"
             f"&nbsp;&nbsp;&#183;&nbsp;&nbsp;Cutoff date: <strong>{formatdate(cutoff)}</strong>"
@@ -233,20 +256,26 @@ def render_credit_details_html(snapshot, customer, customer_name, next_step_html
             f"<td style='{padding}text-align:right;font-weight:800;font-size:16px;color:#c0392b;border-top:2px solid #ccc;'>{fmt_money(total_overdue, currency=cur)}</td>"
             f"</tr></tfoot>"
             f"</table>"
-            f"{hr if next_step else ''}"
-            f"{next_step}"
         )
 
-    breach = (effective_ar + amount) - credit_limit
-
-    def breakdown_row(label, value, val_color=None, bold_val=False):
-        value_color = f"color:{val_color};" if val_color else ""
-        value_weight = "font-weight:800;font-size:15px;" if bold_val else "font-weight:600;"
-        return (
+    breach_section = ""
+    if limit_breach:
+        breach_section = (
+            f"{hr}"
+            f"<p style='margin:0 0 8px;font-size:12px;color:#888;'>&#128200; <strong>Credit Limit Breakdown</strong></p>"
+            f"<table width='100%' cellpadding='0' cellspacing='0' style='border-collapse:collapse;'><tbody>"
+            f"{breakdown_row('&#127974; Credit Limit', fmt_money(credit_limit, currency=cur))}"
+            f"{breakdown_row('&#128196; Current AR Outstanding', fmt_money(effective_ar, currency=cur))}"
+            f"{breakdown_row('&#128179; Advance Balance (credit)', fmt_money(advances, currency=cur))}"
+            f"{breakdown_row('&#128666; This Document', fmt_money(amount, currency=cur))}"
             f"<tr>"
-            f"<td style='{padding}{border_bottom}color:#666;'>{label}</td>"
-            f"<td style='{padding}{border_bottom}text-align:right;{value_weight}{value_color}'>{value}</td>"
+            f"<td style='{padding}font-weight:700;font-size:13px;border-top:2px solid #ccc;'>&#9889; Total Exposure</td>"
+            f"<td style='{padding}text-align:right;font-weight:800;font-size:15px;color:#c0392b;border-top:2px solid #ccc;'>"
+            f"{fmt_money(effective_ar + amount, currency=cur)}"
+            f"<br><span style='font-size:11px;color:#888;font-weight:400;'>vs limit {fmt_money(credit_limit, currency=cur)}</span>"
+            f"</td>"
             f"</tr>"
+            f"</tbody></table>"
         )
 
     return (
@@ -259,27 +288,13 @@ def render_credit_details_html(snapshot, customer, customer_name, next_step_html
         f"</td>"
         f"<td width='4%'></td>"
         f"<td width='48%' style='padding:4px 0;vertical-align:top;'>"
-        f"<p style='margin:0 0 2px;font-size:11px;color:#c0392b;font-weight:700;letter-spacing:.6px;text-transform:uppercase;'>&#128683; Breach Amount</p>"
-        f"<p style='margin:0 0 2px;font-size:22px;font-weight:800;color:#c0392b;'>{fmt_money(breach, currency=cur)}</p>"
-        f"<p style='margin:0;font-size:12px;color:#e67e22;'>Exceeds assigned credit limit</p>"
+        f"{overdue_summary}"
+        f"{breach_summary}"
         f"</td>"
         f"</tr>"
         f"</table>"
-        f"{hr}"
-        f"<p style='margin:0 0 8px;font-size:12px;color:#888;'>&#128200; <strong>Credit Limit Breakdown</strong></p>"
-        f"<table width='100%' cellpadding='0' cellspacing='0' style='border-collapse:collapse;'><tbody>"
-        f"{breakdown_row('&#127974; Credit Limit', fmt_money(credit_limit, currency=cur))}"
-        f"{breakdown_row('&#128196; Current AR Outstanding', fmt_money(effective_ar, currency=cur))}"
-        f"{breakdown_row('&#128179; Advance Balance (credit)', fmt_money(advances, currency=cur))}"
-        f"{breakdown_row('&#128666; This Document', fmt_money(amount, currency=cur))}"
-        f"<tr>"
-        f"<td style='{padding}font-weight:700;font-size:13px;border-top:2px solid #ccc;'>&#9889; Total Exposure</td>"
-        f"<td style='{padding}text-align:right;font-weight:800;font-size:15px;color:#c0392b;border-top:2px solid #ccc;'>"
-        f"{fmt_money(effective_ar + amount, currency=cur)}"
-        f"<br><span style='font-size:11px;color:#888;font-weight:400;'>vs limit {fmt_money(credit_limit, currency=cur)}</span>"
-        f"</td>"
-        f"</tr>"
-        f"</tbody></table>"
+        f"{overdue_section}"
+        f"{breach_section}"
         f"{hr if next_step else ''}"
         f"{next_step}"
     )

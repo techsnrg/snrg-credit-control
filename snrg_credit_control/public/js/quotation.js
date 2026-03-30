@@ -42,6 +42,8 @@ function render_quotation_credit_chip(frm) {
     if (!model) return;
 
     const { stage, status, reason, overdueCount, overdueAmount, exposure, creditLimit, quotationValue, currency } = model;
+    const hasOverdueTerms = reason.includes("Overdue>Terms");
+    const hasOverLimit = reason.includes("Over-Limit");
     const availableCredit = creditLimit ? (creditLimit - exposure) : 0;
     const projectedAvailable = creditLimit ? (creditLimit - exposure - quotationValue) : 0;
     const fmt = value => frappe.format(value, { fieldtype: "Currency", options: currency });
@@ -65,9 +67,11 @@ function render_quotation_credit_chip(frm) {
         border: "rgba(239,68,68,.18)",
         title: "Credit Hold",
         badge: reason || "Review",
-        subtitle: reason === "Over-Limit" && stage !== "preview"
+        subtitle: hasOverdueTerms && hasOverLimit
+          ? "Customer has overdue invoices beyond the configured threshold and the current exposure plus this quotation crosses the assigned credit limit."
+          : hasOverLimit && stage !== "preview"
           ? "Current exposure plus this quotation crosses the customer's credit limit."
-          : reason === "Over-Limit"
+          : hasOverLimit
           ? "Current exposure is already beyond the customer's credit limit."
           : "Customer has overdue invoices beyond the configured threshold.",
       },
@@ -126,6 +130,7 @@ function render_quotation_credit_chip(frm) {
         <div style="border-top:1px solid rgba(140,140,140,.14);margin-top:12px;padding-top:12px;font-size:12px;opacity:.8;display:flex;gap:24px;flex-wrap:wrap;align-items:center;">
           <span><strong>Overdue Invoices:</strong> ${overdueCount}</span>
           <span><strong>Overdue Amount:</strong> ${fmt(overdueAmount)}</span>
+          <span><strong>Status:</strong> ${frappe.utils.escape_html(reason || "Within policy")}</span>
         </div>
       </div>
     `);

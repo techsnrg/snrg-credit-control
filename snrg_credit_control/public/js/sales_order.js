@@ -44,6 +44,8 @@ function render_sales_order_credit_chip(frm) {
       overrideCap,
       overrideValidTill,
     } = model;
+    const hasOverdueTerms = reason.includes("Overdue>Terms");
+    const hasOverLimit = reason.includes("Over-Limit");
 
     const availableCredit = creditLimit ? (creditLimit - exposure) : 0;
     const projectedBalance = creditLimit ? (creditLimit - exposure - orderValue) : 0;
@@ -64,7 +66,9 @@ function render_sales_order_credit_chip(frm) {
         rgb: "239,68,68",
         title: "Credit Hold",
         badge: reason || "Review",
-        subtitle: reason === "Over-Limit"
+        subtitle: hasOverdueTerms && hasOverLimit
+          ? "Customer has overdue invoices beyond the configured threshold and the current exposure plus this order crosses the assigned credit limit."
+          : hasOverLimit
           ? "Current exposure plus this order crosses the customer's credit limit."
           : "Customer has overdue invoices beyond the configured threshold.",
       },
