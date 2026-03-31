@@ -263,6 +263,7 @@ function add_quotation_credit_button(frm) {
   }
 
   frm.add_custom_button("Credit Details", () => open_quotation_credit_details(frm));
+  frm.add_custom_button("Refresh Credit Status", () => refresh_quotation_credit_status(frm));
 }
 
 async function open_quotation_credit_details(frm) {
@@ -300,6 +301,65 @@ async function open_quotation_credit_details(frm) {
     console.warn("[SNRG Quotation Credit Details] dialog error:", e);
     frappe.msgprint({
       title: "Unable to load credit details",
+      message: (e && e.message) || String(e),
+      indicator: "red",
+    });
+  }
+}
+
+async function refresh_quotation_credit_status(frm) {
+  if (!frm.doc.party_name || !frm.doc.company) {
+    frappe.msgprint({
+      title: "Missing Customer",
+      message: "Select a customer and company first to refresh credit status.",
+      indicator: "orange",
+    });
+    return;
+  }
+
+  try {
+    const { message } = await frappe.call({
+      method: "snrg_credit_control.overrides.quotation.refresh_credit_status",
+      args: {
+        customer: frm.doc.party_name,
+        company: frm.doc.company,
+        currency: frm.doc.currency,
+        amount: frm.doc.grand_total || frm.doc.rounded_total || 0,
+      },
+      freeze: true,
+      freeze_message: __("Refreshing credit status..."),
+    });
+
+    const snapshot = message || {};
+    frm._snrg_credit_preview = null;
+
+    frm.doc.custom_snrg_credit_check_status = snapshot.status || "Not Run";
+    frm.doc.custom_snrg_credit_check_reason_code = snapshot.reason_code || "";
+    frm.doc.custom_snrg_overdue_count_terms = snapshot.overdue_count || 0;
+    frm.doc.custom_snrg_overdue_amount_terms = snapshot.total_overdue || 0;
+    frm.doc.custom_snrg_exposure_at_check = snapshot.effective_ar || 0;
+    frm.doc.custom_snrg_credit_limit_at_check = snapshot.credit_limit || 0;
+
+    [
+      "custom_snrg_credit_check_status",
+      "custom_snrg_credit_check_reason_code",
+      "custom_snrg_overdue_count_terms",
+      "custom_snrg_overdue_amount_terms",
+      "custom_snrg_exposure_at_check",
+      "custom_snrg_credit_limit_at_check",
+    ].forEach(fieldname => frm.refresh_field(fieldname));
+
+    render_quotation_credit_chip(frm);
+    render_quotation_header_status(frm);
+
+    frappe.show_alert({
+      message: __("Credit status refreshed"),
+      indicator: "green",
+    });
+  } catch (e) {
+    console.warn("[SNRG Quotation Credit Refresh] error:", e);
+    frappe.msgprint({
+      title: "Unable to refresh credit status",
       message: (e && e.message) || String(e),
       indicator: "red",
     });
