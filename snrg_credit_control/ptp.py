@@ -1,5 +1,5 @@
 import frappe
-from frappe.utils import fmt_money, getdate, today
+from frappe.utils import fmt_money, getdate, get_url_to_form, today
 
 from snrg_credit_control.credit_status import zero
 
@@ -173,3 +173,161 @@ def get_active_credit_ptp(sales_order):
         order_by="creation desc",
         limit=1,
     )
+
+
+def _get_employee_notification_target(employee):
+    if not employee:
+        return {}
+
+    target = frappe.db.get_value(
+        "Employee",
+        employee,
+        ["employee_name", "user_id", "company_email", "personal_email"],
+        as_dict=True,
+    ) or {}
+
+    email = None
+    user_id = target.get("user_id")
+    if user_id and "@" in user_id:
+        email = user_id
+    email = email or target.get("company_email") or target.get("personal_email")
+
+    return {
+        "employee_name": target.get("employee_name") or employee,
+        "user_id": user_id,
+        "email": email,
+    }
+
+
+def _create_internal_notification(for_user, subject, html, document_name):
+    if not for_user:
+        return
+
+    frappe.get_doc(
+        {
+            "doctype": "Notification Log",
+            "for_user": for_user,
+            "type": "Alert",
+            "document_type": "Credit PTP",
+            "document_name": document_name,
+            "subject": subject,
+            "email_content": html,
+            "from_user": frappe.session.user if frappe.session.user and frappe.session.user != "Guest" else "Administrator",
+        }
+    ).insert(ignore_permissions=True)
+
+
+def _build_ptp_reminder_message(doc, reminder_type):
+    customer = doc.get("customer_name") or doc.get("customer") or "Customer"
+    due_date = doc.get("commitment_date")
+    committed = fmt_money(val(doc.get("committed_amount")), currency=doc.get("currency") or "INR")
+    received = fmt_money(val(doc.get("received_amount")), currency=doc.get("currency") or "INR")
+    difference = fmt_money(val(doc.get("difference_amount")), currency=doc.get("currency") or "INR")
+    ptp_url = get_url_to_form("Credit PTP", doc.name)
+    sales_order_url = get_url_to_form("Sales Order", doc.sales_order) if doc.get("sales_order") else None
+
+    if reminder_type == "due_today":
+        subject = f"[SNRG] PTP Due Today — {doc.name} ({customer})"
+        intro = "This PTP is due today and needs follow-up."
+    else:
+        subject = f"[SNRG] PTP Overdue — {doc.name} ({customer})"
+        intro = "This PTP is overdue and needs immediate follow-up."
+
+    links = [f'<a href="{ptp_url}">Open Credit PTP</a>']
+    if sales_order_url:
+        links.append(f'<a href="{sales_order_url}">Open Sales Order</a>')
+
+    html = (
+        f"<p>{intro}</p>"
+        f"<p><strong>Customer:</strong> {frappe.utils.escape_html(customer)}<br>"
+        f"<strong>PTP:</strong> {frappe.utils.escape_html(doc.name)}<br>"
+        f"<strong>Sales Order:</strong> {frappe.utils.escape_html(doc.get('sales_order') or '-')}<br>"
+        f"<strong>Payment By Date:</strong> {frappe.utils.escape_html(str(due_date or '-'))}<br>"
+        f"<strong>Committed Amount:</strong> {frappe.utils.escape_html(committed)}<br>"
+        f"<strong>Received Amount:</strong> {frappe.utils.escape_html(received)}<br>"
+        f"<strong>Difference Amount:</strong> {frappe.utils.escape_html(difference)}</p>"
+        f"<p>{' | '.join(links)}</p>"
+    )
+    return subject, html
+
+
+def _send_ptp_reminder(doc, reminder_type):
+    target = _get_employee_notification_target(doc.get("ptp_by"))
+    if not target:
+        return False
+
+    subject, html = _build_ptp_reminder_message(doc, reminder_type)
+    sent = False
+
+    if target.get("user_id"):
+        _create_internal_notification(target.get("user_id"), subject, html, doc.name)
+        sent = True
+
+    if target.get("email"):
+        frappe.sendmail(
+            recipients=[target.get("email")],
+            subject=subject,
+            message=html,
+            delayed=False,
+        )
+        sent = True
+
+    return sent
+
+
+def send_due_ptp_reminders():
+    today_date = getdate(today())
+    ptps = frappe.get_all(
+        "Credit PTP",
+        filters={
+            "status": ["in", list(ACTIVE_PTP_STATUSES)],
+            "commitment_date": ["is", "set"],
+        },
+        fields=[
+            "name",
+            "customer",
+            "customer_name",
+            "sales_order",
+            "commitment_date",
+            "committed_amount",
+            "received_amount",
+            "difference_amount",
+            "currency",
+            "ptp_by",
+            "last_reminder_on",
+            "last_reminder_type",
+        ],
+    )
+
+    for row in ptps:
+        commitment_date = getdate(row.commitment_date)
+        reminder_type = None
+        if commitment_date == today_date:
+            reminder_type = "due_today"
+        elif commitment_date < today_date:
+            reminder_type = "overdue"
+
+        if not reminder_type:
+            continue
+
+        if row.get("last_reminder_on") == today_date and row.get("last_reminder_type") == reminder_type:
+            continue
+
+        if _send_ptp_reminder(row, reminder_type):
+            frappe.db.set_value(
+                "Credit PTP",
+                row.name,
+                {
+                    "last_reminder_on": today_date,
+                    "last_reminder_type": reminder_type,
+                },
+                update_modified=False,
+            )
+
+
+@frappe.whitelist()
+def run_due_ptp_reminders_now():
+    if not frappe.has_permission("Credit PTP", "read"):
+        frappe.throw("Not permitted.", frappe.PermissionError)
+    send_due_ptp_reminders()
+    return {"ok": True}

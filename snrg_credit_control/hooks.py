@@ -8,6 +8,12 @@ app_license = "MIT"
 after_install = "snrg_credit_control.setup.after_install"
 after_migrate = "snrg_credit_control.setup.after_migrate"
 
+scheduler_events = {
+    "daily": [
+        "snrg_credit_control.ptp.send_due_ptp_reminders",
+    ]
+}
+
 # Inject JS into the Sales Order form
 doctype_js = {
     "Customer": "public/js/customer.js",

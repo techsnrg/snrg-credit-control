@@ -423,29 +423,37 @@ def _ensure_quotation_fields():
 # ---------------------------------------------------------------------------
 
 def _ensure_report():
-    name = "Credit Control Report"
-    if frappe.db.exists("Report", name):
-        frappe.db.set_value("Report", name, "module", "Snrg Credit Control")
-        frappe.db.set_value("Report", name, "disabled", 0)
-        return
-
-    frappe.get_doc(
+    reports = [
         {
-            "doctype": "Report",
-            "report_name": name,
-            "report_type": "Script Report",
+            "name": "Credit Control Report",
             "ref_doctype": "Sales Order",
-            "module": "Snrg Credit Control",
-            "is_standard": "Yes",
-            "disabled": 0,
-            "roles": [
-                {"role": "Credit Approver"},
-                {"role": "Accounts Manager"},
-                {"role": "System Manager"},
-                {"role": "Sales Manager"},
-            ],
-        }
-    ).insert(ignore_permissions=True)
+            "roles": ["Credit Approver", "Accounts Manager", "System Manager", "Sales Manager"],
+        },
+        {
+            "name": "PTP Dashboard",
+            "ref_doctype": "Credit PTP",
+            "roles": ["Credit Approver", "Accounts Manager", "System Manager", "Sales Manager"],
+        },
+    ]
+
+    for report in reports:
+        if frappe.db.exists("Report", report["name"]):
+            frappe.db.set_value("Report", report["name"], "module", "Snrg Credit Control")
+            frappe.db.set_value("Report", report["name"], "disabled", 0)
+            continue
+
+        frappe.get_doc(
+            {
+                "doctype": "Report",
+                "report_name": report["name"],
+                "report_type": "Script Report",
+                "ref_doctype": report["ref_doctype"],
+                "module": "Snrg Credit Control",
+                "is_standard": "Yes",
+                "disabled": 0,
+                "roles": [{"role": role} for role in report["roles"]],
+            }
+        ).insert(ignore_permissions=True)
 
 
 # ---------------------------------------------------------------------------
@@ -571,6 +579,7 @@ def _ensure_credit_control_workspace():
     has_legal_tracker = frappe.db.exists("Report", "Legal Tracker")
     has_legal_payments = frappe.db.exists("Report", "Legal Payments")
     has_legal_desk = frappe.db.exists("Page", "legal-desk")
+    has_ptp_dashboard = frappe.db.exists("Report", "PTP Dashboard")
 
     content_blocks = [
         {
@@ -589,6 +598,15 @@ def _ensure_credit_control_workspace():
             "data": {"shortcut_name": "Credit Control Report", "col": 3},
         },
     ]
+
+    if has_ptp_dashboard:
+        content_blocks.append(
+            {
+                "id": "ptp_dashboard_shortcut",
+                "type": "shortcut",
+                "data": {"shortcut_name": "PTP Dashboard", "col": 3},
+            }
+        )
 
     links = [
         {
@@ -624,6 +642,21 @@ def _ensure_credit_control_workspace():
         },
     ]
 
+    if has_ptp_dashboard:
+        links.append(
+            {
+                "label": "PTP Dashboard",
+                "type": "Link",
+                "link_type": "Report",
+                "link_to": "PTP Dashboard",
+                "hidden": 0,
+                "is_query_report": 0,
+                "link_count": 0,
+                "onboard": 1,
+                "dependencies": "",
+            }
+        )
+
     shortcuts = [
         {
             "type": "DocType",
@@ -641,6 +674,17 @@ def _ensure_credit_control_workspace():
             "color": "Green",
         },
     ]
+
+    if has_ptp_dashboard:
+        shortcuts.append(
+            {
+                "type": "Report",
+                "label": "PTP Dashboard",
+                "link_to": "PTP Dashboard",
+                "icon": "dashboard",
+                "color": "Orange",
+            }
+        )
 
     if has_demand_notice or has_demand_notice_settings:
         content_blocks.append(

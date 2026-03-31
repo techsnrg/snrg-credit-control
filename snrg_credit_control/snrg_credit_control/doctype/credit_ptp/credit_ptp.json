@@ -28,6 +28,8 @@
   "payment_mode",
   "cheque_number",
   "status",
+  "last_reminder_on",
+  "last_reminder_type",
   "section_payment_tracking",
   "linked_payment_entries",
   "remarks",
@@ -175,6 +177,20 @@
    "in_list_view": 1,
    "label": "Status",
    "options": "Pending\nPartially Cleared\nCleared\nBroken\nSuperseded"
+  },
+  {
+   "fieldname": "last_reminder_on",
+   "fieldtype": "Date",
+   "hidden": 1,
+   "label": "Last Reminder On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_reminder_type",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Last Reminder Type",
+   "read_only": 1
   },
   {
    "fieldname": "section_payment_tracking",
