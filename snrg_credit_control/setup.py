@@ -478,26 +478,33 @@ def _ensure_valid_search_fields(doctype):
     if not frappe.db.exists("DocType", doctype):
         return
 
-    search_fields = frappe.db.get_value("DocType", doctype, "search_fields") or ""
-    if not search_fields:
-        return
+    doctype_doc = frappe.get_doc("DocType", doctype)
+    valid_fieldnames = {df.fieldname for df in doctype_doc.fields if df.fieldname}
+    valid_fieldnames.add("name")
 
-    meta = frappe.get_meta(doctype)
-    valid_fieldnames = {df.fieldname for df in meta.fields}
-    valid_fieldnames.update(
-        fieldname
-        for fieldname in (
-            "name",
-            getattr(meta, "title_field", None),
-            getattr(meta, "search_fields", None),
+    current_title_field = (doctype_doc.title_field or "").strip()
+    if current_title_field and current_title_field not in valid_fieldnames:
+        frappe.db.set_value(
+            "DocType",
+            doctype,
+            "title_field",
+            "",
+            update_modified=False,
         )
-        if fieldname
-    )
+        current_title_field = ""
+
+    search_fields = (doctype_doc.search_fields or "").strip()
+    if not search_fields:
+        if current_title_field:
+            frappe.clear_cache(doctype=doctype)
+        return
 
     parsed_fields = [field.strip() for field in search_fields.replace("\n", ",").split(",") if field.strip()]
     cleaned_fields = [field for field in parsed_fields if field in valid_fieldnames]
 
     if cleaned_fields == parsed_fields:
+        if current_title_field:
+            frappe.clear_cache(doctype=doctype)
         return
 
     frappe.db.set_value(
@@ -507,6 +514,7 @@ def _ensure_valid_search_fields(doctype):
         ", ".join(cleaned_fields),
         update_modified=False,
     )
+    frappe.clear_cache(doctype=doctype)
 
 
 # ---------------------------------------------------------------------------
