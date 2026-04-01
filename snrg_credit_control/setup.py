@@ -17,6 +17,7 @@ import frappe
 def after_install():
     _ensure_module()
     _ensure_role()
+    _ensure_valid_search_fields("Quotation")
     _ensure_customer_fields()
     _ensure_journal_entry_fields()
     _ensure_so_fields()
@@ -33,6 +34,7 @@ def after_install():
 def after_migrate():
     _ensure_module()
     _ensure_role()
+    _ensure_valid_search_fields("Quotation")
     _ensure_customer_fields()
     _ensure_journal_entry_fields()
     _ensure_so_fields()
@@ -470,6 +472,41 @@ def _ensure_custom_field(doctype, field_def):
     doc = {"doctype": "Custom Field", "dt": doctype}
     doc.update(field_def)
     frappe.get_doc(doc).insert(ignore_permissions=True)
+
+
+def _ensure_valid_search_fields(doctype):
+    if not frappe.db.exists("DocType", doctype):
+        return
+
+    search_fields = frappe.db.get_value("DocType", doctype, "search_fields") or ""
+    if not search_fields:
+        return
+
+    meta = frappe.get_meta(doctype)
+    valid_fieldnames = {df.fieldname for df in meta.fields}
+    valid_fieldnames.update(
+        fieldname
+        for fieldname in (
+            "name",
+            getattr(meta, "title_field", None),
+            getattr(meta, "search_fields", None),
+        )
+        if fieldname
+    )
+
+    parsed_fields = [field.strip() for field in search_fields.replace("\n", ",").split(",") if field.strip()]
+    cleaned_fields = [field for field in parsed_fields if field in valid_fieldnames]
+
+    if cleaned_fields == parsed_fields:
+        return
+
+    frappe.db.set_value(
+        "DocType",
+        doctype,
+        "search_fields",
+        ", ".join(cleaned_fields),
+        update_modified=False,
+    )
 
 
 # ---------------------------------------------------------------------------
