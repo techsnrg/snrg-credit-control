@@ -35,13 +35,15 @@
         <div style="background:var(--control-bg, #f8f9fa);border:1px solid var(--border-color, #d1d8dd);border-radius:10px;padding:12px 14px;line-height:1.35;color:var(--text-color, #36414c);box-shadow:none;">
           <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;">
             <div style="min-width:0;">
-              <div style="font-size:16px;font-weight:700;margin-bottom:1px;">${title}</div>
-              <div style="font-size:11px;opacity:.7;max-width:780px;">Credit status has not been refreshed yet. Save the document or use Credit Control &gt; Refresh Credit Status.</div>
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                <div style="font-size:16px;font-weight:700;">${title}</div>
+                <div style="font-size:11px;opacity:.68;">Last Refresh: ${formatCheckedOn(model.checkedOn)}</div>
+              </div>
             </div>
             <span style="display:inline-flex;align-items:center;background:rgba(100,116,139,.10);border:1px solid rgba(100,116,139,.18);color:#475569;font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap;">Not Run</span>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px;font-size:11px;opacity:.85;">
-            <span style="display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;background:rgba(15,23,42,.05);"><strong>Last Refresh:</strong>&nbsp;${formatCheckedOn(model.checkedOn)}</span>
+            <span style="display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;background:rgba(15,23,42,.05);">Use Credit Control &gt; Refresh Credit Status or save the document.</span>
           </div>
         </div>
       `;
@@ -87,8 +89,6 @@
     const extraPills = [];
     extraPills.push(`<span style="display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;background:rgba(15,23,42,.05);"><strong>Overdue:</strong>&nbsp;${Number(model.overdueCount || 0)}</span>`);
     extraPills.push(`<span style="display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;background:rgba(15,23,42,.05);"><strong>Amount:</strong>&nbsp;${fmt(Number(model.overdueAmount || 0))}</span>`);
-    extraPills.push(`<span style="display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;background:rgba(15,23,42,.05);"><strong>Status:</strong>&nbsp;${frappe.utils.escape_html(reason || "Within policy")}</span>`);
-    extraPills.push(`<span style="display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;background:rgba(15,23,42,.05);"><strong>Last Refresh:</strong>&nbsp;${formatCheckedOn(model.checkedOn)}</span>`);
 
     if (Array.isArray(model.metaParts)) {
       model.metaParts.forEach((part) => {
@@ -100,8 +100,10 @@
       <div style="background:var(--control-bg, #f8f9fa);border:1px solid var(--border-color, #d1d8dd);border-radius:10px;padding:12px 14px;line-height:1.35;color:var(--text-color, #36414c);box-shadow:none;">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;">
           <div style="min-width:0;">
-            <div style="font-size:16px;font-weight:700;margin-bottom:1px;">${theme.title}</div>
-            <div style="font-size:11px;opacity:.7;max-width:780px;">${theme.subtitle}</div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <div style="font-size:16px;font-weight:700;">${theme.title}</div>
+              <div style="font-size:11px;opacity:.68;">Last Refresh: ${formatCheckedOn(model.checkedOn)}</div>
+            </div>
           </div>
           ${pill}
         </div>
