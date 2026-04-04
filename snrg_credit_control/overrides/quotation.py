@@ -46,6 +46,7 @@ def get_credit_preview(customer, company, currency=None):
         "effective_ar": snapshot["effective_ar"],
         "credit_limit": snapshot["credit_limit"],
         "currency": snapshot["currency"],
+        "checked_on": snapshot["checked_on"],
     }
 
 

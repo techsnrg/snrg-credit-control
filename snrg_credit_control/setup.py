@@ -129,9 +129,17 @@ _SO_FIELDS = [
         "insert_after": "custom_snrg_credit_check_status",
     },
     {
+        "fieldname": "custom_snrg_credit_checked_on",
+        "fieldtype": "Datetime",
+        "label": "Credit Checked On",
+        "read_only": 1,
+        "hidden": 1,
+        "insert_after": "custom_snrg_credit_check_reason_code",
+    },
+    {
         "fieldname": "custom_snrg_col_break_1",
         "fieldtype": "Column Break",
-        "insert_after": "custom_snrg_credit_check_reason_code",
+        "insert_after": "custom_snrg_credit_checked_on",
     },
     {
         "fieldname": "custom_snrg_overdue_count_terms",
@@ -277,12 +285,20 @@ _QUOTATION_FIELDS = [
         "insert_after": "custom_snrg_credit_check_status",
     },
     {
+        "fieldname": "custom_snrg_credit_checked_on",
+        "fieldtype": "Datetime",
+        "label": "Credit Checked On",
+        "read_only": 1,
+        "hidden": 1,
+        "insert_after": "custom_snrg_credit_check_reason_code",
+    },
+    {
         "fieldname": "custom_snrg_overdue_count_terms",
         "fieldtype": "Int",
         "label": "Overdue Invoice Count",
         "read_only": 1,
         "hidden": 1,
-        "insert_after": "custom_snrg_credit_check_reason_code",
+        "insert_after": "custom_snrg_credit_checked_on",
     },
     {
         "fieldname": "custom_snrg_overdue_amount_terms",

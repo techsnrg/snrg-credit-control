@@ -230,6 +230,7 @@ def get_credit_status(customer, company, currency=None, amount=0):
         "credit_limit": snapshot["credit_limit"],
         "details": snapshot["details"],
         "currency": snapshot["currency"],
+        "checked_on": snapshot["checked_on"],
     }
 
 

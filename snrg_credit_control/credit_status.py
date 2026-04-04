@@ -1,5 +1,5 @@
 import frappe
-from frappe.utils import add_days, flt, fmt_money, formatdate, getdate, today
+from frappe.utils import add_days, flt, fmt_money, formatdate, getdate, now_datetime, today
 
 
 DEFAULT_THRESHOLD_DAYS = 75
@@ -126,6 +126,7 @@ def build_credit_snapshot(customer, company, amount=0, currency=None, detail_lim
 
     return {
         "today_date": today_date,
+        "checked_on": now_datetime(),
         "threshold": threshold,
         "cutoff": cutoff,
         "currency": resolved_currency,
@@ -152,6 +153,7 @@ def stamp_credit_fields(doc, snapshot):
     doc.custom_snrg_exposure_at_check = snapshot["effective_ar"]
     doc.custom_snrg_credit_limit_at_check = snapshot["credit_limit"]
     doc.custom_snrg_credit_check_details = snapshot["details"]
+    doc.custom_snrg_credit_checked_on = snapshot.get("checked_on")
     doc.custom_snrg_credit_check_status = snapshot["status"]
     doc.custom_snrg_credit_check_reason_code = snapshot["reason_code"]
 
@@ -164,6 +166,7 @@ def reset_credit_fields(doc):
     doc.custom_snrg_exposure_at_check = 0
     doc.custom_snrg_credit_limit_at_check = 0
     doc.custom_snrg_credit_check_details = ""
+    doc.custom_snrg_credit_checked_on = None
 
 
 def render_credit_details_html(snapshot, customer, customer_name, next_step_html=None):
