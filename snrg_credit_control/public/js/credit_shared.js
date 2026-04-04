@@ -70,12 +70,13 @@
     if (!theme) return "";
 
     const pill = `<span style="display:inline-flex;align-items:center;background:rgba(${theme.rgb},.10);border:1px solid rgba(${theme.rgb},.22);color:rgba(${theme.rgb},1);font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap;">${frappe.utils.escape_html(theme.badge)}</span>`;
-    const metric = (label, value, valueStyle = "", accent = "") =>
-      `<div style="position:relative;min-width:0;padding-right:${accent ? "14px" : "0"};">
-        <div style="font-size:10px;font-weight:700;opacity:.52;margin-bottom:3px;letter-spacing:.03em;text-transform:uppercase;">${label}</div>
-        <div style="font-size:16px;font-weight:700;letter-spacing:-0.2px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${valueStyle}">${value}</div>
-        ${accent ? `<div style="position:absolute;right:0;top:18px;font-size:13px;font-weight:800;opacity:.26;">${accent}</div>` : ""}
+    const metric = (label, value, valueStyle = "") =>
+      `<div style="min-width:0;">
+        <div style="font-size:10px;font-weight:700;opacity:.52;margin-bottom:6px;letter-spacing:.03em;text-transform:uppercase;text-align:left;">${label}</div>
+        <div style="font-size:16px;font-weight:700;letter-spacing:-0.2px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;${valueStyle}">${value}</div>
       </div>`;
+    const separator = (symbol) =>
+      `<div style="display:flex;align-items:center;justify-content:center;font-size:24px;line-height:1;font-weight:700;color:rgba(100,116,139,.42);padding-top:17px;">${symbol}</div>`;
 
     const availableTone = projectedBalance < 0
       ? "color:#fca5a5;"
@@ -106,11 +107,15 @@
           ${pill}
         </div>
         <div style="margin-top:10px;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,.55);border:1px solid rgba(140,140,140,.10);">
-          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));gap:10px 14px;align-items:start;">
-            ${metric("Credit Limit", fmt(creditLimit), "", "−")}
-            ${metric("Current Exposure", fmt(exposure), "", "=")}
-            ${metric("Available Credit", fmtSigned(availableCredit), availableTone, "−")}
-            ${metric(options.documentValueLabel || "Document Value", fmt(documentValue), "", "=")}
+          <div style="display:grid;grid-template-columns:minmax(140px, 1fr) 22px minmax(140px, 1fr) 22px minmax(140px, 1fr) 22px minmax(140px, 1fr) 22px minmax(140px, 1fr);gap:10px 12px;align-items:start;">
+            ${metric("Credit Limit", fmt(creditLimit))}
+            ${separator("−")}
+            ${metric("Current Exposure", fmt(exposure))}
+            ${separator("=")}
+            ${metric("Available Credit", fmtSigned(availableCredit), availableTone)}
+            ${separator("−")}
+            ${metric(options.documentValueLabel || "Document Value", fmt(documentValue))}
+            ${separator("=")}
             ${metric("Projected Balance", fmtSigned(projectedBalance), projectedTone)}
           </div>
         </div>
