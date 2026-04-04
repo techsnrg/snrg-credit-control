@@ -95,7 +95,9 @@ def build_credit_snapshot(customer, company, amount=0, currency=None, detail_lim
     total_overdue = sum(row.outstanding_amount for row in rows) if rows else 0
     credit_limit = get_credit_limit(customer, company)
     total_outstanding = get_total_outstanding(customer, company)
-    effective_ar = max(total_outstanding, 0)
+    # Preserve signed exposure so customer advances / net credit balances
+    # reduce the projected exposure instead of being discarded as zero.
+    effective_ar = total_outstanding
     current_amount = zero(amount)
     limit_breach = bool(credit_limit and (effective_ar + current_amount) > credit_limit)
     advances = get_advance_balance(customer, company)
@@ -186,7 +188,7 @@ def render_credit_details_html(snapshot, customer, customer_name, next_step_html
     next_step = next_step_html or ""
 
     breach = (effective_ar + amount) - credit_limit
-    available_balance = max(credit_limit - (effective_ar + amount), 0) if credit_limit else 0
+    available_balance = (credit_limit - (effective_ar + amount)) if credit_limit else 0
 
     def breakdown_row(label, value, val_color=None, bold_val=False):
         value_color = f"color:{val_color};" if val_color else ""
