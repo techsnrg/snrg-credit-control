@@ -73,9 +73,9 @@
 
     const pill = `<span style="display:inline-flex;align-items:center;background:rgba(${theme.rgb},.10);border:1px solid rgba(${theme.rgb},.22);color:rgba(${theme.rgb},1);font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap;">${frappe.utils.escape_html(theme.badge)}</span>`;
     const metricLabel = (label) =>
-      `<div style="min-width:0;width:100%;font-size:10px;font-weight:700;opacity:.52;letter-spacing:.03em;text-transform:uppercase;text-align:left;justify-self:start;">${label}</div>`;
+      `<div style="min-width:0;width:100%;font-size:10px;font-weight:700;opacity:.52;letter-spacing:.03em;text-transform:uppercase;text-align:left;justify-self:start;line-height:1.2;">${label}</div>`;
     const metricValue = (value, valueStyle = "") =>
-      `<div style="min-width:0;width:100%;font-size:16px;font-weight:700;letter-spacing:-0.2px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;justify-self:start;${valueStyle}">${value}</div>`;
+      `<div style="min-width:0;width:100%;font-size:16px;font-weight:700;letter-spacing:-0.2px;line-height:1.15;white-space:normal;overflow:visible;word-break:break-word;text-align:left;justify-self:start;${valueStyle}">${value}</div>`;
     const separator = (symbol) =>
       `<div style="display:flex;align-items:center;justify-content:center;font-size:24px;line-height:1;font-weight:700;color:rgba(100,116,139,.42);grid-row:1 / span 2;align-self:center;">${symbol}</div>`;
 
@@ -108,7 +108,7 @@
           ${pill}
         </div>
         <div style="margin-top:10px;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,.55);border:1px solid rgba(140,140,140,.10);">
-          <div style="display:grid;grid-template-columns:minmax(140px, 1fr) 22px minmax(140px, 1fr) 22px minmax(140px, 1fr) 22px minmax(140px, 1fr) 22px minmax(140px, 1fr);grid-template-rows:auto auto;column-gap:12px;row-gap:8px;align-items:start;justify-items:start;">
+          <div style="display:grid;grid-template-columns:minmax(110px, 1fr) 20px minmax(110px, 1fr) 20px minmax(110px, 1fr) 20px minmax(110px, 1fr) 20px minmax(110px, 1fr);grid-template-rows:auto auto;column-gap:10px;row-gap:8px;align-items:start;justify-items:start;">
             ${metricLabel("Credit Limit")}
             ${separator("−")}
             ${metricLabel("Current Exposure")}
