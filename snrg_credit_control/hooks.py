@@ -8,8 +8,6 @@ app_license = "MIT"
 after_install = "snrg_credit_control.setup.after_install"
 after_migrate = "snrg_credit_control.setup.after_migrate"
 
-app_include_js = "/assets/snrg_credit_control/js/credit_shared.js"
-
 # Inject JS into the Sales Order form
 doctype_js = {
     "Sales Order": "public/js/sales_order.js",
