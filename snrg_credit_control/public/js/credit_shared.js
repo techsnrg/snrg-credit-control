@@ -73,12 +73,12 @@
 
     const pill = `<span style="display:inline-flex;align-items:center;background:rgba(${theme.rgb},.10);border:1px solid rgba(${theme.rgb},.22);color:rgba(${theme.rgb},1);font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap;">${frappe.utils.escape_html(theme.badge)}</span>`;
     const metricCell = (label, value, valueStyle = "") =>
-      `<td style="width:19%;padding:0;vertical-align:top;">
-        <div style="font-size:10px;font-weight:700;opacity:.52;letter-spacing:.03em;text-transform:uppercase;text-align:left;line-height:1.2;min-height:24px;">${label}</div>
-        <div style="margin-top:8px;font-size:16px;font-weight:700;letter-spacing:-0.2px;line-height:1.15;text-align:left;word-break:break-word;${valueStyle}">${value}</div>
+      `<td style="padding:0 10px;vertical-align:top;">
+        <div style="font-size:10px;font-weight:700;opacity:.52;letter-spacing:.03em;text-transform:uppercase;text-align:left;line-height:1.25;min-height:26px;white-space:normal;word-break:break-word;">${label}</div>
+        <div style="margin-top:10px;font-size:16px;font-weight:700;letter-spacing:-0.2px;line-height:1.2;text-align:left;white-space:nowrap;${valueStyle}">${value}</div>
       </td>`;
     const separatorCell = (symbol) =>
-      `<td style="width:1.25%;padding:0 6px;vertical-align:middle;text-align:center;font-size:24px;line-height:1;font-weight:700;color:rgba(100,116,139,.42);">${symbol}</td>`;
+      `<td style="width:36px;padding:0;vertical-align:middle;text-align:center;font-size:22px;line-height:1;font-weight:700;color:rgba(100,116,139,.42);">${symbol}</td>`;
 
     const availableTone = availableCredit < 0
       ? "color:#f87171;"
@@ -110,7 +110,18 @@
         </div>
         <div style="margin-top:10px;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,.55);border:1px solid rgba(140,140,140,.10);">
           <div style="overflow-x:auto;">
-            <table style="width:100%;min-width:760px;border-collapse:separate;border-spacing:0;">
+            <table style="width:100%;min-width:880px;table-layout:fixed;border-collapse:separate;border-spacing:0;">
+              <colgroup>
+                <col style="width:calc((100% - 144px) / 5);">
+                <col style="width:36px;">
+                <col style="width:calc((100% - 144px) / 5);">
+                <col style="width:36px;">
+                <col style="width:calc((100% - 144px) / 5);">
+                <col style="width:36px;">
+                <col style="width:calc((100% - 144px) / 5);">
+                <col style="width:36px;">
+                <col style="width:calc((100% - 144px) / 5);">
+              </colgroup>
               <tr>
                 ${metricCell("Credit Limit", fmt(creditLimit))}
                 ${separatorCell("−")}
