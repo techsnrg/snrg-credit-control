@@ -80,14 +80,12 @@ function render_quotation_credit_chip(frm) {
     const theme = themes[status];
     if (!theme) return;
 
-    const pill = `<span style="display:inline-flex;align-items:center;background:rgba(${theme.rgb},.12);border:1px solid rgba(${theme.rgb},.24);color:rgba(${theme.rgb},1);font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap;">${frappe.utils.escape_html(theme.badge)}</span>`;
-    const step = (label, value, sign = "", valueStyle = "", accent = "") =>
-      `<div style="display:flex;align-items:center;gap:10px;min-width:0;">
-        <div style="min-width:0;flex:1 1 auto;">
-          <div style="font-size:11px;font-weight:600;opacity:.62;margin-bottom:4px;">${label}</div>
-          <div style="font-size:20px;font-weight:700;letter-spacing:-0.25px;white-space:nowrap;${valueStyle}">${sign}${value}</div>
-        </div>
-        ${accent ? `<div style="font-size:18px;font-weight:700;opacity:.4;padding-top:16px;flex:0 0 auto;">${accent}</div>` : ""}
+    const pill = `<span style="display:inline-flex;align-items:center;background:rgba(${theme.rgb},.10);border:1px solid rgba(${theme.rgb},.22);color:rgba(${theme.rgb},1);font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap;">${frappe.utils.escape_html(theme.badge)}</span>`;
+    const metric = (label, value, sign = "", valueStyle = "", accent = "") =>
+      `<div style="position:relative;min-width:0;padding-right:${accent ? "14px" : "0"};">
+        <div style="font-size:10px;font-weight:700;opacity:.52;margin-bottom:3px;letter-spacing:.03em;text-transform:uppercase;">${label}</div>
+        <div style="font-size:16px;font-weight:700;letter-spacing:-0.2px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${valueStyle}">${sign}${value}</div>
+        ${accent ? `<div style="position:absolute;right:0;top:18px;font-size:13px;font-weight:800;opacity:.26;">${accent}</div>` : ""}
       </div>`;
     const availabilityTone = projectedAvailable < 0
       ? "color:#fca5a5;"
@@ -98,39 +96,38 @@ function render_quotation_credit_chip(frm) {
     const basePanel = "background:var(--control-bg, #f8f9fa);border:1px solid var(--border-color, #d1d8dd);";
     const calculationRow = stage === "preview"
       ? `
-          <div style="display:grid;grid-template-columns:repeat(3, minmax(0, 1fr));gap:18px 16px;align-items:flex-start;">
-            ${step("Credit Limit", fmt(creditLimit), "", "", "−")}
-            ${step("Current Exposure", fmt(exposure), "", "", "=")}
-            ${step("Available Credit", fmtSigned(availableCredit), "", availabilityTone)}
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));gap:10px 14px;align-items:flex-start;">
+            ${metric("Credit Limit", fmt(creditLimit), "", "", "−")}
+            ${metric("Current Exposure", fmt(exposure), "", "", "=")}
+            ${metric("Available Credit", fmtSigned(availableCredit), "", availabilityTone)}
           </div>
         `
       : `
-          <div style="display:grid;grid-template-columns:repeat(5, minmax(0, 1fr));gap:18px 16px;align-items:flex-start;">
-            ${step("Credit Limit", fmt(creditLimit), "", "", "−")}
-            ${step("Current Exposure", fmt(exposure), "", "", "=")}
-            ${step("Available Credit", fmtSigned(availableCredit), "", availabilityTone, "−")}
-            ${step("Quotation Value", fmt(quotationValue), "", "", "=")}
-            ${step("Projected Balance", fmtSigned(projectedAvailable), "", projectedTone)}
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));gap:10px 14px;align-items:flex-start;">
+            ${metric("Credit Limit", fmt(creditLimit), "", "", "−")}
+            ${metric("Current Exposure", fmt(exposure), "", "", "=")}
+            ${metric("Available Credit", fmtSigned(availableCredit), "", availabilityTone, "−")}
+            ${metric("Quotation Value", fmt(quotationValue), "", "", "=")}
+            ${metric("Projected Balance", fmtSigned(projectedAvailable), "", projectedTone)}
           </div>
         `;
 
     frm.dashboard.set_headline(`
-      <div style="${basePanel}border-radius:10px;padding:16px 18px;line-height:1.45;color:var(--text-color, #36414c);box-shadow:none;">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;flex-wrap:wrap;">
-          <div>
-            <div style="font-size:18px;font-weight:700;margin-bottom:2px;">${theme.title}</div>
-            <div style="font-size:12px;opacity:.72;">${theme.subtitle}</div>
+      <div style="${basePanel}border-radius:10px;padding:12px 14px;line-height:1.35;color:var(--text-color, #36414c);box-shadow:none;">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+          <div style="min-width:0;">
+            <div style="font-size:16px;font-weight:700;margin-bottom:1px;">${theme.title}</div>
+            <div style="font-size:11px;opacity:.7;max-width:780px;">${theme.subtitle}</div>
           </div>
           ${pill}
         </div>
-        <div style="margin-top:14px;border:1px solid rgba(140,140,140,.12);border-radius:8px;background:rgba(255,255,255,.35);padding:14px 14px 10px;">
-          <div style="font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;opacity:.55;margin-bottom:10px;">Credit Calculation</div>
+        <div style="margin-top:10px;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,.55);border:1px solid rgba(140,140,140,.10);">
           ${calculationRow}
         </div>
-        <div style="border-top:1px solid rgba(140,140,140,.14);margin-top:12px;padding-top:12px;font-size:12px;opacity:.8;display:flex;gap:24px;flex-wrap:wrap;align-items:center;">
-          <span><strong>Overdue Invoices:</strong> ${overdueCount}</span>
-          <span><strong>Overdue Amount:</strong> ${fmt(overdueAmount)}</span>
-          <span><strong>Status:</strong> ${frappe.utils.escape_html(reason || "Within policy")}</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px;font-size:11px;opacity:.85;">
+          <span style="display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;background:rgba(15,23,42,.05);"><strong>Overdue:</strong>&nbsp;${overdueCount}</span>
+          <span style="display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;background:rgba(15,23,42,.05);"><strong>Amount:</strong>&nbsp;${fmt(overdueAmount)}</span>
+          <span style="display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;background:rgba(15,23,42,.05);"><strong>Status:</strong>&nbsp;${frappe.utils.escape_html(reason || "Within policy")}</span>
         </div>
       </div>
     `);

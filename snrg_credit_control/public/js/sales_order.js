@@ -77,14 +77,12 @@ function render_sales_order_credit_chip(frm) {
     const theme = themes[status];
     if (!theme) return;
 
-    const pill = `<span style="display:inline-flex;align-items:center;background:rgba(${theme.rgb},.12);border:1px solid rgba(${theme.rgb},.24);color:rgba(${theme.rgb},1);font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap;">${frappe.utils.escape_html(theme.badge)}</span>`;
-    const step = (label, value, valueStyle = "", accent = "") =>
-      `<div style="display:flex;align-items:center;gap:10px;min-width:220px;flex:1 1 220px;">
-        <div style="min-width:0;">
-          <div style="font-size:11px;font-weight:600;opacity:.62;margin-bottom:4px;">${label}</div>
-          <div style="font-size:20px;font-weight:700;letter-spacing:-0.25px;${valueStyle}">${value}</div>
-        </div>
-        ${accent ? `<div style="font-size:18px;font-weight:700;opacity:.4;padding-top:16px;">${accent}</div>` : ""}
+    const pill = `<span style="display:inline-flex;align-items:center;background:rgba(${theme.rgb},.10);border:1px solid rgba(${theme.rgb},.22);color:rgba(${theme.rgb},1);font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap;">${frappe.utils.escape_html(theme.badge)}</span>`;
+    const metric = (label, value, valueStyle = "", accent = "") =>
+      `<div style="position:relative;min-width:0;padding-right:${accent ? "14px" : "0"};">
+        <div style="font-size:10px;font-weight:700;opacity:.52;margin-bottom:3px;letter-spacing:.03em;text-transform:uppercase;">${label}</div>
+        <div style="font-size:16px;font-weight:700;letter-spacing:-0.2px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${valueStyle}">${value}</div>
+        ${accent ? `<div style="position:absolute;right:0;top:18px;font-size:13px;font-weight:800;opacity:.26;">${accent}</div>` : ""}
       </div>`;
 
     const availableTone = projectedBalance < 0
@@ -97,35 +95,34 @@ function render_sales_order_credit_chip(frm) {
     let approvalLine = "";
     if (approvalStatus || overrideCap || overrideValidTill) {
       const parts = [];
-      if (approvalStatus) parts.push(`<strong>Approval:</strong> ${frappe.utils.escape_html(approvalStatus)}`);
-      if (overrideCap) parts.push(`<strong>Cap:</strong> ${fmt(overrideCap)}`);
-      if (overrideValidTill) parts.push(`<strong>Valid Till:</strong> ${frappe.datetime.str_to_user(overrideValidTill)}`);
-      approvalLine = `<div style="margin-top:8px;font-size:12px;opacity:.78;">${parts.join(" &nbsp;&nbsp; ")}</div>`;
+      if (approvalStatus) parts.push(`<span><strong>Approval:</strong> ${frappe.utils.escape_html(approvalStatus)}</span>`);
+      if (overrideCap) parts.push(`<span><strong>Cap:</strong> ${fmt(overrideCap)}</span>`);
+      if (overrideValidTill) parts.push(`<span><strong>Valid Till:</strong> ${frappe.datetime.str_to_user(overrideValidTill)}</span>`);
+      approvalLine = `<div style="display:flex;gap:12px 16px;flex-wrap:wrap;font-size:11px;opacity:.8;">${parts.join("")}</div>`;
     }
 
     frm.dashboard.set_headline(`
-      <div style="background:var(--control-bg, #f8f9fa);border:1px solid var(--border-color, #d1d8dd);border-radius:10px;padding:16px 18px;line-height:1.45;color:var(--text-color, #36414c);box-shadow:none;">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;flex-wrap:wrap;">
-          <div>
-            <div style="font-size:18px;font-weight:700;margin-bottom:2px;">${theme.title}</div>
-            <div style="font-size:12px;opacity:.72;">${theme.subtitle}</div>
+      <div style="background:var(--control-bg, #f8f9fa);border:1px solid var(--border-color, #d1d8dd);border-radius:10px;padding:12px 14px;line-height:1.35;color:var(--text-color, #36414c);box-shadow:none;">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+          <div style="min-width:0;">
+            <div style="font-size:16px;font-weight:700;margin-bottom:1px;">${theme.title}</div>
+            <div style="font-size:11px;opacity:.7;max-width:780px;">${theme.subtitle}</div>
           </div>
           ${pill}
         </div>
-        <div style="margin-top:14px;border:1px solid rgba(140,140,140,.12);border-radius:8px;background:rgba(255,255,255,.35);padding:14px 14px 10px;">
-          <div style="font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;opacity:.55;margin-bottom:10px;">Credit Calculation</div>
-          <div style="display:flex;align-items:flex-start;gap:18px 16px;flex-wrap:wrap;">
-            ${step("Credit Limit", fmt(creditLimit), "", "−")}
-            ${step("Current Exposure", fmt(exposure), "", "=")}
-            ${step("Available Credit", fmtSigned(availableCredit), availableTone, "−")}
-            ${step("Order Value", fmt(orderValue), "", "=")}
-            ${step("Projected Balance", fmtSigned(projectedBalance), projectedTone)}
+        <div style="margin-top:10px;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,.55);border:1px solid rgba(140,140,140,.10);">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));gap:10px 14px;align-items:start;">
+            ${metric("Credit Limit", fmt(creditLimit), "", "−")}
+            ${metric("Current Exposure", fmt(exposure), "", "=")}
+            ${metric("Available Credit", fmtSigned(availableCredit), availableTone, "−")}
+            ${metric("Order Value", fmt(orderValue), "", "=")}
+            ${metric("Projected Balance", fmtSigned(projectedBalance), projectedTone)}
           </div>
         </div>
-        <div style="border-top:1px solid rgba(140,140,140,.14);margin-top:12px;padding-top:12px;font-size:12px;opacity:.82;">
-          <span style="margin-right:18px;"><strong>Overdue Invoices:</strong> ${overdueCount}</span>
-          <span style="margin-right:18px;"><strong>Overdue Amount:</strong> ${fmt(overdueAmount)}</span>
-          <span><strong>Status:</strong> ${frappe.utils.escape_html(reason || "Within policy")}</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px;font-size:11px;opacity:.85;">
+          <span style="display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;background:rgba(15,23,42,.05);"><strong>Overdue:</strong>&nbsp;${overdueCount}</span>
+          <span style="display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;background:rgba(15,23,42,.05);"><strong>Amount:</strong>&nbsp;${fmt(overdueAmount)}</span>
+          <span style="display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;background:rgba(15,23,42,.05);"><strong>Status:</strong>&nbsp;${frappe.utils.escape_html(reason || "Within policy")}</span>
           ${approvalLine}
         </div>
       </div>
