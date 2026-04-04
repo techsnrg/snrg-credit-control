@@ -50,6 +50,29 @@ def get_credit_preview(customer, company, currency=None):
 
 
 @frappe.whitelist()
+def refresh_credit_status(customer, company, currency=None, amount=0):
+    if not customer or not company:
+        return {}
+
+    snapshot = build_credit_snapshot(
+        customer=customer,
+        company=company,
+        amount=amount,
+        currency=currency,
+    )
+
+    return {
+        "status": snapshot["status"],
+        "reason_code": snapshot["reason_code"],
+        "overdue_count": snapshot["overdue_count"],
+        "total_overdue": snapshot["total_overdue"],
+        "effective_ar": snapshot["effective_ar"],
+        "credit_limit": snapshot["credit_limit"],
+        "currency": snapshot["currency"],
+    }
+
+
+@frappe.whitelist()
 def get_credit_details(customer, company, customer_name=None, currency=None, amount=0):
     if not customer or not company:
         return {}

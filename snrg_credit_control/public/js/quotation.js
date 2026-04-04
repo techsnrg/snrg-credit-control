@@ -198,13 +198,13 @@ frappe.ui.form.on("Quotation", {
     add_quotation_credit_button(frm);
   },
   party_name(frm) {
-    fetch_quotation_credit_preview(frm);
+    clear_quotation_credit_preview(frm);
   },
   company(frm) {
-    fetch_quotation_credit_preview(frm);
+    clear_quotation_credit_preview(frm);
   },
   quotation_to(frm) {
-    fetch_quotation_credit_preview(frm);
+    clear_quotation_credit_preview(frm);
   },
   custom_snrg_credit_check_status(frm) {
     render_quotation_credit_chip(frm);
@@ -231,31 +231,10 @@ frappe.ui.form.on("Quotation", {
   },
 });
 
-async function fetch_quotation_credit_preview(frm) {
+function clear_quotation_credit_preview(frm) {
   frm._snrg_credit_preview = null;
-
-  if (!frm.doc.party_name || !frm.doc.company || frm.doc.quotation_to !== "Customer") {
-    render_quotation_credit_chip(frm);
-    render_quotation_header_status(frm);
-    return;
-  }
-
-  try {
-    const { message } = await frappe.call({
-      method: "snrg_credit_control.overrides.quotation.get_credit_preview",
-      args: {
-        customer: frm.doc.party_name,
-        company: frm.doc.company,
-        currency: frm.doc.currency,
-      },
-    });
-
-    frm._snrg_credit_preview = message || null;
-    render_quotation_credit_chip(frm);
-    render_quotation_header_status(frm);
-  } catch (e) {
-    console.warn("[SNRG Quotation Credit Preview] fetch error:", e);
-  }
+  render_quotation_credit_chip(frm);
+  render_quotation_header_status(frm);
 }
 
 function add_quotation_credit_button(frm) {
@@ -263,7 +242,8 @@ function add_quotation_credit_button(frm) {
     return;
   }
 
-  frm.add_custom_button("Credit Details", () => open_quotation_credit_details(frm));
+  frm.add_custom_button("Refresh Credit Status", () => refresh_quotation_credit_status(frm), "Credit Control");
+  frm.add_custom_button("Current Credit Details", () => open_quotation_credit_details(frm), "Credit Control");
 }
 
 async function open_quotation_credit_details(frm) {
@@ -301,6 +281,54 @@ async function open_quotation_credit_details(frm) {
     console.warn("[SNRG Quotation Credit Details] dialog error:", e);
     frappe.msgprint({
       title: "Unable to load credit details",
+      message: (e && e.message) || String(e),
+      indicator: "red",
+    });
+  }
+}
+
+async function refresh_quotation_credit_status(frm) {
+  if (!frm.doc.party_name || !frm.doc.company) {
+    frappe.msgprint({
+      title: "Missing Customer",
+      message: "Select a customer and company first to refresh credit status.",
+      indicator: "orange",
+    });
+    return;
+  }
+
+  try {
+    const { message } = await frappe.call({
+      method: "snrg_credit_control.overrides.quotation.refresh_credit_status",
+      args: {
+        customer: frm.doc.party_name,
+        company: frm.doc.company,
+        currency: frm.doc.currency,
+        amount: frm.doc.grand_total || frm.doc.rounded_total || 0,
+      },
+    });
+
+    if (!message) return;
+
+    frm._snrg_credit_preview = null;
+    frm.doc.custom_snrg_credit_check_status = message.status || "Not Run";
+    frm.doc.custom_snrg_credit_check_reason_code = message.reason_code || "";
+    frm.doc.custom_snrg_overdue_count_terms = message.overdue_count || 0;
+    frm.doc.custom_snrg_overdue_amount_terms = message.total_overdue || 0;
+    frm.doc.custom_snrg_exposure_at_check = message.effective_ar || 0;
+    frm.doc.custom_snrg_credit_limit_at_check = message.credit_limit || 0;
+
+    render_quotation_credit_chip(frm);
+    render_quotation_header_status(frm);
+
+    frappe.show_alert({
+      message: "Credit status refreshed",
+      indicator: message.status === "Credit Hold" ? "orange" : "green",
+    });
+  } catch (e) {
+    console.warn("[SNRG Quotation Credit Refresh] error:", e);
+    frappe.msgprint({
+      title: "Unable to refresh credit status",
       message: (e && e.message) || String(e),
       indicator: "red",
     });
