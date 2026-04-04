@@ -70,13 +70,12 @@
     if (!theme) return "";
 
     const pill = `<span style="display:inline-flex;align-items:center;background:rgba(${theme.rgb},.10);border:1px solid rgba(${theme.rgb},.22);color:rgba(${theme.rgb},1);font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap;">${frappe.utils.escape_html(theme.badge)}</span>`;
-    const metric = (label, value, valueStyle = "") =>
-      `<div style="min-width:0;">
-        <div style="font-size:10px;font-weight:700;opacity:.52;margin-bottom:6px;letter-spacing:.03em;text-transform:uppercase;text-align:left;">${label}</div>
-        <div style="font-size:16px;font-weight:700;letter-spacing:-0.2px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;${valueStyle}">${value}</div>
-      </div>`;
+    const metricLabel = (label) =>
+      `<div style="min-width:0;width:100%;font-size:10px;font-weight:700;opacity:.52;letter-spacing:.03em;text-transform:uppercase;text-align:left;justify-self:start;">${label}</div>`;
+    const metricValue = (value, valueStyle = "") =>
+      `<div style="min-width:0;width:100%;font-size:16px;font-weight:700;letter-spacing:-0.2px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;justify-self:start;${valueStyle}">${value}</div>`;
     const separator = (symbol) =>
-      `<div style="display:flex;align-items:center;justify-content:center;font-size:24px;line-height:1;font-weight:700;color:rgba(100,116,139,.42);padding-top:17px;">${symbol}</div>`;
+      `<div style="display:flex;align-items:center;justify-content:center;font-size:24px;line-height:1;font-weight:700;color:rgba(100,116,139,.42);grid-row:1 / span 2;align-self:center;">${symbol}</div>`;
 
     const availableTone = projectedBalance < 0
       ? "color:#fca5a5;"
@@ -107,16 +106,21 @@
           ${pill}
         </div>
         <div style="margin-top:10px;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,.55);border:1px solid rgba(140,140,140,.10);">
-          <div style="display:grid;grid-template-columns:minmax(140px, 1fr) 22px minmax(140px, 1fr) 22px minmax(140px, 1fr) 22px minmax(140px, 1fr) 22px minmax(140px, 1fr);gap:10px 12px;align-items:start;">
-            ${metric("Credit Limit", fmt(creditLimit))}
+          <div style="display:grid;grid-template-columns:minmax(140px, 1fr) 22px minmax(140px, 1fr) 22px minmax(140px, 1fr) 22px minmax(140px, 1fr) 22px minmax(140px, 1fr);grid-template-rows:auto auto;column-gap:12px;row-gap:8px;align-items:start;justify-items:start;">
+            ${metricLabel("Credit Limit")}
             ${separator("−")}
-            ${metric("Current Exposure", fmt(exposure))}
+            ${metricLabel("Current Exposure")}
             ${separator("=")}
-            ${metric("Available Credit", fmtSigned(availableCredit), availableTone)}
+            ${metricLabel("Available Credit")}
             ${separator("−")}
-            ${metric(options.documentValueLabel || "Document Value", fmt(documentValue))}
+            ${metricLabel(options.documentValueLabel || "Document Value")}
             ${separator("=")}
-            ${metric("Projected Balance", fmtSigned(projectedBalance), projectedTone)}
+            ${metricLabel("Projected Balance")}
+            ${metricValue(fmt(creditLimit))}
+            ${metricValue(fmt(exposure))}
+            ${metricValue(fmtSigned(availableCredit), availableTone)}
+            ${metricValue(fmt(documentValue))}
+            ${metricValue(fmtSigned(projectedBalance), projectedTone)}
           </div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px;font-size:11px;opacity:.85;">
