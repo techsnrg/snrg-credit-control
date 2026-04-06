@@ -19,6 +19,10 @@ doctype_list_js = {
     "Quotation": "public/js/quotation_list.js",
 }
 
+override_doctype_class = {
+    "Sales Invoice": "snrg_credit_control.overrides.sales_invoice.CustomSalesInvoice",
+}
+
 # Python event hooks for Sales Order
 doc_events = {
     "Sales Order": {
