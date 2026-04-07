@@ -1,28 +1,7 @@
 function get_quotation_credit_view_model(frm) {
-  const preview = frm._snrg_credit_preview;
-
-  if (preview && (frm.is_new() || frm.is_dirty())) {
-    return {
-      stage: "preview",
-      status: preview.status,
-      reason: preview.reason_code || "",
-      overdueCount: Number(preview.overdue_count || 0),
-      overdueAmount: Number(preview.total_overdue || 0),
-      exposure: Number(preview.effective_ar || 0),
-      creditLimit: Number(preview.credit_limit || 0),
-      quotationValue: 0,
-      currency: preview.currency || frm.doc.currency || "INR",
-    };
-  }
-
   const status = frm.doc.custom_snrg_credit_check_status;
-  if (!status || status === "Not Run") {
-    return null;
-  }
-
   return {
-    stage: "saved",
-    status,
+    status: status || "Not Run",
     reason: frm.doc.custom_snrg_credit_check_reason_code || "",
     overdueCount: Number(frm.doc.custom_snrg_overdue_count_terms || 0),
     overdueAmount: Number(frm.doc.custom_snrg_overdue_amount_terms || 0),
@@ -30,6 +9,7 @@ function get_quotation_credit_view_model(frm) {
     creditLimit: Number(frm.doc.custom_snrg_credit_limit_at_check || 0),
     quotationValue: Number(frm.doc.grand_total || frm.doc.rounded_total || 0),
     currency: frm.doc.currency || "INR",
+    checkedOn: frm.doc.custom_snrg_credit_checked_on || "",
   };
 }
 
@@ -39,95 +19,77 @@ function render_quotation_credit_chip(frm) {
     if (frm.dashboard.clear_headline) frm.dashboard.clear_headline();
 
     const model = get_quotation_credit_view_model(frm);
-    if (!model) return;
-
-    const { stage, status, reason, overdueCount, overdueAmount, exposure, creditLimit, quotationValue, currency } = model;
-    const hasOverdueTerms = reason.includes("Overdue>Terms");
-    const hasOverLimit = reason.includes("Over-Limit");
-    const availableCredit = creditLimit ? (creditLimit - exposure) : 0;
-    const projectedAvailable = creditLimit ? (creditLimit - exposure - quotationValue) : 0;
+    const { status, reason, overdueCount, overdueAmount, exposure, creditLimit, quotationValue, currency, checkedOn } = model;
     const fmt = value => frappe.format(value, { fieldtype: "Currency", options: currency });
     const fmtSigned = value => {
       const formatted = fmt(Math.abs(value)).replace(/^-+/, "");
       return value < 0 ? `-\u00a0${formatted}` : formatted;
     };
+    const formatCheckedOn = value => value ? frappe.datetime.str_to_user(value) : "Not refreshed yet";
+    const metricCard = (label, value, valueStyle = "") => `
+      <div style="min-width:0;padding:12px 14px;border-radius:8px;background:rgba(255,255,255,.7);border:1px solid rgba(148,163,184,.14);">
+        <div style="font-size:10px;font-weight:700;opacity:.52;letter-spacing:.04em;text-transform:uppercase;margin-bottom:6px;">${label}</div>
+        <div style="font-size:16px;font-weight:700;line-height:1.2;word-break:break-word;${valueStyle}">${value}</div>
+      </div>
+    `;
+    const infoCard = (label, value) => `
+      <div style="min-width:0;padding:10px 12px;border-radius:8px;background:rgba(15,23,42,.04);border:1px solid rgba(148,163,184,.12);">
+        <div style="font-size:10px;font-weight:700;opacity:.52;letter-spacing:.04em;text-transform:uppercase;margin-bottom:5px;">${label}</div>
+        <div style="font-size:14px;font-weight:600;line-height:1.2;word-break:break-word;">${value}</div>
+      </div>
+    `;
+    const availableCredit = creditLimit ? (creditLimit - exposure) : 0;
+    const projectedAvailable = creditLimit ? (creditLimit - exposure - quotationValue) : 0;
+    const availableTone = availableCredit < 0
+      ? "color:#ef4444;"
+      : (availableCredit === 0 ? "color:#f59e0b;" : "color:#22c55e;");
+    const projectedTone = projectedAvailable < 0 ? "color:#ef4444;" : "color:#22c55e;";
 
     const themes = {
+      "Not Run": {
+        rgb: "100,116,139",
+        title: "Credit Status",
+        badge: "Not Run",
+      },
       "Credit OK": {
         rgb: "34,197,94",
-        bg: "rgba(34,197,94,.08)",
-        border: "rgba(34,197,94,.18)",
-        title: "Credit OK",
+        title: "Credit Status",
         badge: "Healthy",
-        subtitle: "Customer is currently within the configured credit policy.",
       },
       "Credit Hold": {
         rgb: "239,68,68",
-        bg: "rgba(239,68,68,.08)",
-        border: "rgba(239,68,68,.18)",
         title: "Credit Hold",
         badge: reason || "Review",
-        subtitle: hasOverdueTerms && hasOverLimit
-          ? "Customer has overdue invoices beyond the configured threshold and the current exposure plus this quotation crosses the assigned credit limit."
-          : hasOverLimit && stage !== "preview"
-          ? "Current exposure plus this quotation crosses the customer's credit limit."
-          : hasOverLimit
-          ? "Current exposure is already beyond the customer's credit limit."
-          : "Customer has overdue invoices beyond the configured threshold.",
       },
     };
 
     const theme = themes[status];
     if (!theme) return;
 
-    const pill = `<span style="display:inline-flex;align-items:center;background:rgba(${theme.rgb},.10);border:1px solid rgba(${theme.rgb},.22);color:rgba(${theme.rgb},1);font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap;">${frappe.utils.escape_html(theme.badge)}</span>`;
-    const metric = (label, value, sign = "", valueStyle = "", accent = "") =>
-      `<div style="position:relative;min-width:0;padding-right:${accent ? "14px" : "0"};">
-        <div style="font-size:10px;font-weight:700;opacity:.52;margin-bottom:3px;letter-spacing:.03em;text-transform:uppercase;">${label}</div>
-        <div style="font-size:16px;font-weight:700;letter-spacing:-0.2px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${valueStyle}">${sign}${value}</div>
-        ${accent ? `<div style="position:absolute;right:0;top:18px;font-size:13px;font-weight:800;opacity:.26;">${accent}</div>` : ""}
-      </div>`;
-    const availabilityTone = projectedAvailable < 0
-      ? "color:#fca5a5;"
-      : (availableCredit <= 0 ? "color:#fdba74;" : `color:rgba(${theme.rgb},1);`);
-    const projectedTone = projectedAvailable < 0
-      ? "color:#f87171;text-shadow:0 0 0 rgba(0,0,0,0.01);"
-      : (status === "Credit OK" ? "color:#22c55e;font-weight:800;text-shadow:0 0 0 rgba(0,0,0,0.01);" : "color:#f8fafc;font-weight:800;");
-    const basePanel = "background:var(--control-bg, #f8f9fa);border:1px solid var(--border-color, #d1d8dd);";
-    const calculationRow = stage === "preview"
-      ? `
-          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));gap:10px 14px;align-items:flex-start;">
-            ${metric("Credit Limit", fmt(creditLimit), "", "", "−")}
-            ${metric("Current Exposure", fmt(exposure), "", "", "=")}
-            ${metric("Available Credit", fmtSigned(availableCredit), "", availabilityTone)}
-          </div>
-        `
-      : `
-          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));gap:10px 14px;align-items:flex-start;">
-            ${metric("Credit Limit", fmt(creditLimit), "", "", "−")}
-            ${metric("Current Exposure", fmt(exposure), "", "", "=")}
-            ${metric("Available Credit", fmtSigned(availableCredit), "", availabilityTone, "−")}
-            ${metric("Quotation Value", fmt(quotationValue), "", "", "=")}
-            ${metric("Projected Balance", fmtSigned(projectedAvailable), "", projectedTone)}
-          </div>
-        `;
+    const pill = `<span style="display:inline-flex;align-items:center;background:rgba(${theme.rgb},.10);border:1px solid rgba(${theme.rgb},.22);color:rgba(${theme.rgb},1);font-size:10px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap;">${frappe.utils.escape_html(theme.badge)}</span>`;
 
     frm.dashboard.set_headline(`
-      <div style="${basePanel}border-radius:10px;padding:12px 14px;line-height:1.35;color:var(--text-color, #36414c);box-shadow:none;">
+      <div style="background:var(--control-bg, #f8f9fa);border:1px solid var(--border-color, #d1d8dd);border-radius:10px;padding:12px 14px;line-height:1.35;color:var(--text-color, #36414c);box-shadow:none;">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;">
           <div style="min-width:0;">
-            <div style="font-size:16px;font-weight:700;margin-bottom:1px;">${theme.title}</div>
-            <div style="font-size:11px;opacity:.7;max-width:780px;">${theme.subtitle}</div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <div style="font-size:16px;font-weight:700;">${theme.title}</div>
+              <div style="font-size:11px;opacity:.68;">Last Refresh: ${formatCheckedOn(checkedOn)}</div>
+            </div>
           </div>
           ${pill}
         </div>
-        <div style="margin-top:10px;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,.55);border:1px solid rgba(140,140,140,.10);">
-          ${calculationRow}
+        <div style="margin-top:10px;display:grid;grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));gap:10px 12px;align-items:stretch;">
+          ${metricCard("Credit Limit", fmt(creditLimit))}
+          ${metricCard("Current Exposure", fmtSigned(exposure))}
+          ${metricCard("Available Credit", fmtSigned(availableCredit), availableTone)}
+          ${metricCard("Quotation Value", fmt(quotationValue))}
+          ${metricCard("Projected Balance", fmtSigned(projectedAvailable), projectedTone)}
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px;font-size:11px;opacity:.85;">
-          <span style="display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;background:rgba(15,23,42,.05);"><strong>Overdue:</strong>&nbsp;${overdueCount}</span>
-          <span style="display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;background:rgba(15,23,42,.05);"><strong>Amount:</strong>&nbsp;${fmt(overdueAmount)}</span>
-          <span style="display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;background:rgba(15,23,42,.05);"><strong>Status:</strong>&nbsp;${frappe.utils.escape_html(reason || "Within policy")}</span>
+        <div style="margin-top:10px;display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:10px 12px;align-items:stretch;">
+          ${infoCard("Overdue Invoices", String(overdueCount))}
+          ${infoCard("Overdue Amount", fmt(overdueAmount))}
+          ${infoCard("Reason", frappe.utils.escape_html(reason || "Within policy"))}
         </div>
       </div>
     `);
@@ -213,6 +175,9 @@ frappe.ui.form.on("Quotation", {
   custom_snrg_credit_check_reason_code(frm) {
     render_quotation_credit_chip(frm);
     render_quotation_header_status(frm);
+  },
+  custom_snrg_credit_checked_on(frm) {
+    render_quotation_credit_chip(frm);
   },
   custom_snrg_overdue_count_terms(frm) {
     render_quotation_credit_chip(frm);
@@ -317,6 +282,7 @@ async function refresh_quotation_credit_status(frm) {
     frm.doc.custom_snrg_overdue_amount_terms = message.total_overdue || 0;
     frm.doc.custom_snrg_exposure_at_check = message.effective_ar || 0;
     frm.doc.custom_snrg_credit_limit_at_check = message.credit_limit || 0;
+    frm.doc.custom_snrg_credit_checked_on = message.checked_on || "";
 
     render_quotation_credit_chip(frm);
     render_quotation_header_status(frm);
