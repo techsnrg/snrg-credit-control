@@ -93,7 +93,7 @@ class SnrgPTPDashboard {
                 }
                 .snrg-ptp-filters {
                     display: grid;
-                    grid-template-columns: repeat(8, minmax(0, 1fr));
+                    grid-template-columns: repeat(7, minmax(0, 1fr));
                     gap: 12px;
                 }
                 .snrg-ptp-filter label {
@@ -383,8 +383,7 @@ class SnrgPTPDashboard {
             { fieldname: "bucket", label: "Bucket", fieldtype: "Select", options: ["", ...this.bucketOptions] },
             { fieldname: "ptp_by", label: "Committed By", fieldtype: "Link", options: "Employee" },
             { fieldname: "requested_to_employee", label: "Requested To", fieldtype: "Link", options: "Employee" },
-            { fieldname: "from_date", label: "From Date", fieldtype: "Date" },
-            { fieldname: "to_date", label: "To Date", fieldtype: "Date" },
+            { fieldname: "date_range", label: "Date", fieldtype: "DateRange" },
             { fieldname: "show_superseded", label: "Show Superseded", fieldtype: "Check" },
         ];
 
@@ -439,9 +438,25 @@ class SnrgPTPDashboard {
         const filters = {};
         Object.keys(this.controls).forEach((fieldname) => {
             const value = this.controls[fieldname].get_value();
-            if (value) {
-                filters[fieldname] = value;
+            if (!value) {
+                return;
             }
+
+            if (fieldname === "date_range") {
+                const range = this.extractDateRange(value);
+                if (range.from_date) {
+                    filters.from_date = range.from_date;
+                }
+                if (range.to_date) {
+                    filters.to_date = range.to_date;
+                }
+                if (range.from_date || range.to_date) {
+                    filters.date_range = [range.from_date || "", range.to_date || ""];
+                }
+                return;
+            }
+
+            filters[fieldname] = value;
         });
         return filters;
     }
@@ -475,6 +490,7 @@ class SnrgPTPDashboard {
         const cards = [
             { label: "Active PTPs", value: summary.active_ptps || 0, helper: "Open pending commitments" },
             { label: "Due Today", value: summary.due_today || 0, helper: "Needs same-day follow-up" },
+            { label: "Due Tomorrow", value: summary.due_tomorrow || 0, helper: "Plan tomorrow's follow-up" },
             { label: "Overdue", value: summary.overdue || 0, helper: "Past commitment date" },
             { label: "Broken", value: summary.broken || 0, helper: "Needs escalation" },
             { label: "Partially Cleared", value: summary.partially_cleared || 0, helper: "Received but still open" },
@@ -734,6 +750,42 @@ class SnrgPTPDashboard {
         value.setDate(1);
         value.setHours(0, 0, 0, 0);
         return frappe.datetime.obj_to_str(value).slice(0, 10);
+    }
+
+    extractDateRange(value) {
+        if (!value) {
+            return {};
+        }
+
+        if (Array.isArray(value) && value.length >= 2) {
+            return {
+                from_date: value[0] || "",
+                to_date: value[1] || "",
+            };
+        }
+
+        if (typeof value === "object") {
+            return {
+                from_date: value.from_date || value.from || value.start || "",
+                to_date: value.to_date || value.to || value.end || "",
+            };
+        }
+
+        if (typeof value === "string") {
+            for (const separator of [",", " to ", " - ", "|"]) {
+                if (value.includes(separator)) {
+                    const parts = value.split(separator).map(part => part.trim()).filter(Boolean);
+                    if (parts.length >= 2) {
+                        return {
+                            from_date: parts[0],
+                            to_date: parts[1],
+                        };
+                    }
+                }
+            }
+        }
+
+        return {};
     }
 
     slug(value) {

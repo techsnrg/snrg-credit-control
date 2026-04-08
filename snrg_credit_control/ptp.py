@@ -393,6 +393,7 @@ def get_ptp_dashboard_summary(rows):
     actionable_rows = [row for row in rows if row.status in ACTIONABLE_PTP_STATUSES]
     active_count = len(active_rows)
     due_today = sum(1 for row in actionable_rows if row.bucket == "Due Today")
+    due_tomorrow = sum(1 for row in actionable_rows if row.commitment_date == add_days(getdate(today()), 1))
     overdue = sum(1 for row in actionable_rows if row.bucket == "Overdue")
     broken = sum(1 for row in rows if row.status == "Broken")
     partially_cleared = sum(1 for row in rows if row.status == "Partially Cleared")
@@ -403,6 +404,7 @@ def get_ptp_dashboard_summary(rows):
     return {
         "active_ptps": active_count,
         "due_today": due_today,
+        "due_tomorrow": due_tomorrow,
         "overdue": overdue,
         "broken": broken,
         "partially_cleared": partially_cleared,
@@ -502,6 +504,11 @@ def _normalize_dashboard_filters(filters):
             filters.status = [value for value in status if value]
     else:
         filters.status = []
+    from_date, to_date = _extract_date_range(filters.get("date_range"))
+    if from_date and not filters.get("from_date"):
+        filters.from_date = from_date
+    if to_date and not filters.get("to_date"):
+        filters.to_date = to_date
     filters.show_superseded = cint(filters.get("show_superseded")) if filters.get("show_superseded") is not None else 0
     return filters
 
@@ -538,3 +545,33 @@ def _get_employee_user_map(employee_ids):
 
     rows = frappe.get_all("Employee", filters={"name": ["in", employee_ids]}, fields=["name", "user_id"])
     return {row.name: row.user_id for row in rows if row.user_id}
+
+
+def _extract_date_range(value):
+    if not value:
+        return None, None
+
+    if isinstance(value, (list, tuple)) and len(value) >= 2:
+        start = getdate(value[0]) if value[0] else None
+        end = getdate(value[1]) if value[1] else None
+        return start, end
+
+    if isinstance(value, dict):
+        start = value.get("from") or value.get("from_date") or value.get("start")
+        end = value.get("to") or value.get("to_date") or value.get("end")
+        return (getdate(start) if start else None, getdate(end) if end else None)
+
+    if isinstance(value, str):
+        for separator in [",", " to ", " - ", "|"]:
+            if separator in value:
+                parts = [part.strip() for part in value.split(separator) if part.strip()]
+                if len(parts) >= 2:
+                    return getdate(parts[0]), getdate(parts[1])
+        try:
+            parsed = frappe.parse_json(value)
+        except Exception:
+            parsed = None
+        if parsed:
+            return _extract_date_range(parsed)
+
+    return None, None
