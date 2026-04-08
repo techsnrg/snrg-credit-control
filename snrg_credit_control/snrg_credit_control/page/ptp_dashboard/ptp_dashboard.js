@@ -38,6 +38,24 @@ class SnrgPTPDashboard {
                     flex-direction: column;
                     gap: 18px;
                 }
+                .snrg-ptp-topbar {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: 16px;
+                    flex-wrap: wrap;
+                    margin-bottom: 14px;
+                }
+                .snrg-ptp-topbar-copy {
+                    min-width: 0;
+                }
+                .snrg-ptp-kicker {
+                    font-size: 11px;
+                    color: #64748b;
+                    text-transform: uppercase;
+                    letter-spacing: .08em;
+                    font-weight: 700;
+                }
                 .snrg-ptp-panel {
                     border: 1px solid #e5e7eb;
                     border-radius: 18px;
@@ -47,20 +65,8 @@ class SnrgPTPDashboard {
                 .snrg-ptp-panel-body {
                     padding: 18px 20px;
                 }
-                .snrg-ptp-title-row {
-                    display: flex;
-                    align-items: flex-start;
-                    justify-content: space-between;
-                    gap: 16px;
-                }
-                .snrg-ptp-title {
-                    font-size: 28px;
-                    line-height: 1.15;
-                    font-weight: 800;
-                    color: #0f172a;
-                }
                 .snrg-ptp-subtitle {
-                    margin-top: 8px;
+                    margin-top: 6px;
                     font-size: 14px;
                     color: #64748b;
                 }
@@ -340,7 +346,7 @@ class SnrgPTPDashboard {
                     .snrg-ptp-calendar-grid {
                         grid-template-columns: 1fr;
                     }
-                    .snrg-ptp-title-row,
+                    .snrg-ptp-topbar,
                     .snrg-ptp-calendar-toolbar,
                     .snrg-ptp-list-top {
                         flex-direction: column;
@@ -351,9 +357,9 @@ class SnrgPTPDashboard {
             <div class="snrg-ptp-page">
                 <div class="snrg-ptp-panel">
                     <div class="snrg-ptp-panel-body">
-                        <div class="snrg-ptp-title-row">
-                            <div>
-                                <div class="snrg-ptp-title">PTP Dashboard</div>
+                        <div class="snrg-ptp-topbar">
+                            <div class="snrg-ptp-topbar-copy">
+                                <div class="snrg-ptp-kicker">Credit Control</div>
                                 <div class="snrg-ptp-subtitle">Track commitments, follow up faster, and keep the daily collection queue visible.</div>
                             </div>
                             <div class="snrg-ptp-view-switch">
@@ -361,10 +367,6 @@ class SnrgPTPDashboard {
                                 <button class="snrg-ptp-view-btn" data-view="calendar" type="button">Calendar</button>
                             </div>
                         </div>
-                    </div>
-                </div>
-                <div class="snrg-ptp-panel">
-                    <div class="snrg-ptp-panel-body">
                         <div class="snrg-ptp-filters"></div>
                     </div>
                 </div>
