@@ -106,8 +106,14 @@ class SnrgPTPDashboard {
                 }
                 .snrg-ptp-summary {
                     display: grid;
-                    grid-template-columns: repeat(4, minmax(0, 1fr));
+                    grid-template-columns: repeat(3, minmax(0, 1fr));
                     gap: 12px;
+                }
+                .snrg-ptp-overview-top {
+                    display: grid;
+                    grid-template-columns: minmax(0, 1.05fr) minmax(360px, 0.95fr);
+                    gap: 12px;
+                    align-items: start;
                 }
                 .snrg-ptp-card {
                     border: 1px solid #e5e7eb;
@@ -282,6 +288,9 @@ class SnrgPTPDashboard {
                     grid-template-columns: repeat(7, minmax(0, 1fr));
                     gap: 10px;
                 }
+                .snrg-ptp-calendar-grid.compact {
+                    gap: 8px;
+                }
                 .snrg-ptp-calendar-day-name {
                     font-size: 11px;
                     color: #64748b;
@@ -324,9 +333,25 @@ class SnrgPTPDashboard {
                 .snrg-ptp-calendar-entry.status-broken { background: #fef2f2; color: #b91c1c; }
                 .snrg-ptp-calendar-entry.status-cleared { background: #ecfdf5; color: #047857; }
                 .snrg-ptp-calendar-entry.status-superseded { background: #f8fafc; color: #64748b; }
+                .snrg-ptp-calendar-grid.compact .snrg-ptp-calendar-cell {
+                    min-height: 96px;
+                    padding: 10px;
+                }
+                .snrg-ptp-calendar-grid.compact .snrg-ptp-calendar-entry {
+                    padding: 6px 8px;
+                    font-size: 11px;
+                }
+                .snrg-ptp-calendar-grid.compact .snrg-ptp-calendar-day-name {
+                    padding-bottom: 2px;
+                }
                 .snrg-ptp-muted {
                     color: #64748b;
                     font-size: 13px;
+                }
+                .snrg-ptp-total-row td {
+                    background: #f8fafc;
+                    font-weight: 700;
+                    border-bottom: 0;
                 }
                 .hidden {
                     display: none !important;
@@ -337,6 +362,9 @@ class SnrgPTPDashboard {
                     }
                     .snrg-ptp-summary {
                         grid-template-columns: repeat(2, minmax(0, 1fr));
+                    }
+                    .snrg-ptp-overview-top {
+                        grid-template-columns: 1fr;
                     }
                 }
                 @media (max-width: 900px) {
@@ -478,9 +506,13 @@ class SnrgPTPDashboard {
         const summary = this.data.summary || {};
         const sections = this.data.sections || {};
         const queue = this.data.queue || [];
+        const calendar = this.data.calendar || {};
 
         target.html(`
-            ${this.panel("Snapshot", this.render_summary(summary))}
+            <div class="snrg-ptp-overview-top">
+                ${this.panel("Snapshot", this.render_summary(summary))}
+                ${this.panel("Calendar", this.render_overview_calendar(calendar))}
+            </div>
             ${this.panel("Action Boards", this.render_sections(sections))}
             ${this.panel("Full Queue", this.render_queue(queue))}
         `);
@@ -488,11 +520,9 @@ class SnrgPTPDashboard {
 
     render_summary(summary) {
         const cards = [
-            { label: "Active PTPs", value: summary.active_ptps || 0, helper: "Open pending commitments" },
             { label: "Due Today", value: summary.due_today || 0, helper: "Needs same-day follow-up" },
             { label: "Due Tomorrow", value: summary.due_tomorrow || 0, helper: "Plan tomorrow's follow-up" },
             { label: "Overdue", value: summary.overdue || 0, helper: "Past commitment date" },
-            { label: "Broken", value: summary.broken || 0, helper: "Needs escalation" },
             { label: "Partially Cleared", value: summary.partially_cleared || 0, helper: "Received but still open" },
             { label: "Committed Amount", value: format_currency(summary.committed_amount || 0), helper: "Active committed total" },
             { label: "Received Amount", value: format_currency(summary.received_amount || 0), helper: "Recovered against active PTPs" },
@@ -509,6 +539,25 @@ class SnrgPTPDashboard {
                     </div>
                 `).join("")}
             </div>
+        `;
+    }
+
+    render_overview_calendar(calendarData) {
+        if (!calendarData || !calendarData.month_label) {
+            return `<div class="snrg-ptp-muted">Loading month view.</div>`;
+        }
+
+        return `
+            <div class="snrg-ptp-section-subtext" style="margin-top:0;">Current month commitments at a glance.</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;">
+                <div style="font-size:20px;font-weight:800;color:#0f172a;">${this.esc(calendarData.month_label)}</div>
+                <div class="snrg-ptp-calendar-nav">
+                    <button class="snrg-ptp-link-btn" type="button" data-calendar-nav="prev">Prev</button>
+                    <button class="snrg-ptp-link-btn" type="button" data-calendar-nav="today">Today</button>
+                    <button class="snrg-ptp-link-btn" type="button" data-calendar-nav="next">Next</button>
+                </div>
+            </div>
+            ${this.render_calendar_grid(calendarData, true)}
         `;
     }
 
@@ -578,11 +627,19 @@ class SnrgPTPDashboard {
             return `<div class="snrg-ptp-muted">No PTP records match the current filters.</div>`;
         }
 
+        const totals = rows.reduce((acc, row) => {
+            acc.committed += Number(row.committed_amount || 0);
+            acc.received += Number(row.received_amount || 0);
+            acc.gap += Number(row.difference_amount || 0);
+            return acc;
+        }, { committed: 0, received: 0, gap: 0 });
+
         return `
             <div class="snrg-ptp-table-wrap">
                 <table class="snrg-ptp-table">
                     <thead>
                         <tr>
+                            <th>#</th>
                             <th>PTP</th>
                             <th>Customer</th>
                             <th>Sales Order</th>
@@ -597,8 +654,9 @@ class SnrgPTPDashboard {
                         </tr>
                     </thead>
                     <tbody>
-                        ${rows.map((row) => `
+                        ${rows.map((row, index) => `
                             <tr>
+                                <td>${index + 1}</td>
                                 <td><button class="snrg-ptp-link-btn" type="button" data-route-doctype="Credit PTP" data-route-name="${this.esc(row.name)}">${this.esc(row.name)}</button></td>
                                 <td><strong>${this.esc(row.customer_name || row.customer || "—")}</strong><br><span class="snrg-ptp-muted">${this.esc(row.company || "")}</span></td>
                                 <td>${row.sales_order ? `<button class="snrg-ptp-link-btn" type="button" data-route-doctype="Sales Order" data-route-name="${this.esc(row.sales_order)}">${this.esc(row.sales_order)}</button>` : "—"}</td>
@@ -613,6 +671,15 @@ class SnrgPTPDashboard {
                             </tr>
                         `).join("")}
                     </tbody>
+                    <tfoot>
+                        <tr class="snrg-ptp-total-row">
+                            <td colspan="8">Total</td>
+                            <td>${format_currency(totals.committed)}</td>
+                            <td>${format_currency(totals.received)}</td>
+                            <td>${format_currency(totals.gap)}</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
                 </table>
             </div>
         `;
@@ -644,7 +711,7 @@ class SnrgPTPDashboard {
         `));
     }
 
-    render_calendar_grid(calendarData) {
+    render_calendar_grid(calendarData, compact = false) {
         const month = calendarData.month;
         const year = calendarData.year;
         const daysInMonth = new Date(year, month, 0).getDate();
@@ -675,7 +742,7 @@ class SnrgPTPDashboard {
 
         const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
         return `
-            <div class="snrg-ptp-calendar-grid">
+            <div class="snrg-ptp-calendar-grid ${compact ? "compact" : ""}">
                 ${dayNames.map((label) => `<div class="snrg-ptp-calendar-day-name">${label}</div>`).join("")}
                 ${cells.join("")}
             </div>
