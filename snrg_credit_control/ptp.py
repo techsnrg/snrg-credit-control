@@ -355,7 +355,7 @@ def get_ptp_dashboard_rows(filters=None):
 
     employee_ids = {row.ptp_by for row in rows if row.get("ptp_by")}
     employee_ids.update({row.requested_to_employee for row in rows if row.get("requested_to_employee")})
-    employee_user_map = _get_employee_user_map(employee_ids)
+    employee_meta_map = _get_employee_meta_map(employee_ids)
 
     today_date = getdate(today())
     week_end = add_days(today_date, 7)
@@ -371,8 +371,10 @@ def get_ptp_dashboard_rows(filters=None):
         row.difference_amount = flt(row.difference_amount)
         row.commitment_date = getdate(row.commitment_date) if row.commitment_date else None
         row.bucket = _get_ptp_bucket(row, today_date, week_end)
-        row.ptp_user_id = employee_user_map.get(row.ptp_by)
-        row.requested_to_user_id = employee_user_map.get(row.requested_to_employee)
+        row.ptp_by_name = row.ptp_by_name or employee_meta_map.get(row.ptp_by, {}).get("employee_name")
+        row.requested_to_employee_name = employee_meta_map.get(row.requested_to_employee, {}).get("employee_name")
+        row.ptp_user_id = employee_meta_map.get(row.ptp_by, {}).get("user_id")
+        row.requested_to_user_id = employee_meta_map.get(row.requested_to_employee, {}).get("user_id")
         row.has_event = bool(row.calendar_event)
         row.has_user_mapping = bool(row.ptp_user_id)
         row.issue_flags = _get_ptp_issue_flags(row)
@@ -480,6 +482,7 @@ def serialize_ptp_dashboard_row(row):
         "ptp_by": row.ptp_by,
         "ptp_by_name": row.ptp_by_name,
         "requested_to_employee": row.requested_to_employee,
+        "requested_to_employee_name": row.requested_to_employee_name,
         "commitment_date": str(row.commitment_date) if row.commitment_date else "",
         "status": row.status,
         "bucket": row.bucket,
@@ -538,13 +541,23 @@ def _get_ptp_issue_flags(row):
     return issues
 
 
-def _get_employee_user_map(employee_ids):
+def _get_employee_meta_map(employee_ids):
     employee_ids = [employee for employee in employee_ids if employee]
     if not employee_ids:
         return {}
 
-    rows = frappe.get_all("Employee", filters={"name": ["in", employee_ids]}, fields=["name", "user_id"])
-    return {row.name: row.user_id for row in rows if row.user_id}
+    rows = frappe.get_all(
+        "Employee",
+        filters={"name": ["in", employee_ids]},
+        fields=["name", "user_id", "employee_name"],
+    )
+    return {
+        row.name: {
+            "user_id": row.user_id,
+            "employee_name": row.employee_name,
+        }
+        for row in rows
+    }
 
 
 def _extract_date_range(value):
