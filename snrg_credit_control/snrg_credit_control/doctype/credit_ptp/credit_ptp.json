@@ -24,6 +24,7 @@
   "payment_mode",
   "cheque_number",
   "status",
+  "calendar_event",
   "linked_payment_entries",
   "remarks",
   "payment_links"
@@ -152,6 +153,14 @@
    "in_list_view": 1,
    "label": "Status",
    "options": "Pending\nPartially Cleared\nCleared\nBroken\nSuperseded"
+  },
+  {
+   "fieldname": "calendar_event",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Calendar Event",
+   "options": "Event",
+   "read_only": 1
   },
   {
    "fieldname": "linked_payment_entries",
