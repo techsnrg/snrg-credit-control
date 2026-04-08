@@ -93,7 +93,7 @@ class SnrgPTPDashboard {
                 }
                 .snrg-ptp-filters {
                     display: grid;
-                    grid-template-columns: repeat(7, minmax(0, 1fr));
+                    grid-template-columns: repeat(8, minmax(0, 1fr));
                     gap: 12px;
                 }
                 .snrg-ptp-filter label {
@@ -385,6 +385,7 @@ class SnrgPTPDashboard {
             { fieldname: "requested_to_employee", label: "Requested To", fieldtype: "Link", options: "Employee" },
             { fieldname: "from_date", label: "From Date", fieldtype: "Date" },
             { fieldname: "to_date", label: "To Date", fieldtype: "Date" },
+            { fieldname: "show_superseded", label: "Show Superseded", fieldtype: "Check" },
         ];
 
         const target = this.wrapper.find(".snrg-ptp-filters");
@@ -397,6 +398,7 @@ class SnrgPTPDashboard {
                     label: df.label,
                     fieldtype: df.fieldtype,
                     options: Array.isArray(df.options) ? df.options.join("\n") : df.options,
+                    default: df.fieldtype === "Check" ? 0 : undefined,
                     change: () => this.refresh(),
                 },
                 render_input: true,

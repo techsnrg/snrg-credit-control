@@ -1,7 +1,7 @@
 import calendar
 
 import frappe
-from frappe.utils import add_days, flt, formatdate, fmt_money, get_datetime, get_url_to_form, getdate, today
+from frappe.utils import add_days, cint, flt, formatdate, fmt_money, get_datetime, get_url_to_form, getdate, today
 
 from snrg_credit_control.credit_status import zero
 
@@ -319,7 +319,15 @@ def get_ptp_dashboard_rows(filters=None):
     if filters.get("requested_to_employee"):
         report_filters["requested_to_employee"] = filters.requested_to_employee
     if filters.get("status"):
-        report_filters["status"] = ["in", filters.status]
+        status_values = list(filters.status)
+        if not filters.get("show_superseded"):
+            status_values = [value for value in status_values if value != "Superseded"]
+        if status_values:
+            report_filters["status"] = ["in", status_values]
+        elif not filters.get("show_superseded"):
+            report_filters["status"] = ["!=", "Superseded"]
+    elif not filters.get("show_superseded"):
+        report_filters["status"] = ["!=", "Superseded"]
 
     rows = frappe.get_all(
         "Credit PTP",
@@ -494,6 +502,7 @@ def _normalize_dashboard_filters(filters):
             filters.status = [value for value in status if value]
     else:
         filters.status = []
+    filters.show_superseded = cint(filters.get("show_superseded")) if filters.get("show_superseded") is not None else 0
     return filters
 
 
