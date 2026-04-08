@@ -603,7 +603,7 @@ class SnrgPTPDashboard {
                                 <td><strong>${this.esc(row.customer_name || row.customer || "—")}</strong><br><span class="snrg-ptp-muted">${this.esc(row.company || "")}</span></td>
                                 <td>${row.sales_order ? `<button class="snrg-ptp-link-btn" type="button" data-route-doctype="Sales Order" data-route-name="${this.esc(row.sales_order)}">${this.esc(row.sales_order)}</button>` : "—"}</td>
                                 <td>${this.esc(row.ptp_by_name || row.ptp_by || "—")}</td>
-                                <td>${this.esc(row.requested_to_employee || "—")}</td>
+                                <td>${this.esc(row.requested_to_employee_name || row.requested_to_employee || "—")}</td>
                                 <td>${row.commitment_date ? frappe.datetime.str_to_user(row.commitment_date) : "—"}<br><span class="snrg-ptp-muted">${this.esc(row.bucket || "")}</span></td>
                                 <td><span class="snrg-ptp-pill status-${this.slug(row.status)}">${this.esc(row.status || "Pending")}</span></td>
                                 <td>${format_currency(row.committed_amount || 0)}</td>
