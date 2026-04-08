@@ -7,6 +7,7 @@ from snrg_credit_control.credit_status import zero
 
 
 ACTIVE_PTP_STATUSES = {"Pending", "Partially Cleared"}
+ACTIONABLE_PTP_STATUSES = ACTIVE_PTP_STATUSES | {"Broken"}
 SECTION_ROW_LIMIT = 6
 
 
@@ -380,14 +381,16 @@ def get_ptp_dashboard_rows(filters=None):
 
 
 def get_ptp_dashboard_summary(rows):
-    active_count = sum(1 for row in rows if row.status in ACTIVE_PTP_STATUSES)
-    due_today = sum(1 for row in rows if row.bucket == "Due Today")
-    overdue = sum(1 for row in rows if row.bucket == "Overdue")
+    active_rows = [row for row in rows if row.status in ACTIVE_PTP_STATUSES]
+    actionable_rows = [row for row in rows if row.status in ACTIONABLE_PTP_STATUSES]
+    active_count = len(active_rows)
+    due_today = sum(1 for row in actionable_rows if row.bucket == "Due Today")
+    overdue = sum(1 for row in actionable_rows if row.bucket == "Overdue")
     broken = sum(1 for row in rows if row.status == "Broken")
     partially_cleared = sum(1 for row in rows if row.status == "Partially Cleared")
-    committed = sum(row.committed_amount for row in rows if row.status in ACTIVE_PTP_STATUSES)
-    received = sum(row.received_amount for row in rows if row.status in ACTIVE_PTP_STATUSES)
-    difference = sum(row.difference_amount for row in rows if row.status in ACTIVE_PTP_STATUSES)
+    committed = sum(row.committed_amount for row in active_rows)
+    received = sum(row.received_amount for row in active_rows)
+    difference = sum(row.difference_amount for row in active_rows)
 
     return {
         "active_ptps": active_count,
@@ -402,10 +405,11 @@ def get_ptp_dashboard_summary(rows):
 
 
 def get_ptp_dashboard_sections(rows):
-    due_today_rows = [row for row in rows if row.bucket == "Due Today"]
-    overdue_rows = [row for row in rows if row.bucket == "Overdue"]
-    upcoming_rows = [row for row in rows if row.bucket == "Upcoming This Week"]
-    exception_rows = [row for row in rows if row.issue_flags]
+    actionable_rows = [row for row in rows if row.status in ACTIONABLE_PTP_STATUSES]
+    due_today_rows = [row for row in actionable_rows if row.bucket == "Due Today"]
+    overdue_rows = [row for row in actionable_rows if row.bucket == "Overdue"]
+    upcoming_rows = [row for row in actionable_rows if row.bucket == "Upcoming This Week"]
+    exception_rows = [row for row in actionable_rows if row.issue_flags]
 
     return {
         "due_today": [serialize_ptp_dashboard_row(row) for row in due_today_rows[:SECTION_ROW_LIMIT]],
@@ -428,6 +432,8 @@ def build_ptp_calendar_payload(rows, month_anchor):
 
     entries = []
     for row in rows:
+        if row.status not in ACTIONABLE_PTP_STATUSES:
+            continue
         if not row.commitment_date:
             continue
         if row.commitment_date < month_start or row.commitment_date > month_end:
