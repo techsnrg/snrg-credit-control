@@ -1,10 +1,13 @@
+import calendar
+
 import frappe
-from frappe.utils import fmt_money, get_datetime, get_url_to_form, getdate, today
+from frappe.utils import add_days, flt, formatdate, fmt_money, get_datetime, get_url_to_form, getdate, today
 
 from snrg_credit_control.credit_status import zero
 
 
 ACTIVE_PTP_STATUSES = {"Pending", "Partially Cleared"}
+SECTION_ROW_LIMIT = 6
 
 
 def val(value):
@@ -291,3 +294,232 @@ def _build_ptp_event_participants(target):
             "email": target.get("email"),
         }
     ]
+
+
+@frappe.whitelist()
+def get_ptp_dashboard_data(filters=None, calendar_month=None):
+    rows = get_ptp_dashboard_rows(filters)
+    month_anchor = getdate(calendar_month) if calendar_month else getdate(today())
+    return {
+        "summary": get_ptp_dashboard_summary(rows),
+        "sections": get_ptp_dashboard_sections(rows),
+        "queue": [serialize_ptp_dashboard_row(row) for row in rows],
+        "calendar": build_ptp_calendar_payload(rows, month_anchor),
+    }
+
+
+def get_ptp_dashboard_rows(filters=None):
+    filters = _normalize_dashboard_filters(filters)
+    report_filters = {}
+    if filters.get("company"):
+        report_filters["company"] = filters.company
+    if filters.get("ptp_by"):
+        report_filters["ptp_by"] = filters.ptp_by
+    if filters.get("requested_to_employee"):
+        report_filters["requested_to_employee"] = filters.requested_to_employee
+    if filters.get("status"):
+        report_filters["status"] = ["in", filters.status]
+
+    rows = frappe.get_all(
+        "Credit PTP",
+        filters=report_filters,
+        fields=[
+            "name",
+            "sales_order",
+            "customer",
+            "customer_name",
+            "company",
+            "ptp_by",
+            "ptp_by_name",
+            "requested_to_employee",
+            "commitment_date",
+            "status",
+            "committed_amount",
+            "received_amount",
+            "difference_amount",
+            "payment_mode",
+            "calendar_event",
+            "remarks",
+        ],
+        order_by="commitment_date asc, modified desc",
+    )
+
+    employee_ids = {row.ptp_by for row in rows if row.get("ptp_by")}
+    employee_ids.update({row.requested_to_employee for row in rows if row.get("requested_to_employee")})
+    employee_user_map = _get_employee_user_map(employee_ids)
+
+    today_date = getdate(today())
+    week_end = add_days(today_date, 7)
+    bucket_filter = filters.get("bucket")
+    from_date = getdate(filters.from_date) if filters.get("from_date") else None
+    to_date = getdate(filters.to_date) if filters.get("to_date") else None
+    filtered_rows = []
+
+    for row in rows:
+        row = frappe._dict(row)
+        row.committed_amount = flt(row.committed_amount)
+        row.received_amount = flt(row.received_amount)
+        row.difference_amount = flt(row.difference_amount)
+        row.commitment_date = getdate(row.commitment_date) if row.commitment_date else None
+        row.bucket = _get_ptp_bucket(row, today_date, week_end)
+        row.ptp_user_id = employee_user_map.get(row.ptp_by)
+        row.requested_to_user_id = employee_user_map.get(row.requested_to_employee)
+        row.has_event = bool(row.calendar_event)
+        row.has_user_mapping = bool(row.ptp_user_id)
+        row.issue_flags = _get_ptp_issue_flags(row)
+
+        if bucket_filter and row.bucket != bucket_filter:
+            continue
+        if from_date and row.commitment_date and row.commitment_date < from_date:
+            continue
+        if to_date and row.commitment_date and row.commitment_date > to_date:
+            continue
+        filtered_rows.append(row)
+
+    return filtered_rows
+
+
+def get_ptp_dashboard_summary(rows):
+    active_count = sum(1 for row in rows if row.status in ACTIVE_PTP_STATUSES)
+    due_today = sum(1 for row in rows if row.bucket == "Due Today")
+    overdue = sum(1 for row in rows if row.bucket == "Overdue")
+    broken = sum(1 for row in rows if row.status == "Broken")
+    partially_cleared = sum(1 for row in rows if row.status == "Partially Cleared")
+    committed = sum(row.committed_amount for row in rows if row.status in ACTIVE_PTP_STATUSES)
+    received = sum(row.received_amount for row in rows if row.status in ACTIVE_PTP_STATUSES)
+    difference = sum(row.difference_amount for row in rows if row.status in ACTIVE_PTP_STATUSES)
+
+    return {
+        "active_ptps": active_count,
+        "due_today": due_today,
+        "overdue": overdue,
+        "broken": broken,
+        "partially_cleared": partially_cleared,
+        "committed_amount": committed,
+        "received_amount": received,
+        "difference_amount": difference,
+    }
+
+
+def get_ptp_dashboard_sections(rows):
+    due_today_rows = [row for row in rows if row.bucket == "Due Today"]
+    overdue_rows = [row for row in rows if row.bucket == "Overdue"]
+    upcoming_rows = [row for row in rows if row.bucket == "Upcoming This Week"]
+    exception_rows = [row for row in rows if row.issue_flags]
+
+    return {
+        "due_today": [serialize_ptp_dashboard_row(row) for row in due_today_rows[:SECTION_ROW_LIMIT]],
+        "overdue": [serialize_ptp_dashboard_row(row) for row in overdue_rows[:SECTION_ROW_LIMIT]],
+        "upcoming_this_week": [serialize_ptp_dashboard_row(row) for row in upcoming_rows[:SECTION_ROW_LIMIT]],
+        "exceptions": [serialize_ptp_dashboard_row(row) for row in exception_rows[:SECTION_ROW_LIMIT]],
+        "exception_counts": {
+            "broken": sum(1 for row in rows if row.status == "Broken"),
+            "missing_event": sum(1 for row in rows if "No Event" in row.issue_flags),
+            "missing_user_mapping": sum(1 for row in rows if "Missing User Mapping" in row.issue_flags),
+        },
+    }
+
+
+def build_ptp_calendar_payload(rows, month_anchor):
+    month_anchor = getdate(month_anchor)
+    month_start = month_anchor.replace(day=1)
+    _, month_last_day = calendar.monthrange(month_start.year, month_start.month)
+    month_end = month_start.replace(day=month_last_day)
+
+    entries = []
+    for row in rows:
+        if not row.commitment_date:
+            continue
+        if row.commitment_date < month_start or row.commitment_date > month_end:
+            continue
+        entries.append(
+            {
+                "date": str(row.commitment_date),
+                "ptp": row.name,
+                "sales_order": row.sales_order,
+                "customer_name": row.customer_name or row.customer,
+                "status": row.status,
+                "bucket": row.bucket,
+                "committed_amount": row.committed_amount,
+                "calendar_event": row.calendar_event,
+            }
+        )
+
+    return {
+        "month": month_start.month,
+        "year": month_start.year,
+        "month_start": str(month_start),
+        "month_label": formatdate(month_start, "MMMM yyyy"),
+        "entries": entries,
+    }
+
+
+def serialize_ptp_dashboard_row(row):
+    return {
+        "name": row.name,
+        "sales_order": row.sales_order,
+        "customer": row.customer,
+        "customer_name": row.customer_name,
+        "company": row.company,
+        "ptp_by": row.ptp_by,
+        "ptp_by_name": row.ptp_by_name,
+        "requested_to_employee": row.requested_to_employee,
+        "commitment_date": str(row.commitment_date) if row.commitment_date else "",
+        "status": row.status,
+        "bucket": row.bucket,
+        "committed_amount": row.committed_amount,
+        "received_amount": row.received_amount,
+        "difference_amount": row.difference_amount,
+        "payment_mode": row.payment_mode,
+        "calendar_event": row.calendar_event,
+        "remarks": row.remarks,
+        "issue_flags": row.issue_flags,
+    }
+
+
+def _normalize_dashboard_filters(filters):
+    filters = frappe.parse_json(filters) if isinstance(filters, str) else filters
+    filters = frappe._dict(filters or {})
+    status = filters.get("status")
+    if status:
+        if isinstance(status, str):
+            filters.status = [status]
+        else:
+            filters.status = [value for value in status if value]
+    else:
+        filters.status = []
+    return filters
+
+
+def _get_ptp_bucket(row, today_date, week_end):
+    if row.status == "Partially Cleared":
+        return "Partially Cleared"
+    if not row.commitment_date:
+        return "No Date"
+    if row.commitment_date < today_date:
+        return "Overdue"
+    if row.commitment_date == today_date:
+        return "Due Today"
+    if row.commitment_date <= week_end:
+        return "Upcoming This Week"
+    return "Upcoming Later"
+
+
+def _get_ptp_issue_flags(row):
+    issues = []
+    if row.status == "Broken":
+        issues.append("Broken")
+    if row.status in ACTIVE_PTP_STATUSES and not row.has_event:
+        issues.append("No Event")
+    if row.status in ACTIVE_PTP_STATUSES and not row.has_user_mapping:
+        issues.append("Missing User Mapping")
+    return issues
+
+
+def _get_employee_user_map(employee_ids):
+    employee_ids = [employee for employee in employee_ids if employee]
+    if not employee_ids:
+        return {}
+
+    rows = frappe.get_all("Employee", filters={"name": ["in", employee_ids]}, fields=["name", "user_id"])
+    return {row.name: row.user_id for row in rows if row.user_id}

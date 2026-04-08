@@ -486,6 +486,7 @@ def _ensure_demand_notice_default_print_format():
 def _ensure_credit_control_workspace():
     has_demand_notice = frappe.db.exists("DocType", "Demand Notice")
     has_demand_notice_settings = frappe.db.exists("DocType", "Demand Notice Settings")
+    has_ptp_dashboard_page = frappe.db.exists("Page", "ptp-dashboard")
 
     content_blocks = [
         {
@@ -503,12 +504,16 @@ def _ensure_credit_control_workspace():
             "type": "shortcut",
             "data": {"shortcut_name": "Credit Control Report", "col": 3},
         },
-        {
-            "id": "ptp_dashboard_shortcut",
-            "type": "shortcut",
-            "data": {"shortcut_name": "PTP Dashboard", "col": 3},
-        },
     ]
+
+    if has_ptp_dashboard_page:
+        content_blocks.append(
+            {
+                "id": "ptp_dashboard_page_shortcut",
+                "type": "shortcut",
+                "data": {"shortcut_name": "PTP Dashboard", "col": 3},
+            }
+        )
 
     links = [
         {
@@ -545,12 +550,23 @@ def _ensure_credit_control_workspace():
         {
             "label": "PTP Dashboard",
             "type": "Link",
+            "link_type": "Page" if has_ptp_dashboard_page else "Report",
+            "link_to": "ptp-dashboard" if has_ptp_dashboard_page else "PTP Dashboard",
+            "hidden": 0,
+            "is_query_report": 0,
+            "link_count": 0,
+            "onboard": 1,
+            "dependencies": "",
+        },
+        {
+            "label": "PTP Dashboard Report",
+            "type": "Link",
             "link_type": "Report",
             "link_to": "PTP Dashboard",
             "hidden": 0,
             "is_query_report": 0,
             "link_count": 0,
-            "onboard": 1,
+            "onboard": 0,
             "dependencies": "",
         },
     ]
@@ -571,15 +587,18 @@ def _ensure_credit_control_workspace():
             "doc_view": "",
             "color": "Green",
         },
-        {
-            "type": "Report",
-            "label": "PTP Dashboard",
-            "link_to": "PTP Dashboard",
-            "icon": "dashboard",
-            "doc_view": "",
-            "color": "Orange",
-        },
     ]
+
+    if has_ptp_dashboard_page:
+        shortcuts.append(
+            {
+                "type": "Page",
+                "label": "PTP Dashboard",
+                "link_to": "ptp-dashboard",
+                "icon": "dashboard",
+                "color": "Orange",
+            }
+        )
 
     if has_demand_notice or has_demand_notice_settings:
         content_blocks.append(
