@@ -20,6 +20,44 @@ function get_sales_order_credit_view_model(frm) {
   };
 }
 
+function get_sales_order_credit_reason_ui(reason, overdueCount) {
+  const hasOverdue = (reason || "").includes("Overdue>Terms");
+  const hasLimit = (reason || "").includes("Over-Limit");
+
+  if (hasOverdue && hasLimit) {
+    return {
+      badge: "Overdue + Over Limit",
+      summary: "Multiple credit issues",
+      detail: `Customer has overdue invoices beyond the allowed payment terms, and this order also exceeds the available credit limit.`,
+    };
+  }
+
+  if (hasOverdue) {
+    const detail = overdueCount
+      ? `${overdueCount} invoice${overdueCount === 1 ? " is" : "s are"} overdue beyond the allowed payment terms.`
+      : "Customer has overdue invoices beyond the allowed payment terms.";
+    return {
+      badge: "Overdue Invoice",
+      summary: "Overdue invoices beyond allowed terms",
+      detail,
+    };
+  }
+
+  if (hasLimit) {
+    return {
+      badge: "Over Credit Limit",
+      summary: "Order exceeds available credit limit",
+      detail: "Current exposure plus this order exceeds the customer's available credit limit.",
+    };
+  }
+
+  return {
+    badge: "",
+    summary: "Within policy",
+    detail: "Customer is within the configured credit policy.",
+  };
+}
+
 function render_sales_order_credit_chip(frm) {
   try {
     if (!frm || !frm.dashboard || !frm.dashboard.set_headline) return;
@@ -40,6 +78,7 @@ function render_sales_order_credit_chip(frm) {
       overrideCap,
       overrideValidTill,
     } = model;
+    const reasonUi = get_sales_order_credit_reason_ui(reason, overdueCount);
     const fmt = value => frappe.format(value, { fieldtype: "Currency", options: currency });
     const fmtSigned = value => {
       const formatted = fmt(Math.abs(value));
@@ -79,7 +118,7 @@ function render_sales_order_credit_chip(frm) {
       "Credit Hold": {
         rgb: "239,68,68",
         title: "Credit Hold",
-        badge: reason || "Review",
+        badge: reasonUi.badge || "Needs Review",
       },
     };
 
@@ -117,7 +156,7 @@ function render_sales_order_credit_chip(frm) {
         <div style="margin-top:10px;display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:10px 12px;align-items:stretch;">
           ${infoCard("Overdue Invoices", String(overdueCount))}
           ${infoCard("Overdue Amount", fmt(overdueAmount))}
-          ${infoCard("Reason", frappe.utils.escape_html(reason || "Within policy"))}
+          ${infoCard("Reason", frappe.utils.escape_html(reasonUi.detail))}
         </div>
         ${approvalLine ? `
           <div style="padding:10px 12px;border-radius:8px;background:rgba(15,23,42,.04);border:1px solid rgba(148,163,184,.12);">
@@ -153,7 +192,7 @@ function render_sales_order_header_status(frm) {
         bg: "rgba(239,68,68,.14)",
         border: "rgba(239,68,68,.28)",
         color: "#f87171",
-        label: model.reason ? `Credit Hold · ${model.reason}` : "Credit Hold",
+        label: `Credit Hold · ${get_sales_order_credit_reason_ui(model.reason, model.overdueCount).badge || "Needs Review"}`,
       },
     }[model.status];
 

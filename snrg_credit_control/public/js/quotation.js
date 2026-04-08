@@ -13,6 +13,44 @@ function get_quotation_credit_view_model(frm) {
   };
 }
 
+function get_quotation_credit_reason_ui(reason, overdueCount) {
+  const hasOverdue = (reason || "").includes("Overdue>Terms");
+  const hasLimit = (reason || "").includes("Over-Limit");
+
+  if (hasOverdue && hasLimit) {
+    return {
+      badge: "Overdue + Over Limit",
+      summary: "Multiple credit issues",
+      detail: "Customer has overdue invoices beyond the allowed payment terms, and this quotation also exceeds the available credit limit.",
+    };
+  }
+
+  if (hasOverdue) {
+    const detail = overdueCount
+      ? `${overdueCount} invoice${overdueCount === 1 ? " is" : "s are"} overdue beyond the allowed payment terms.`
+      : "Customer has overdue invoices beyond the allowed payment terms.";
+    return {
+      badge: "Overdue Invoice",
+      summary: "Overdue invoices beyond allowed terms",
+      detail,
+    };
+  }
+
+  if (hasLimit) {
+    return {
+      badge: "Over Credit Limit",
+      summary: "Quotation exceeds available credit limit",
+      detail: "Current exposure plus this quotation exceeds the customer's available credit limit.",
+    };
+  }
+
+  return {
+    badge: "",
+    summary: "Within policy",
+    detail: "Customer is within the configured credit policy.",
+  };
+}
+
 function render_quotation_credit_chip(frm) {
   try {
     if (!frm || !frm.dashboard || !frm.dashboard.set_headline) return;
@@ -20,6 +58,7 @@ function render_quotation_credit_chip(frm) {
 
     const model = get_quotation_credit_view_model(frm);
     const { status, reason, overdueCount, overdueAmount, exposure, creditLimit, quotationValue, currency, checkedOn } = model;
+    const reasonUi = get_quotation_credit_reason_ui(reason, overdueCount);
     const fmt = value => frappe.format(value, { fieldtype: "Currency", options: currency });
     const fmtSigned = value => {
       const formatted = fmt(Math.abs(value)).replace(/^-+/, "");
@@ -59,7 +98,7 @@ function render_quotation_credit_chip(frm) {
       "Credit Hold": {
         rgb: "239,68,68",
         title: "Credit Hold",
-        badge: reason || "Review",
+        badge: reasonUi.badge || "Needs Review",
       },
     };
 
@@ -89,7 +128,7 @@ function render_quotation_credit_chip(frm) {
         <div style="margin-top:10px;display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:10px 12px;align-items:stretch;">
           ${infoCard("Overdue Invoices", String(overdueCount))}
           ${infoCard("Overdue Amount", fmt(overdueAmount))}
-          ${infoCard("Reason", frappe.utils.escape_html(reason || "Within policy"))}
+          ${infoCard("Reason", frappe.utils.escape_html(reasonUi.detail))}
         </div>
       </div>
     `);
@@ -123,7 +162,7 @@ function render_quotation_header_status(frm) {
         bg: "rgba(239,68,68,.14)",
         border: "rgba(239,68,68,.28)",
         color: "#f87171",
-        label: reason ? `Credit Hold · ${reason}` : "Credit Hold",
+        label: `Credit Hold · ${get_quotation_credit_reason_ui(reason, model.overdueCount).badge || "Needs Review"}`,
       },
     }[status];
 
