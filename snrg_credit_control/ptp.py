@@ -1,5 +1,5 @@
 import frappe
-from frappe.utils import fmt_money, getdate, today
+from frappe.utils import fmt_money, get_datetime, get_url_to_form, getdate, today
 
 from snrg_credit_control.credit_status import zero
 
@@ -95,11 +95,13 @@ def supersede_previous_ptps(current_doc):
             "name": ["!=", current_doc.name],
             "status": ["in", list(ACTIVE_PTP_STATUSES)],
         },
-        fields=["name"],
+        fields=["name", "calendar_event"],
         order_by="creation desc",
     )
     for row in others:
         frappe.db.set_value("Credit PTP", row.name, "status", "Superseded", update_modified=False)
+        if row.get("calendar_event") and frappe.db.exists("Event", row.calendar_event):
+            _update_ptp_event_status(row.calendar_event, "Cancelled")
 
 
 def get_ptp_references_for_sales_order(sales_order, actionable_only=False):
@@ -173,3 +175,119 @@ def get_active_credit_ptp(sales_order):
         order_by="creation desc",
         limit=1,
     )
+
+
+def get_employee_notification_target(employee):
+    if not employee:
+        return {}
+
+    row = frappe.db.get_value(
+        "Employee",
+        employee,
+        ["employee_name", "user_id", "company_email", "personal_email"],
+        as_dict=True,
+    ) or {}
+
+    user_id = row.get("user_id")
+    email = (user_id if user_id and "@" in user_id else None) or row.get("company_email") or row.get("personal_email")
+
+    return {
+        "employee": employee,
+        "employee_name": row.get("employee_name") or employee,
+        "user_id": user_id,
+        "email": email,
+    }
+
+
+def sync_ptp_calendar_event(doc):
+    event_name = doc.get("calendar_event")
+    target = get_employee_notification_target(doc.get("ptp_by"))
+    target_user = target.get("user_id")
+
+    if not target_user or not doc.get("commitment_date"):
+        if event_name and frappe.db.exists("Event", event_name):
+            _update_ptp_event_status(event_name, "Cancelled")
+        if doc.get("calendar_event"):
+            frappe.db.set_value("Credit PTP", doc.name, "calendar_event", "", update_modified=False)
+            doc.calendar_event = ""
+        return
+
+    event_doc = _build_ptp_event_doc(doc, target)
+
+    if event_name and frappe.db.exists("Event", event_name):
+        event = frappe.get_doc("Event", event_name)
+        for fieldname, value in event_doc.items():
+            event.set(fieldname, value)
+        event.save(ignore_permissions=True)
+        frappe.db.set_value("Event", event.name, "owner", target_user, update_modified=False)
+        return
+
+    event = frappe.get_doc(event_doc).insert(ignore_permissions=True)
+    frappe.db.set_value("Event", event.name, "owner", target_user, update_modified=False)
+    frappe.db.set_value("Credit PTP", doc.name, "calendar_event", event.name, update_modified=False)
+    frappe.share.add_docshare("Event", event.name, target_user, read=1, write=1, share=0, notify=0)
+    doc.calendar_event = event.name
+
+
+def clear_ptp_calendar_event(doc):
+    event_name = doc.get("calendar_event")
+    if event_name and frappe.db.exists("Event", event_name):
+        _update_ptp_event_status(event_name, "Cancelled")
+
+
+def _build_ptp_event_doc(doc, target):
+    customer_label = doc.get("customer_name") or doc.get("customer") or "Customer"
+    subject = f"PTP Follow-up: {customer_label}"
+    if doc.get("sales_order"):
+        subject = f"{subject} / {doc.sales_order}"
+
+    status = "Open" if doc.get("status") in ACTIVE_PTP_STATUSES or doc.get("status") == "Broken" else "Closed"
+    start_dt = get_datetime(f"{doc.commitment_date} 09:00:00")
+    description = (
+        f"Credit PTP: {doc.name}\n"
+        f"Sales Order: {doc.get('sales_order') or '—'}\n"
+        f"Customer: {customer_label}\n"
+        f"Committed By: {target.get('employee_name') or doc.get('ptp_by') or '—'}\n"
+        f"Committed Amount: {fmt_money(val(doc.get('committed_amount')), currency=doc.get('currency') or 'INR')}\n"
+        f"Status: {doc.get('status') or 'Pending'}\n"
+        f"Open PTP: {get_url_to_form('Credit PTP', doc.name)}"
+    )
+
+    return {
+        "doctype": "Event",
+        "subject": subject,
+        "event_type": "Private",
+        "event_category": "Event",
+        "status": status,
+        "starts_on": start_dt,
+        "all_day": 1,
+        "description": description,
+        "reference_doctype": "Credit PTP",
+        "reference_docname": doc.name,
+        "event_participants": _build_ptp_event_participants(target),
+    }
+
+
+def _update_ptp_event_status(event_name, status):
+    event = frappe.get_doc("Event", event_name)
+    if event.status == status:
+        return
+    event.status = status
+    event.save(ignore_permissions=True)
+
+
+def _build_ptp_event_participants(target):
+    if not target:
+        return []
+
+    participant_id = target.get("user_id") or target.get("employee")
+    if not participant_id:
+        return []
+
+    return [
+        {
+            "reference_doctype": "User" if target.get("user_id") else "Employee",
+            "reference_docname": participant_id,
+            "email": target.get("email"),
+        }
+    ]

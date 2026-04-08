@@ -345,29 +345,41 @@ def _ensure_quotation_fields():
 # ---------------------------------------------------------------------------
 
 def _ensure_report():
-    name = "Credit Control Report"
-    if frappe.db.exists("Report", name):
-        frappe.db.set_value("Report", name, "module", "Snrg Credit Control")
-        frappe.db.set_value("Report", name, "disabled", 0)
-        return
-
-    frappe.get_doc(
+    report_defs = [
         {
-            "doctype": "Report",
-            "report_name": name,
-            "report_type": "Script Report",
+            "report_name": "Credit Control Report",
             "ref_doctype": "Sales Order",
-            "module": "Snrg Credit Control",
-            "is_standard": "Yes",
-            "disabled": 0,
-            "roles": [
-                {"role": "Credit Approver"},
-                {"role": "Accounts Manager"},
-                {"role": "System Manager"},
-                {"role": "Sales Manager"},
-            ],
-        }
-    ).insert(ignore_permissions=True)
+        },
+        {
+            "report_name": "PTP Dashboard",
+            "ref_doctype": "Credit PTP",
+        },
+    ]
+
+    for report_def in report_defs:
+        name = report_def["report_name"]
+        if frappe.db.exists("Report", name):
+            frappe.db.set_value("Report", name, "module", "Snrg Credit Control")
+            frappe.db.set_value("Report", name, "disabled", 0)
+            continue
+
+        frappe.get_doc(
+            {
+                "doctype": "Report",
+                "report_name": name,
+                "report_type": "Script Report",
+                "ref_doctype": report_def["ref_doctype"],
+                "module": "Snrg Credit Control",
+                "is_standard": "Yes",
+                "disabled": 0,
+                "roles": [
+                    {"role": "Credit Approver"},
+                    {"role": "Accounts Manager"},
+                    {"role": "System Manager"},
+                    {"role": "Sales Manager"},
+                ],
+            }
+        ).insert(ignore_permissions=True)
 
 
 # ---------------------------------------------------------------------------
@@ -491,6 +503,11 @@ def _ensure_credit_control_workspace():
             "type": "shortcut",
             "data": {"shortcut_name": "Credit Control Report", "col": 3},
         },
+        {
+            "id": "ptp_dashboard_shortcut",
+            "type": "shortcut",
+            "data": {"shortcut_name": "PTP Dashboard", "col": 3},
+        },
     ]
 
     links = [
@@ -525,6 +542,17 @@ def _ensure_credit_control_workspace():
             "onboard": 1,
             "dependencies": "",
         },
+        {
+            "label": "PTP Dashboard",
+            "type": "Link",
+            "link_type": "Report",
+            "link_to": "PTP Dashboard",
+            "hidden": 0,
+            "is_query_report": 0,
+            "link_count": 0,
+            "onboard": 1,
+            "dependencies": "",
+        },
     ]
 
     shortcuts = [
@@ -542,6 +570,14 @@ def _ensure_credit_control_workspace():
             "icon": "list",
             "doc_view": "",
             "color": "Green",
+        },
+        {
+            "type": "Report",
+            "label": "PTP Dashboard",
+            "link_to": "PTP Dashboard",
+            "icon": "dashboard",
+            "doc_view": "",
+            "color": "Orange",
         },
     ]
 

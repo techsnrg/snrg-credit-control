@@ -1,7 +1,13 @@
 import frappe
 from frappe.model.document import Document
 
-from snrg_credit_control.ptp import build_ptp_reference_label, supersede_previous_ptps, sync_credit_ptp
+from snrg_credit_control.ptp import (
+    build_ptp_reference_label,
+    clear_ptp_calendar_event,
+    supersede_previous_ptps,
+    sync_credit_ptp,
+    sync_ptp_calendar_event,
+)
 
 
 class CreditPTP(Document):
@@ -24,8 +30,12 @@ class CreditPTP(Document):
         self.reference_label = build_ptp_reference_label(self)
 
     def after_insert(self):
+        sync_ptp_calendar_event(self)
         supersede_previous_ptps(self)
 
     def on_update(self):
+        sync_ptp_calendar_event(self)
         supersede_previous_ptps(self)
 
+    def on_trash(self):
+        clear_ptp_calendar_event(self)
