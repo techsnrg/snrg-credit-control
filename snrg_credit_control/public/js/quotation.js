@@ -10,7 +10,17 @@ function get_quotation_credit_view_model(frm) {
     quotationValue: Number(frm.doc.grand_total || frm.doc.rounded_total || 0),
     currency: frm.doc.currency || "INR",
     checkedOn: frm.doc.custom_snrg_credit_checked_on || "",
+    details: frm.doc.custom_snrg_credit_check_details || "",
   };
+}
+
+function parse_credit_detail_preview(details) {
+  if (!details) return [];
+  return String(details)
+    .split(";")
+    .map(part => part.trim())
+    .filter(Boolean)
+    .slice(0, 2);
 }
 
 function get_quotation_credit_reason_ui(reason, overdueCount) {
@@ -57,7 +67,7 @@ function render_quotation_credit_chip(frm) {
     if (frm.dashboard.clear_headline) frm.dashboard.clear_headline();
 
     const model = get_quotation_credit_view_model(frm);
-    const { status, reason, overdueCount, overdueAmount, exposure, creditLimit, quotationValue, currency, checkedOn } = model;
+    const { status, reason, overdueCount, overdueAmount, exposure, creditLimit, quotationValue, currency, checkedOn, details } = model;
     const reasonUi = get_quotation_credit_reason_ui(reason, overdueCount);
     const fmt = value => frappe.format(value, { fieldtype: "Currency", options: currency });
     const fmtSigned = value => {
@@ -71,12 +81,19 @@ function render_quotation_credit_chip(frm) {
         <div style="font-size:16px;font-weight:700;line-height:1.2;word-break:break-word;${valueStyle}">${value}</div>
       </div>
     `;
+    const metricOp = symbol => `
+      <div style="display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;opacity:.42;min-width:22px;">${symbol}</div>
+    `;
     const infoCard = (label, value) => `
       <div style="min-width:0;padding:10px 12px;border-radius:8px;background:rgba(15,23,42,.04);border:1px solid rgba(148,163,184,.12);">
         <div style="font-size:10px;font-weight:700;opacity:.52;letter-spacing:.04em;text-transform:uppercase;margin-bottom:5px;">${label}</div>
         <div style="font-size:14px;font-weight:600;line-height:1.2;word-break:break-word;">${value}</div>
       </div>
     `;
+    const overduePreview = parse_credit_detail_preview(details);
+    const overduePreviewHtml = overduePreview.length
+      ? overduePreview.map(line => `<div style="font-size:13px;font-weight:600;line-height:1.35;">${frappe.utils.escape_html(line)}</div>`).join("")
+      : `<div style="font-size:13px;opacity:.72;">No overdue invoice lines</div>`;
     const availableCredit = creditLimit ? (creditLimit - exposure) : 0;
     const projectedAvailable = creditLimit ? (creditLimit - exposure - quotationValue) : 0;
     const availableTone = availableCredit < 0
@@ -118,16 +135,23 @@ function render_quotation_credit_chip(frm) {
           </div>
           ${pill}
         </div>
-        <div style="margin-top:10px;display:grid;grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));gap:10px 12px;align-items:stretch;">
+        <div style="margin-top:10px;overflow-x:auto;">
+          <div style="display:grid;grid-template-columns:minmax(150px,1fr) 26px minmax(150px,1fr) 26px minmax(150px,1fr) 26px minmax(150px,1fr) 26px minmax(150px,1fr);gap:10px;align-items:stretch;min-width:900px;">
           ${metricCard("Credit Limit", fmt(creditLimit))}
+          ${metricOp("-")}
           ${metricCard("Current Exposure", fmtSigned(exposure))}
+          ${metricOp("=")}
           ${metricCard("Available Credit", fmtSigned(availableCredit), availableTone)}
+          ${metricOp("-")}
           ${metricCard("Quotation Value", fmt(quotationValue))}
+          ${metricOp("=")}
           ${metricCard("Projected Balance", fmtSigned(projectedAvailable), projectedTone)}
+          </div>
         </div>
-        <div style="margin-top:10px;display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:10px 12px;align-items:stretch;">
+        <div style="margin-top:10px;display:grid;grid-template-columns:minmax(120px,.75fr) minmax(150px,.9fr) minmax(260px,1.35fr) minmax(260px,1.4fr);gap:10px 12px;align-items:stretch;">
           ${infoCard("Overdue Invoices", String(overdueCount))}
           ${infoCard("Overdue Amount", fmt(overdueAmount))}
+          ${infoCard("Top Overdue Invoices", overduePreviewHtml)}
           ${infoCard("Reason", frappe.utils.escape_html(reasonUi.detail))}
         </div>
       </div>
@@ -321,6 +345,7 @@ async function refresh_quotation_credit_status(frm) {
     frm.doc.custom_snrg_overdue_amount_terms = message.total_overdue || 0;
     frm.doc.custom_snrg_exposure_at_check = message.effective_ar || 0;
     frm.doc.custom_snrg_credit_limit_at_check = message.credit_limit || 0;
+    frm.doc.custom_snrg_credit_check_details = message.details || "";
     frm.doc.custom_snrg_credit_checked_on = message.checked_on || "";
 
     render_quotation_credit_chip(frm);
