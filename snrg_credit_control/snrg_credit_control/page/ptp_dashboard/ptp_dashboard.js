@@ -260,6 +260,11 @@ class SnrgPTPDashboard {
                 .snrg-ptp-table strong {
                     color: #0f172a;
                 }
+                .snrg-ptp-money {
+                    display: inline-block;
+                    white-space: nowrap;
+                    font-variant-numeric: tabular-nums;
+                }
                 .snrg-ptp-calendar-toolbar {
                     display: flex;
                     align-items: center;
@@ -442,7 +447,7 @@ class SnrgPTPDashboard {
             { fieldname: "bucket", label: "Bucket", fieldtype: "Select", options: ["", ...this.bucketOptions] },
             { fieldname: "ptp_by", label: "Committed By", fieldtype: "Link", options: "Employee" },
             { fieldname: "requested_to_employee", label: "Requested To", fieldtype: "Link", options: "Employee" },
-            { fieldname: "date_range", label: "Date", fieldtype: "DateRange" },
+            { fieldname: "date_range", label: "Date Range", fieldtype: "DateRange" },
             { fieldname: "show_superseded", label: "Show Superseded", fieldtype: "Check" },
         ];
 
@@ -664,9 +669,9 @@ class SnrgPTPDashboard {
                                 <td>${this.esc(row.requested_to_employee_name || row.requested_to_employee || "—")}</td>
                                 <td>${row.commitment_date ? frappe.datetime.str_to_user(row.commitment_date) : "—"}<br><span class="snrg-ptp-muted">${this.esc(row.bucket || "")}</span></td>
                                 <td><span class="snrg-ptp-pill status-${this.slug(row.status)}">${this.esc(row.status || "Pending")}</span></td>
-                                <td>${format_currency(row.committed_amount || 0)}</td>
-                                <td>${format_currency(row.received_amount || 0)}</td>
-                                <td>${format_currency(row.difference_amount || 0)}</td>
+                                <td><span class="snrg-ptp-money">${format_currency(row.committed_amount || 0)}</span></td>
+                                <td><span class="snrg-ptp-money">${format_currency(row.received_amount || 0)}</span></td>
+                                <td><span class="snrg-ptp-money">${format_currency(row.difference_amount || 0)}</span></td>
                                 <td>${row.calendar_event ? `<button class="snrg-ptp-link-btn" type="button" data-route-doctype="Event" data-route-name="${this.esc(row.calendar_event)}">${this.esc(row.calendar_event)}</button>` : `<span class="snrg-ptp-muted">Missing</span>`}</td>
                             </tr>
                         `).join("")}
@@ -674,9 +679,9 @@ class SnrgPTPDashboard {
                     <tfoot>
                         <tr class="snrg-ptp-total-row">
                             <td colspan="8">Total</td>
-                            <td>${format_currency(totals.committed)}</td>
-                            <td>${format_currency(totals.received)}</td>
-                            <td>${format_currency(totals.gap)}</td>
+                            <td><span class="snrg-ptp-money">${format_currency(totals.committed)}</span></td>
+                            <td><span class="snrg-ptp-money">${format_currency(totals.received)}</span></td>
+                            <td><span class="snrg-ptp-money">${format_currency(totals.gap)}</span></td>
                             <td></td>
                         </tr>
                     </tfoot>
