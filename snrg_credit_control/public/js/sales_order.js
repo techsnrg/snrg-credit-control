@@ -144,13 +144,13 @@ function render_sales_order_credit_chip(frm) {
     if (!theme) return;
 
     const pill = `<span style="display:inline-flex;align-items:center;background:rgba(${theme.rgb},.10);border:1px solid rgba(${theme.rgb},.22);color:rgba(${theme.rgb},1);font-size:10px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap;">${frappe.utils.escape_html(theme.badge)}</span>`;
-    let approvalLine = "";
+    let approvalPills = "";
     if (approvalStatus || overrideCap || overrideValidTill) {
       const parts = [];
-      if (approvalStatus) parts.push(`<span><strong>Approval:</strong> ${frappe.utils.escape_html(approvalStatus)}</span>`);
-      if (overrideCap) parts.push(`<span><strong>Cap:</strong> ${fmt(overrideCap)}</span>`);
-      if (overrideValidTill) parts.push(`<span><strong>Valid Till:</strong> ${frappe.datetime.str_to_user(overrideValidTill)}</span>`);
-      approvalLine = `<div style="display:flex;gap:12px 16px;flex-wrap:wrap;margin-top:10px;font-size:11px;opacity:.8;">${parts.join("")}</div>`;
+      if (approvalStatus) parts.push(`<span style="display:inline-flex;align-items:center;background:rgba(15,23,42,.05);border:1px solid rgba(148,163,184,.18);color:#334155;font-size:10px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap;">Approval: ${frappe.utils.escape_html(approvalStatus)}</span>`);
+      if (overrideCap) parts.push(`<span style="display:inline-flex;align-items:center;background:rgba(15,23,42,.05);border:1px solid rgba(148,163,184,.18);color:#334155;font-size:10px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap;">Cap: ${fmt(overrideCap)}</span>`);
+      if (overrideValidTill) parts.push(`<span style="display:inline-flex;align-items:center;background:rgba(15,23,42,.05);border:1px solid rgba(148,163,184,.18);color:#334155;font-size:10px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap;">Valid Till: ${frappe.datetime.str_to_user(overrideValidTill)}</span>`);
+      approvalPills = parts.join("");
     }
 
     frm.dashboard.set_headline(`
@@ -162,7 +162,10 @@ function render_sales_order_credit_chip(frm) {
               <div style="font-size:11px;opacity:.68;">Last Refresh: ${formatCheckedOn(checkedOn)}</div>
             </div>
           </div>
-          ${pill}
+          <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;">
+            ${pill}
+            ${approvalPills}
+          </div>
         </div>
         <div style="margin-top:10px;overflow-x:auto;">
           <div style="display:grid;grid-template-columns:minmax(150px,1fr) 26px minmax(150px,1fr) 26px minmax(150px,1fr) 26px minmax(150px,1fr) 26px minmax(150px,1fr);gap:10px;align-items:stretch;min-width:900px;">
@@ -183,11 +186,6 @@ function render_sales_order_credit_chip(frm) {
           ${infoCard("Top Overdue Invoices", overduePreviewHtml)}
           ${infoCard("Reason", frappe.utils.escape_html(reasonUi.detail))}
         </div>
-        ${approvalLine ? `
-          <div style="padding:10px 12px;border-radius:8px;background:rgba(15,23,42,.04);border:1px solid rgba(148,163,184,.12);">
-            ${approvalLine}
-          </div>
-        ` : ""}
       </div>
     `);
 
