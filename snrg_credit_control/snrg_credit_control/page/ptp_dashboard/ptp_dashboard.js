@@ -127,9 +127,7 @@ class SnrgPTPDashboard {
                     color: #0f172a;
                 }
                 .snrg-ptp-card-helper {
-                    margin-top: 3px;
-                    font-size: 10px;
-                    color: #64748b;
+                    display: none;
                 }
                 .snrg-ptp-section-grid {
                     display: grid;
@@ -555,12 +553,12 @@ class SnrgPTPDashboard {
 
     render_summary(summary) {
         const cards = [
-            { label: "Due Today", value: `${summary.due_today || 0} (${format_currency(summary.due_today_amount || 0)})`, helper: "Needs same-day follow-up" },
-            { label: "Due Tomorrow", value: `${summary.due_tomorrow || 0} (${format_currency(summary.due_tomorrow_amount || 0)})`, helper: "Plan tomorrow's follow-up" },
-            { label: "Overdue", value: `${summary.overdue || 0} (${format_currency(summary.overdue_amount || 0)})`, helper: "Past commitment date" },
-            { label: "Committed Amount", value: format_currency(summary.committed_amount || 0), helper: "Active committed total" },
-            { label: "Received Amount", value: format_currency(summary.received_amount || 0), helper: "Recovered against active PTPs" },
-            { label: "Gap Amount", value: format_currency(summary.difference_amount || 0), helper: "Still pending collection" },
+            { label: "Due Today", value: `${summary.due_today || 0} (${format_currency(summary.due_today_amount || 0)})` },
+            { label: "Due Tomorrow", value: `${summary.due_tomorrow || 0} (${format_currency(summary.due_tomorrow_amount || 0)})` },
+            { label: "Overdue", value: `${summary.overdue || 0} (${format_currency(summary.overdue_amount || 0)})` },
+            { label: "Committed Amount", value: format_currency(summary.committed_amount || 0) },
+            { label: "Received Amount", value: format_currency(summary.received_amount || 0) },
+            { label: "Gap Amount", value: format_currency(summary.difference_amount || 0) },
         ];
 
         return `
@@ -569,7 +567,6 @@ class SnrgPTPDashboard {
                     <div class="snrg-ptp-card">
                         <div class="snrg-ptp-card-label">${this.esc(card.label)}</div>
                         <div class="snrg-ptp-card-value">${card.value}</div>
-                        <div class="snrg-ptp-card-helper">${this.esc(card.helper)}</div>
                     </div>
                 `).join("")}
             </div>
