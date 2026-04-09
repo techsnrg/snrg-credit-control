@@ -33,4 +33,8 @@ doc_events = {
     "Quotation": {
         "validate": "snrg_credit_control.overrides.quotation.validate",
     },
+    "Payment Entry": {
+        "on_submit": "snrg_credit_control.ptp.auto_allocate_payment_entry_to_ptps",
+        "on_cancel": "snrg_credit_control.ptp.remove_payment_entry_ptp_allocations",
+    },
 }

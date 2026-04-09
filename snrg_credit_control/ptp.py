@@ -8,6 +8,7 @@ from snrg_credit_control.credit_status import zero
 
 ACTIVE_PTP_STATUSES = {"Pending", "Partially Cleared"}
 ACTIONABLE_PTP_STATUSES = ACTIVE_PTP_STATUSES | {"Broken"}
+AUTO_ALLOCATE_PTP_STATUSES = ACTIONABLE_PTP_STATUSES
 SECTION_ROW_LIMIT = 6
 
 
@@ -237,6 +238,108 @@ def clear_ptp_calendar_event(doc):
     event_name = doc.get("calendar_event")
     if event_name and frappe.db.exists("Event", event_name):
         _update_ptp_event_status(event_name, "Cancelled")
+
+
+def auto_allocate_payment_entry_to_ptps(doc, method=None):
+    if not _is_customer_receipt(doc):
+        return
+
+    payment_amount = flt(doc.get("paid_amount"))
+    if payment_amount <= 0:
+        return
+
+    existing_allocations = _get_existing_payment_entry_allocations(doc.name)
+    remaining_amount = payment_amount - sum(existing_allocations.values())
+    if remaining_amount <= 0:
+        return
+
+    ptp_rows = frappe.get_all(
+        "Credit PTP",
+        filters={
+            "customer": doc.party,
+            "company": doc.company,
+            "status": ["in", list(AUTO_ALLOCATE_PTP_STATUSES)],
+        },
+        fields=["name", "commitment_date", "difference_amount", "creation"],
+    )
+
+    if not ptp_rows:
+        return
+
+    ptp_rows = sorted(
+        ptp_rows,
+        key=lambda row: (
+            getdate(row.commitment_date) if row.get("commitment_date") else getdate("9999-12-31"),
+            row.get("creation") or "",
+            row.get("name") or "",
+        ),
+    )
+
+    for row in ptp_rows:
+        if remaining_amount <= 0:
+            break
+
+        open_amount = max(0, flt(row.get("difference_amount")) - flt(existing_allocations.get(row.name)))
+        if open_amount <= 0:
+            continue
+
+        allocated_amount = min(remaining_amount, open_amount)
+        ptp_doc = frappe.get_doc("Credit PTP", row.name)
+        ptp_doc.append(
+            "payment_links",
+            {
+                "payment_entry": doc.name,
+                "allocated_amount": allocated_amount,
+                "remarks": f"Auto-allocated from Payment Entry {doc.name}",
+            },
+        )
+        ptp_doc.save(ignore_permissions=True)
+
+        remaining_amount -= allocated_amount
+
+
+def remove_payment_entry_ptp_allocations(doc, method=None):
+    link_rows = frappe.get_all(
+        "Credit PTP Payment Link",
+        filters={
+            "payment_entry": doc.name,
+            "parenttype": "Credit PTP",
+        },
+        fields=["name", "parent"],
+    )
+    if not link_rows:
+        return
+
+    for ptp_name in sorted({row.parent for row in link_rows if row.get("parent")}):
+        ptp_doc = frappe.get_doc("Credit PTP", ptp_name)
+        filtered_links = [row for row in (ptp_doc.get("payment_links") or []) if row.payment_entry != doc.name]
+        ptp_doc.set("payment_links", filtered_links)
+        ptp_doc.save(ignore_permissions=True)
+
+
+def _get_existing_payment_entry_allocations(payment_entry):
+    rows = frappe.get_all(
+        "Credit PTP Payment Link",
+        filters={
+            "payment_entry": payment_entry,
+            "parenttype": "Credit PTP",
+        },
+        fields=["parent", "allocated_amount"],
+    )
+    totals = {}
+    for row in rows:
+        totals[row.parent] = flt(totals.get(row.parent)) + flt(row.allocated_amount)
+    return totals
+
+
+def _is_customer_receipt(doc):
+    return (
+        doc.get("docstatus") == 1
+        and doc.get("payment_type") == "Receive"
+        and doc.get("party_type") == "Customer"
+        and doc.get("party")
+        and doc.get("company")
+    )
 
 
 def _build_ptp_event_doc(doc, target):
