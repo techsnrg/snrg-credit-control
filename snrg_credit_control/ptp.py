@@ -393,22 +393,24 @@ def get_ptp_dashboard_rows(filters=None):
 def get_ptp_dashboard_summary(rows):
     active_rows = [row for row in rows if row.status in ACTIVE_PTP_STATUSES]
     actionable_rows = [row for row in rows if row.status in ACTIONABLE_PTP_STATUSES]
-    active_count = len(active_rows)
-    due_today = sum(1 for row in actionable_rows if row.bucket == "Due Today")
-    due_tomorrow = sum(1 for row in actionable_rows if row.commitment_date == add_days(getdate(today()), 1))
-    overdue = sum(1 for row in actionable_rows if row.bucket == "Overdue")
-    broken = sum(1 for row in rows if row.status == "Broken")
+    due_today_rows = [row for row in actionable_rows if row.bucket == "Due Today"]
+    due_tomorrow_rows = [row for row in actionable_rows if row.commitment_date == add_days(getdate(today()), 1)]
+    overdue_rows = [row for row in actionable_rows if row.bucket == "Overdue"]
+    due_today = len(due_today_rows)
+    due_tomorrow = len(due_tomorrow_rows)
+    overdue = len(overdue_rows)
     partially_cleared = sum(1 for row in rows if row.status == "Partially Cleared")
     committed = sum(row.committed_amount for row in active_rows)
     received = sum(row.received_amount for row in active_rows)
     difference = sum(row.difference_amount for row in active_rows)
 
     return {
-        "active_ptps": active_count,
         "due_today": due_today,
+        "due_today_amount": sum(row.difference_amount or row.committed_amount for row in due_today_rows),
         "due_tomorrow": due_tomorrow,
+        "due_tomorrow_amount": sum(row.difference_amount or row.committed_amount for row in due_tomorrow_rows),
         "overdue": overdue,
-        "broken": broken,
+        "overdue_amount": sum(row.difference_amount or row.committed_amount for row in overdue_rows),
         "partially_cleared": partially_cleared,
         "committed_amount": committed,
         "received_amount": received,
@@ -421,18 +423,11 @@ def get_ptp_dashboard_sections(rows):
     due_today_rows = [row for row in actionable_rows if row.bucket == "Due Today"]
     overdue_rows = [row for row in actionable_rows if row.bucket == "Overdue"]
     upcoming_rows = [row for row in actionable_rows if row.bucket == "Upcoming This Week"]
-    exception_rows = [row for row in actionable_rows if row.issue_flags]
 
     return {
         "due_today": [serialize_ptp_dashboard_row(row) for row in due_today_rows[:SECTION_ROW_LIMIT]],
         "overdue": [serialize_ptp_dashboard_row(row) for row in overdue_rows[:SECTION_ROW_LIMIT]],
         "upcoming_this_week": [serialize_ptp_dashboard_row(row) for row in upcoming_rows[:SECTION_ROW_LIMIT]],
-        "exceptions": [serialize_ptp_dashboard_row(row) for row in exception_rows[:SECTION_ROW_LIMIT]],
-        "exception_counts": {
-            "broken": sum(1 for row in rows if row.status == "Broken"),
-            "missing_event": sum(1 for row in rows if "No Event" in row.issue_flags),
-            "missing_user_mapping": sum(1 for row in rows if "Missing User Mapping" in row.issue_flags),
-        },
     }
 
 

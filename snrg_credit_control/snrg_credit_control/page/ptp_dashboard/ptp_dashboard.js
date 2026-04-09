@@ -110,36 +110,30 @@ class SnrgPTPDashboard {
                     grid-template-columns: repeat(3, minmax(0, 1fr));
                     gap: 12px;
                 }
-                .snrg-ptp-overview-top {
-                    display: grid;
-                    grid-template-columns: minmax(0, 1.05fr) minmax(360px, 0.95fr);
-                    gap: 12px;
-                    align-items: start;
-                }
                 .snrg-ptp-card {
                     border: 1px solid #e5e7eb;
                     border-radius: 16px;
                     background: #fff;
-                    padding: 16px;
-                    min-height: 108px;
+                    padding: 12px 13px;
+                    min-height: 88px;
                 }
                 .snrg-ptp-card-label {
-                    font-size: 11px;
+                    font-size: 10px;
                     color: #64748b;
                     text-transform: uppercase;
                     letter-spacing: .08em;
                     font-weight: 700;
                 }
                 .snrg-ptp-card-value {
-                    margin-top: 8px;
-                    font-size: 28px;
+                    margin-top: 6px;
+                    font-size: 18px;
                     line-height: 1.15;
                     font-weight: 800;
                     color: #0f172a;
                 }
                 .snrg-ptp-card-helper {
-                    margin-top: 6px;
-                    font-size: 12px;
+                    margin-top: 4px;
+                    font-size: 11px;
                     color: #64748b;
                 }
                 .snrg-ptp-section-grid {
@@ -404,9 +398,6 @@ class SnrgPTPDashboard {
                     .snrg-ptp-summary {
                         grid-template-columns: repeat(2, minmax(0, 1fr));
                     }
-                    .snrg-ptp-overview-top {
-                        grid-template-columns: 1fr;
-                    }
                 }
                 @media (max-width: 900px) {
                     .snrg-ptp-section-grid,
@@ -554,13 +545,8 @@ class SnrgPTPDashboard {
         const summary = this.data.summary || {};
         const sections = this.data.sections || {};
         const queue = this.data.queue || [];
-        const calendar = this.data.calendar || {};
-
         target.html(`
-            <div class="snrg-ptp-overview-top">
-                ${this.panel("Snapshot", this.render_summary(summary))}
-                ${this.panel("Calendar", this.render_overview_calendar(calendar))}
-            </div>
+            ${this.panel("Snapshot", this.render_summary(summary))}
             ${this.panel("Action Boards", this.render_sections(sections))}
             ${this.panel("Full Queue", this.render_queue(queue))}
         `);
@@ -568,9 +554,9 @@ class SnrgPTPDashboard {
 
     render_summary(summary) {
         const cards = [
-            { label: "Due Today", value: summary.due_today || 0, helper: "Needs same-day follow-up" },
-            { label: "Due Tomorrow", value: summary.due_tomorrow || 0, helper: "Plan tomorrow's follow-up" },
-            { label: "Overdue", value: summary.overdue || 0, helper: "Past commitment date" },
+            { label: "Due Today", value: summary.due_today || 0, helper: `Needs same-day follow-up (${format_currency(summary.due_today_amount || 0)})` },
+            { label: "Due Tomorrow", value: summary.due_tomorrow || 0, helper: `Plan tomorrow's follow-up (${format_currency(summary.due_tomorrow_amount || 0)})` },
+            { label: "Overdue", value: summary.overdue || 0, helper: `Past commitment date (${format_currency(summary.overdue_amount || 0)})` },
             { label: "Partially Cleared", value: summary.partially_cleared || 0, helper: "Received but still open" },
             { label: "Committed Amount", value: format_currency(summary.committed_amount || 0), helper: "Active committed total" },
             { label: "Received Amount", value: format_currency(summary.received_amount || 0), helper: "Recovered against active PTPs" },
@@ -590,38 +576,13 @@ class SnrgPTPDashboard {
         `;
     }
 
-    render_overview_calendar(calendarData) {
-        if (!calendarData || !calendarData.month_label) {
-            return `<div class="snrg-ptp-muted">Loading month view.</div>`;
-        }
-
-        return `
-            <div class="snrg-ptp-section-subtext" style="margin-top:0;">Current month commitments at a glance.</div>
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;">
-                <div style="font-size:20px;font-weight:800;color:#0f172a;">${this.esc(calendarData.month_label)}</div>
-                <div class="snrg-ptp-calendar-nav">
-                    <button class="snrg-ptp-link-btn" type="button" data-calendar-nav="prev">Prev</button>
-                    <button class="snrg-ptp-link-btn" type="button" data-calendar-nav="today">Today</button>
-                    <button class="snrg-ptp-link-btn" type="button" data-calendar-nav="next">Next</button>
-                </div>
-            </div>
-            ${this.render_calendar_grid(calendarData, true)}
-        `;
-    }
-
     render_sections(sections) {
-        const exceptionCounts = sections.exception_counts || {};
         const upcomingRows = this.getSortedUpcomingRows();
         return `
             <div class="snrg-ptp-section-grid">
                 ${this.render_section_panel("Due Today", "Commitments that need follow-up today.", sections.due_today || [])}
                 ${this.render_section_panel("Overdue", "Old commitments that have crossed their payment date.", sections.overdue || [])}
-                ${this.render_upcoming_week_panel(upcomingRows)}
-                ${this.render_section_panel(
-                    "Exceptions",
-                    `Broken: ${exceptionCounts.broken || 0} · Missing Event: ${exceptionCounts.missing_event || 0} · Missing User Mapping: ${exceptionCounts.missing_user_mapping || 0}`,
-                    sections.exceptions || []
-                )}
+                <div style="grid-column:1 / -1;">${this.render_upcoming_week_panel(upcomingRows)}</div>
             </div>
         `;
     }
@@ -853,16 +814,18 @@ class SnrgPTPDashboard {
     render_calendar_cell(date, entriesByDate, muted) {
         const dateKey = frappe.datetime.obj_to_str(date).slice(0, 10);
         const entries = entriesByDate[dateKey] || [];
+        const visibleEntries = entries.slice(0, 2);
+        const hiddenCount = Math.max(0, entries.length - visibleEntries.length);
         return `
             <div class="snrg-ptp-calendar-cell ${muted ? "muted" : ""}">
                 <div class="snrg-ptp-calendar-date">${date.getDate()}</div>
-                ${entries.map((entry) => `
+                ${visibleEntries.map((entry) => `
                     <div class="snrg-ptp-calendar-entry status-${this.slug(entry.status)}" data-route-doctype="Credit PTP" data-route-name="${this.esc(entry.ptp)}">
                         <div><strong>${this.esc(entry.customer_name || entry.ptp)}</strong></div>
-                        <div>${this.esc(entry.sales_order || "")}</div>
                         <div>${format_currency(entry.committed_amount || 0)}</div>
                     </div>
                 `).join("")}
+                ${hiddenCount ? `<div class="snrg-ptp-muted">+${hiddenCount} more</div>` : ""}
             </div>
         `;
     }
