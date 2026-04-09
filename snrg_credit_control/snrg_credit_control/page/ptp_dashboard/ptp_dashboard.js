@@ -44,7 +44,7 @@ class SnrgPTPDashboard {
                     justify-content: space-between;
                     gap: 16px;
                     flex-wrap: wrap;
-                    margin-bottom: 14px;
+                    margin-bottom: 10px;
                 }
                 .snrg-ptp-topbar-copy {
                     min-width: 0;
@@ -64,11 +64,6 @@ class SnrgPTPDashboard {
                 }
                 .snrg-ptp-panel-body {
                     padding: 18px 20px;
-                }
-                .snrg-ptp-subtitle {
-                    margin-top: 6px;
-                    font-size: 14px;
-                    color: #64748b;
                 }
                 .snrg-ptp-view-switch {
                     display: inline-flex;
@@ -95,6 +90,7 @@ class SnrgPTPDashboard {
                     display: grid;
                     grid-template-columns: repeat(7, minmax(0, 1fr));
                     gap: 12px;
+                    margin-bottom: 12px;
                 }
                 .snrg-ptp-filter label {
                     font-size: 11px;
@@ -424,7 +420,6 @@ class SnrgPTPDashboard {
                         <div class="snrg-ptp-topbar">
                             <div class="snrg-ptp-topbar-copy">
                                 <div class="snrg-ptp-kicker">Credit Control</div>
-                                <div class="snrg-ptp-subtitle">Track commitments, follow up faster, and keep the daily collection queue visible.</div>
                             </div>
                             <div class="snrg-ptp-view-switch">
                                 <button class="snrg-ptp-view-btn active" data-view="overview" type="button">Overview</button>
@@ -432,6 +427,7 @@ class SnrgPTPDashboard {
                             </div>
                         </div>
                         <div class="snrg-ptp-filters"></div>
+                        <div class="snrg-ptp-summary-shell"></div>
                     </div>
                 </div>
                 <div class="snrg-ptp-overview-view"></div>
@@ -535,7 +531,9 @@ class SnrgPTPDashboard {
 
     render_overview() {
         const target = this.wrapper.find(".snrg-ptp-overview-view");
+        const summaryTarget = this.wrapper.find(".snrg-ptp-summary-shell");
         if (!this.data) {
+            summaryTarget.html("");
             target.html(this.panel("Loading dashboard...", `<div class="snrg-ptp-muted">Fetching PTP data.</div>`));
             return;
         }
@@ -543,8 +541,8 @@ class SnrgPTPDashboard {
         const summary = this.data.summary || {};
         const sections = this.data.sections || {};
         const queue = this.data.queue || [];
+        summaryTarget.html(this.render_summary(summary));
         target.html(`
-            ${this.panel("Snapshot", this.render_summary(summary))}
             ${this.panel("Action Boards", this.render_sections(sections))}
             ${this.panel("Full Queue", this.render_queue(queue))}
         `);
@@ -603,16 +601,12 @@ class SnrgPTPDashboard {
                 <div class="snrg-ptp-list-top">
                     <div>
                         <div class="snrg-ptp-list-title">${this.esc(row.customer_name || row.customer || row.name)}</div>
-                        <div class="snrg-ptp-list-meta">
-                            <span>${this.esc(row.name)}</span>
-                            <span>${this.esc(row.sales_order || "No Sales Order")}</span>
-                            <span>${row.commitment_date ? frappe.datetime.str_to_user(row.commitment_date) : "No Date"}</span>
-                        </div>
                     </div>
                     <div class="snrg-ptp-list-title">${format_currency(row.committed_amount || 0)}</div>
                 </div>
                 <div class="snrg-ptp-pill-row">
                     <span class="snrg-ptp-pill status-${this.slug(row.status)}">${this.esc(row.status || "Pending")}</span>
+                    <span class="snrg-ptp-pill">${row.commitment_date ? frappe.datetime.str_to_user(row.commitment_date) : "No Date"}</span>
                     <span class="snrg-ptp-pill">${this.esc(row.bucket || "No Bucket")}</span>
                     <span class="snrg-ptp-pill">By: ${this.esc(row.ptp_by_name || row.ptp_by || "—")}</span>
                     ${row.calendar_event ? `<span class="snrg-ptp-pill">Event: ${this.esc(row.calendar_event)}</span>` : ""}
