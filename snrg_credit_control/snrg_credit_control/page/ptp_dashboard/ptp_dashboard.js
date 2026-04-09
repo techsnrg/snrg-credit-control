@@ -541,9 +541,14 @@ class SnrgPTPDashboard {
         const summary = this.data.summary || {};
         const sections = this.data.sections || {};
         const queue = this.data.queue || [];
-        summaryTarget.html(this.render_summary(summary));
+        summaryTarget.html("");
         target.html(`
-            ${this.panel("Action Boards", this.render_sections(sections))}
+            <div class="snrg-ptp-panel">
+                <div class="snrg-ptp-panel-body">
+                    ${this.render_summary(summary)}
+                    <div style="margin-top:14px;">${this.render_sections(sections)}</div>
+                </div>
+            </div>
             ${this.panel("Full Queue", this.render_queue(queue))}
         `);
     }
@@ -595,7 +600,10 @@ class SnrgPTPDashboard {
     }
 
     render_list_item(row) {
-        const issuePills = (row.issue_flags || []).map((issue) => `<span class="snrg-ptp-pill">${this.esc(issue)}</span>`).join("");
+        const issuePills = (row.issue_flags || [])
+            .filter((issue) => issue !== "Broken")
+            .map((issue) => `<span class="snrg-ptp-pill">${this.esc(issue)}</span>`)
+            .join("");
         return `
             <div class="snrg-ptp-list-item">
                 <div class="snrg-ptp-list-top">
@@ -606,8 +614,8 @@ class SnrgPTPDashboard {
                 </div>
                 <div class="snrg-ptp-pill-row">
                     <span class="snrg-ptp-pill status-${this.slug(row.status)}">${this.esc(row.status || "Pending")}</span>
-                    <span class="snrg-ptp-pill">${row.commitment_date ? frappe.datetime.str_to_user(row.commitment_date) : "No Date"}</span>
                     <span class="snrg-ptp-pill">${this.esc(row.bucket || "No Bucket")}</span>
+                    <span class="snrg-ptp-pill">${row.commitment_date ? frappe.datetime.str_to_user(row.commitment_date) : "No Date"}</span>
                     <span class="snrg-ptp-pill">By: ${this.esc(row.ptp_by_name || row.ptp_by || "—")}</span>
                     ${row.calendar_event ? `<span class="snrg-ptp-pill">Event: ${this.esc(row.calendar_event)}</span>` : ""}
                     ${issuePills}
