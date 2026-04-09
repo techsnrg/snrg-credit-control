@@ -615,9 +615,9 @@ def _normalize_dashboard_filters(filters):
 
 
 def _get_ptp_bucket(row, today_date, week_end):
-    if row.status == "Partially Cleared":
-        return "Partially Cleared"
     if not row.commitment_date:
+        if row.status == "Partially Cleared":
+            return "Partially Cleared"
         return "No Date"
     if row.commitment_date < today_date:
         return "Overdue"
@@ -625,6 +625,8 @@ def _get_ptp_bucket(row, today_date, week_end):
         return "Due Today"
     if row.commitment_date <= week_end:
         return "Upcoming This Week"
+    if row.status == "Partially Cleared":
+        return "Partially Cleared"
     return "Upcoming Later"
 
 
