@@ -460,7 +460,7 @@ function open_request_dialog(frm) {
         }
         d.set_message("Saving and sending request…");
 
-        await frappe.call({
+        const { message } = await frappe.call({
           method: "snrg_credit_control.overrides.sales_order.request_credit_approval",
           args: {
             sales_order: frm.doc.name,
@@ -476,7 +476,19 @@ function open_request_dialog(frm) {
         });
 
         d.hide();
-        frappe.show_alert({ message: "Approval request sent to the selected approver.", indicator: "green" });
+        if (message && message.warning) {
+          frappe.msgprint({
+            title: "Approval Request Sent With Warning",
+            message: message.warning,
+            indicator: "orange",
+          });
+        }
+        frappe.show_alert({
+          message: (message && message.warning)
+            ? "Approval request saved. Notification setup is incomplete for the selected employee."
+            : "Approval request sent to the selected approver.",
+          indicator: (message && message.warning) ? "orange" : "green",
+        });
         frm.reload_doc();
       } catch (e) {
         console.error("[SNRG] Request dialog exception", e);

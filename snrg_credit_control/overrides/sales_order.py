@@ -112,12 +112,40 @@ def _validate_request_target(doc):
         frappe.throw("Select the employee who should receive this credit approval request.")
 
     target = _get_employee_notification_target(doc.custom_snrg_requested_to_employee)
-    if target.get("user_id") and target.get("email"):
+    warning = _build_request_target_warning(target)
+    if not warning:
         return
 
-    frappe.throw(
-        "The selected employee must have a linked ERPNext user and an email address "
-        "so the approval request can be sent through both internal notification and email."
+    if not getattr(frappe.flags, "snrg_request_target_warning_shown", False):
+        frappe.flags.snrg_request_target_warning_shown = True
+        frappe.msgprint(
+            warning,
+            title="Approver Notification Warning",
+            indicator="orange",
+            alert=True,
+        )
+
+
+def _build_request_target_warning(target):
+    if not target:
+        return (
+            "The selected employee is missing both a linked ERPNext user and an email address. "
+            "The credit action will continue, but approval notifications cannot be delivered automatically."
+        )
+
+    missing = []
+    if not target.get("user_id"):
+        missing.append("linked ERPNext user")
+    if not target.get("email"):
+        missing.append("email address")
+
+    if not missing:
+        return ""
+
+    missing_text = " and ".join(missing)
+    return (
+        f"The selected employee is missing {missing_text}. "
+        "The credit action will continue, but the approval notification may only be partially delivered."
     )
 
 
@@ -267,6 +295,8 @@ def request_credit_approval(
 
     amount = _val(doc.grand_total or doc.rounded_total)
     now = frappe.utils.now_datetime()
+    target = _get_employee_notification_target(approver_employee)
+    notification_warning = _build_request_target_warning(target)
 
     frappe.db.set_value(
         "Sales Order",
@@ -302,7 +332,11 @@ def request_credit_approval(
 
     refreshed_doc = frappe.get_doc("Sales Order", doc.name)
     _notify_approvers(refreshed_doc, ptp_docs=[frappe._dict(ptp.as_dict())])
-    return {"message": "Approval request sent successfully.", "ptp": ptp.name}
+    return {
+        "message": "Approval request sent successfully.",
+        "ptp": ptp.name,
+        "warning": notification_warning,
+    }
 
 
 @frappe.whitelist()
