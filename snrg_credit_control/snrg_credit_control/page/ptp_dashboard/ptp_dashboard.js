@@ -14,7 +14,6 @@ class SnrgPTPDashboard {
         this.wrapper = $(wrapper);
         this.view = "overview";
         this.calendarMonth = this.monthStart(new Date());
-        this.upcomingSort = "date";
         this.data = null;
         this.controls = {};
         this.statusOptions = ["Pending", "Partially Cleared", "Cleared", "Broken", "Superseded"];
@@ -107,33 +106,33 @@ class SnrgPTPDashboard {
                 }
                 .snrg-ptp-summary {
                     display: grid;
-                    grid-template-columns: repeat(3, minmax(0, 1fr));
+                    grid-template-columns: repeat(6, minmax(0, 1fr));
                     gap: 12px;
                 }
                 .snrg-ptp-card {
                     border: 1px solid #e5e7eb;
                     border-radius: 16px;
                     background: #fff;
-                    padding: 12px 13px;
-                    min-height: 88px;
+                    padding: 10px 11px;
+                    min-height: 72px;
                 }
                 .snrg-ptp-card-label {
-                    font-size: 10px;
+                    font-size: 9px;
                     color: #64748b;
                     text-transform: uppercase;
                     letter-spacing: .08em;
                     font-weight: 700;
                 }
                 .snrg-ptp-card-value {
-                    margin-top: 6px;
-                    font-size: 18px;
+                    margin-top: 5px;
+                    font-size: 14px;
                     line-height: 1.15;
                     font-weight: 800;
                     color: #0f172a;
                 }
                 .snrg-ptp-card-helper {
-                    margin-top: 4px;
-                    font-size: 11px;
+                    margin-top: 3px;
+                    font-size: 10px;
                     color: #64748b;
                 }
                 .snrg-ptp-section-grid {
@@ -396,7 +395,7 @@ class SnrgPTPDashboard {
                         grid-template-columns: repeat(4, minmax(0, 1fr));
                     }
                     .snrg-ptp-summary {
-                        grid-template-columns: repeat(2, minmax(0, 1fr));
+                        grid-template-columns: repeat(3, minmax(0, 1fr));
                     }
                 }
                 @media (max-width: 900px) {
@@ -477,12 +476,6 @@ class SnrgPTPDashboard {
             this.sync_view_state();
         });
 
-        this.wrapper.on("change", "[data-upcoming-sort]", (e) => {
-            const value = $(e.currentTarget).val();
-            this.upcomingSort = value || "date";
-            this.render_overview();
-            this.bind_dynamic_controls();
-        });
     }
 
     refresh() {
@@ -554,10 +547,9 @@ class SnrgPTPDashboard {
 
     render_summary(summary) {
         const cards = [
-            { label: "Due Today", value: summary.due_today || 0, helper: `Needs same-day follow-up (${format_currency(summary.due_today_amount || 0)})` },
-            { label: "Due Tomorrow", value: summary.due_tomorrow || 0, helper: `Plan tomorrow's follow-up (${format_currency(summary.due_tomorrow_amount || 0)})` },
-            { label: "Overdue", value: summary.overdue || 0, helper: `Past commitment date (${format_currency(summary.overdue_amount || 0)})` },
-            { label: "Partially Cleared", value: summary.partially_cleared || 0, helper: "Received but still open" },
+            { label: "Due Today", value: `${summary.due_today || 0} (${format_currency(summary.due_today_amount || 0)})`, helper: "Needs same-day follow-up" },
+            { label: "Due Tomorrow", value: `${summary.due_tomorrow || 0} (${format_currency(summary.due_tomorrow_amount || 0)})`, helper: "Plan tomorrow's follow-up" },
+            { label: "Overdue", value: `${summary.overdue || 0} (${format_currency(summary.overdue_amount || 0)})`, helper: "Past commitment date" },
             { label: "Committed Amount", value: format_currency(summary.committed_amount || 0), helper: "Active committed total" },
             { label: "Received Amount", value: format_currency(summary.received_amount || 0), helper: "Recovered against active PTPs" },
             { label: "Gap Amount", value: format_currency(summary.difference_amount || 0), helper: "Still pending collection" },
@@ -577,64 +569,10 @@ class SnrgPTPDashboard {
     }
 
     render_sections(sections) {
-        const upcomingRows = this.getSortedUpcomingRows();
         return `
             <div class="snrg-ptp-section-grid">
                 ${this.render_section_panel("Due Today", "Commitments that need follow-up today.", sections.due_today || [])}
                 ${this.render_section_panel("Overdue", "Old commitments that have crossed their payment date.", sections.overdue || [])}
-                <div style="grid-column:1 / -1;">${this.render_upcoming_week_panel(upcomingRows)}</div>
-            </div>
-        `;
-    }
-
-    render_upcoming_week_panel(rows) {
-        const sortOptions = `
-            <select data-upcoming-sort style="min-width:160px;padding:8px 12px;border:1px solid #dbe3ef;border-radius:999px;background:#fff;font-size:12px;font-weight:700;color:#1e293b;">
-                <option value="date" ${this.upcomingSort === "date" ? "selected" : ""}>Sort: Date</option>
-                <option value="amount" ${this.upcomingSort === "amount" ? "selected" : ""}>Sort: Amount</option>
-            </select>
-        `;
-        const body = rows.length
-            ? `
-                <div class="snrg-ptp-mini-table-wrap">
-                    <table class="snrg-ptp-mini-table">
-                        <thead>
-                            <tr>
-                                <th>Date</th>
-                                <th>Amount</th>
-                                <th>Customer</th>
-                                <th>PTP</th>
-                                <th>Sales Order</th>
-                                <th>Committed By</th>
-                                <th>Event</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${rows.map((row) => `
-                                <tr>
-                                    <td>${row.commitment_date ? frappe.datetime.str_to_user(row.commitment_date) : "—"}</td>
-                                    <td><strong>${format_currency(row.committed_amount || 0)}</strong></td>
-                                    <td>${this.esc(row.customer_name || row.customer || "—")}</td>
-                                    <td><button class="snrg-ptp-link-btn" type="button" data-route-doctype="Credit PTP" data-route-name="${this.esc(row.name)}">${this.esc(row.name)}</button></td>
-                                    <td>${row.sales_order ? `<button class="snrg-ptp-link-btn" type="button" data-route-doctype="Sales Order" data-route-name="${this.esc(row.sales_order)}">${this.esc(row.sales_order)}</button>` : "—"}</td>
-                                    <td>${this.esc(row.ptp_by_name || row.ptp_by || "—")}</td>
-                                    <td>${row.calendar_event ? `<button class="snrg-ptp-link-btn" type="button" data-route-doctype="Event" data-route-name="${this.esc(row.calendar_event)}">${this.esc(row.calendar_event)}</button>` : `<span class="snrg-ptp-muted">Missing</span>`}</td>
-                                </tr>
-                            `).join("")}
-                        </tbody>
-                    </table>
-                </div>
-            `
-            : `<div class="snrg-ptp-muted">Nothing upcoming this week right now.</div>`;
-
-        return `
-            <div class="snrg-ptp-card">
-                <div class="snrg-ptp-section-title">Upcoming This Week</div>
-                <div class="snrg-ptp-toolbar-inline">
-                    <div class="snrg-ptp-section-subtext" style="margin:0;">Soon-to-mature commitments sorted for quick planning.</div>
-                    ${sortOptions}
-                </div>
-                ${body}
             </div>
         `;
     }
@@ -828,26 +766,6 @@ class SnrgPTPDashboard {
                 ${hiddenCount ? `<div class="snrg-ptp-muted">+${hiddenCount} more</div>` : ""}
             </div>
         `;
-    }
-
-    getSortedUpcomingRows() {
-        const rows = (this.data?.queue || []).filter((row) => row.bucket === "Upcoming This Week");
-        return rows.sort((a, b) => {
-            const dateA = a.commitment_date || "";
-            const dateB = b.commitment_date || "";
-            const amountA = Number(a.committed_amount || 0);
-            const amountB = Number(b.committed_amount || 0);
-
-            if (this.upcomingSort === "amount") {
-                if (amountB !== amountA) return amountB - amountA;
-                if (dateA !== dateB) return dateA.localeCompare(dateB);
-                return (a.name || "").localeCompare(b.name || "");
-            }
-
-            if (dateA !== dateB) return dateA.localeCompare(dateB);
-            if (amountB !== amountA) return amountB - amountA;
-            return (a.name || "").localeCompare(b.name || "");
-        });
     }
 
     sync_view_state() {
