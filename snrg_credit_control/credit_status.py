@@ -50,6 +50,21 @@ def get_credit_limit(customer, company):
 
 
 def get_total_outstanding(customer, company):
+    ledger_value = frappe.db.sql(
+        """
+        SELECT COALESCE(SUM(debit - credit), 0)
+        FROM `tabGL Entry`
+        WHERE docstatus = 1
+          AND party_type = 'Customer'
+          AND party = %s
+          AND company = %s
+          AND is_cancelled = 0
+        """,
+        (customer, company),
+    )[0][0]
+    if ledger_value is not None:
+        return ledger_value or 0
+
     value = frappe.db.sql(
         """
         SELECT COALESCE(SUM(outstanding_amount), 0)
@@ -65,6 +80,10 @@ def get_total_outstanding(customer, company):
 
 
 def get_advance_balance(customer, company):
+    ledger_value = get_total_outstanding(customer, company)
+    if ledger_value < 0:
+        return abs(ledger_value)
+
     value = frappe.db.sql(
         """
         SELECT ABS(COALESCE(SUM(outstanding_amount), 0))
