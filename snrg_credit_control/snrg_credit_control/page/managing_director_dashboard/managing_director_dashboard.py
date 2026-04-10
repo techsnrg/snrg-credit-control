@@ -32,8 +32,12 @@ def get_dashboard_data(company=None):
         "currency": _get_currency(company),
         "companies": _get_companies(),
         "summary": _get_summary(so_filter, invoice_filter, ptp_filter, notice_filter, values),
+        "sales_mix": _get_sales_mix(so_filter, invoice_filter, values),
         "approval_mix": _get_approval_mix(so_filter, values),
         "risk_mix": _get_risk_mix(so_filter, values),
+        "sales_trend": _get_sales_trend(invoice_filter, values),
+        "sales_leaders": _get_sales_leaders(invoice_filter, values),
+        "execution_watchlist": _get_execution_watchlist(so_filter, values),
         "approval_queue": _get_approval_queue(so_filter, values),
         "blocked_orders": _get_blocked_orders(so_filter, values),
         "overdue_customers": _get_overdue_customers(invoice_filter, values),
@@ -53,12 +57,33 @@ def _get_companies():
 
 
 def _get_summary(so_filter, invoice_filter, ptp_filter, notice_filter, values):
+    sales_values = dict(values)
+    sales_values["month_start"] = _month_start()
+    sales_values["ninety_days_ago"] = frappe.utils.add_days(today(), -89)
+    sales_values["thirty_days_ago"] = frappe.utils.add_days(today(), -29)
+
     so_where = _build_where(["so.docstatus = 0"] + so_filter)
+    submitted_so_where = _build_where(["so.docstatus = 1"] + so_filter)
+    execution_where = _build_where(
+        [
+            "so.docstatus = 1",
+            "IFNULL(so.status, '') NOT IN ('Closed', 'Completed', 'Cancelled')",
+        ]
+        + so_filter
+    )
     invoice_where = _build_where(
         [
             "si.docstatus = 1",
             "si.is_return = 0",
             "si.outstanding_amount > 0",
+        ]
+        + invoice_filter
+    )
+    current_month_invoice_where = _build_where(
+        [
+            "si.docstatus = 1",
+            "si.is_return = 0",
+            "si.posting_date BETWEEN %(month_start)s AND CURDATE()",
         ]
         + invoice_filter
     )
@@ -88,6 +113,32 @@ def _get_summary(so_filter, invoice_filter, ptp_filter, notice_filter, values):
         as_dict=True,
     )[0]
 
+    submitted_so_summary = frappe.db.sql(
+        f"""
+        SELECT
+            COALESCE(SUM(CASE WHEN so.transaction_date BETWEEN %(thirty_days_ago)s AND CURDATE() THEN so.grand_total ELSE 0 END), 0) AS sales_last_30_days,
+            COALESCE(SUM(so.grand_total), 0) AS total_submitted_orders
+        FROM `tabSales Order` so
+        WHERE {submitted_so_where}
+        """,
+        sales_values,
+        as_dict=True,
+    )[0]
+
+    execution_summary = frappe.db.sql(
+        f"""
+        SELECT
+            COUNT(*) AS live_orders,
+            COALESCE(SUM(so.grand_total), 0) AS open_order_book,
+            COALESCE(SUM(so.grand_total * (100 - COALESCE(so.per_billed, 0)) / 100), 0) AS pending_billing,
+            COALESCE(SUM(so.grand_total * (100 - COALESCE(so.per_delivered, 0)) / 100), 0) AS pending_delivery
+        FROM `tabSales Order` so
+        WHERE {execution_where}
+        """,
+        values,
+        as_dict=True,
+    )[0]
+
     invoice_summary = frappe.db.sql(
         f"""
         SELECT
@@ -97,6 +148,18 @@ def _get_summary(so_filter, invoice_filter, ptp_filter, notice_filter, values):
         WHERE {invoice_where}
         """,
         values,
+        as_dict=True,
+    )[0]
+
+    month_invoice_summary = frappe.db.sql(
+        f"""
+        SELECT
+            COUNT(*) AS invoice_count,
+            COALESCE(SUM(si.base_grand_total), 0) AS invoiced_this_month
+        FROM `tabSales Invoice` si
+        WHERE {current_month_invoice_where}
+        """,
+        sales_values,
         as_dict=True,
     )[0]
 
@@ -146,6 +209,20 @@ def _get_summary(so_filter, invoice_filter, ptp_filter, notice_filter, values):
             "tone": "amber",
         },
         {
+            "label": "Invoiced This Month",
+            "value": flt(month_invoice_summary.invoiced_this_month),
+            "helper": f"{int(month_invoice_summary.invoice_count or 0)} submitted invoices",
+            "datatype": "Currency",
+            "tone": "blue",
+        },
+        {
+            "label": "Sales Last 30 Days",
+            "value": flt(submitted_so_summary.sales_last_30_days),
+            "helper": "Submitted order intake",
+            "datatype": "Currency",
+            "tone": "teal",
+        },
+        {
             "label": "Orders On Credit Hold",
             "value": int(so_summary.credit_hold_orders or 0),
             "helper": "Orders needing intervention",
@@ -173,11 +250,32 @@ def _get_summary(so_filter, invoice_filter, ptp_filter, notice_filter, values):
             "tone": "blue",
         },
         {
+            "label": "Open Order Book",
+            "value": flt(execution_summary.open_order_book),
+            "helper": f"{int(execution_summary.live_orders or 0)} submitted live orders",
+            "datatype": "Currency",
+            "tone": "teal",
+        },
+        {
+            "label": "Pending Billing",
+            "value": flt(execution_summary.pending_billing),
+            "helper": "Order value not fully billed yet",
+            "datatype": "Currency",
+            "tone": "amber",
+        },
+        {
             "label": "Active PTP Gap",
             "value": flt(ptp_summary.ptp_gap),
             "helper": f"{int(ptp_summary.active_ptps or 0)} active PTPs, {int(ptp_summary.broken_ptps or 0)} broken",
             "datatype": "Currency",
             "tone": "teal",
+        },
+        {
+            "label": "Pending Delivery",
+            "value": flt(execution_summary.pending_delivery),
+            "helper": "Order value not fully delivered yet",
+            "datatype": "Currency",
+            "tone": "amber",
         },
         {
             "label": "Issued Demand Notices",
@@ -192,6 +290,179 @@ def _get_summary(so_filter, invoice_filter, ptp_filter, notice_filter, values):
             "datatype": "Currency",
             "tone": "purple",
         },
+    ]
+
+
+def _get_sales_mix(so_filter, invoice_filter, values):
+    sales_values = dict(values)
+    sales_values["month_start"] = _month_start()
+    sales_values["thirty_days_ago"] = frappe.utils.add_days(today(), -29)
+
+    submitted_so_where = _build_where(["so.docstatus = 1"] + so_filter)
+    current_month_invoice_where = _build_where(
+        [
+            "si.docstatus = 1",
+            "si.is_return = 0",
+            "si.posting_date BETWEEN %(month_start)s AND CURDATE()",
+        ]
+        + invoice_filter
+    )
+
+    orders = frappe.db.sql(
+        f"""
+        SELECT
+            COUNT(*) AS submitted_orders,
+            COALESCE(SUM(CASE WHEN so.transaction_date BETWEEN %(thirty_days_ago)s AND CURDATE() THEN so.grand_total ELSE 0 END), 0) AS sales_last_30_days,
+            COALESCE(AVG(CASE WHEN so.transaction_date BETWEEN %(thirty_days_ago)s AND CURDATE() THEN so.grand_total END), 0) AS avg_order_value_30d
+        FROM `tabSales Order` so
+        WHERE {submitted_so_where}
+        """,
+        sales_values,
+        as_dict=True,
+    )[0]
+
+    invoices = frappe.db.sql(
+        f"""
+        SELECT
+            COUNT(*) AS invoice_count,
+            COALESCE(SUM(si.base_grand_total), 0) AS invoiced_this_month
+        FROM `tabSales Invoice` si
+        WHERE {current_month_invoice_where}
+        """,
+        sales_values,
+        as_dict=True,
+    )[0]
+
+    return [
+        {"label": "Submitted Orders", "count": int(orders.submitted_orders or 0), "amount": flt(orders.sales_last_30_days)},
+        {"label": "Invoices This Month", "count": int(invoices.invoice_count or 0), "amount": flt(invoices.invoiced_this_month)},
+        {"label": "Avg Order Value (30d)", "count": int(orders.submitted_orders or 0), "amount": flt(orders.avg_order_value_30d)},
+    ]
+
+
+def _get_sales_trend(invoice_filter, values):
+    where = _build_where(
+        [
+            "si.docstatus = 1",
+            "si.is_return = 0",
+            "si.posting_date >= DATE_SUB(CURDATE(), INTERVAL 5 MONTH)",
+        ]
+        + invoice_filter
+    )
+    rows = frappe.db.sql(
+        f"""
+        SELECT
+            DATE_FORMAT(si.posting_date, '%%b %%Y') AS label,
+            DATE_FORMAT(si.posting_date, '%%Y-%%m') AS sort_key,
+            COUNT(*) AS invoice_count,
+            COALESCE(SUM(si.base_grand_total), 0) AS amount
+        FROM `tabSales Invoice` si
+        WHERE {where}
+        GROUP BY sort_key, label
+        ORDER BY sort_key ASC
+        """,
+        values,
+        as_dict=True,
+    )
+    return [
+        {
+            "label": row.label,
+            "invoice_count": int(row.invoice_count or 0),
+            "amount": flt(row.amount),
+        }
+        for row in rows
+    ]
+
+
+def _get_sales_leaders(invoice_filter, values):
+    where = _build_where(
+        [
+            "si.docstatus = 1",
+            "si.is_return = 0",
+            "si.posting_date >= DATE_SUB(CURDATE(), INTERVAL 89 DAY)",
+        ]
+        + invoice_filter
+    )
+    rows = frappe.db.sql(
+        f"""
+        SELECT
+            si.customer,
+            MAX(si.customer_name) AS customer_name,
+            COUNT(*) AS invoice_count,
+            COALESCE(SUM(si.base_grand_total), 0) AS billed_amount,
+            COALESCE(SUM(si.outstanding_amount), 0) AS outstanding_amount,
+            MAX(si.posting_date) AS last_invoice_date
+        FROM `tabSales Invoice` si
+        WHERE {where}
+        GROUP BY si.customer
+        ORDER BY billed_amount DESC, invoice_count DESC
+        LIMIT 6
+        """,
+        values,
+        as_dict=True,
+    )
+    return [
+        {
+            "customer": row.customer,
+            "customer_name": row.customer_name or row.customer,
+            "invoice_count": int(row.invoice_count or 0),
+            "billed_amount": flt(row.billed_amount),
+            "outstanding_amount": flt(row.outstanding_amount),
+            "last_invoice_date": row.last_invoice_date,
+        }
+        for row in rows
+    ]
+
+
+def _get_execution_watchlist(so_filter, values):
+    where = _build_where(
+        [
+            "so.docstatus = 1",
+            "IFNULL(so.status, '') NOT IN ('Closed', 'Completed', 'Cancelled')",
+            "(COALESCE(so.per_billed, 0) < 100 OR COALESCE(so.per_delivered, 0) < 100)",
+        ]
+        + so_filter
+    )
+    rows = frappe.db.sql(
+        f"""
+        SELECT
+            so.name,
+            so.customer,
+            so.customer_name,
+            so.company,
+            so.transaction_date,
+            so.grand_total,
+            so.status,
+            COALESCE(so.per_billed, 0) AS per_billed,
+            COALESCE(so.per_delivered, 0) AS per_delivered,
+            (so.grand_total * (100 - COALESCE(so.per_billed, 0)) / 100) AS pending_billing_amount,
+            (so.grand_total * (100 - COALESCE(so.per_delivered, 0)) / 100) AS pending_delivery_amount
+        FROM `tabSales Order` so
+        WHERE {where}
+        ORDER BY
+            pending_billing_amount DESC,
+            pending_delivery_amount DESC,
+            so.transaction_date ASC
+        LIMIT 6
+        """,
+        values,
+        as_dict=True,
+    )
+    return [
+        {
+            "name": row.name,
+            "customer": row.customer,
+            "customer_name": row.customer_name or row.customer,
+            "company": row.company,
+            "transaction_date": row.transaction_date,
+            "grand_total": flt(row.grand_total),
+            "status": row.status or "To Deliver and Bill",
+            "per_billed": flt(row.per_billed),
+            "per_delivered": flt(row.per_delivered),
+            "pending_billing_amount": flt(row.pending_billing_amount),
+            "pending_delivery_amount": flt(row.pending_delivery_amount),
+        }
+        for row in rows
     ]
 
 
@@ -449,3 +720,7 @@ def _normalize_sales_order_row(row):
 def _build_where(conditions):
     clean = [condition for condition in conditions if condition]
     return " AND ".join(clean) if clean else "1 = 1"
+
+
+def _month_start():
+    return f"{today()[:7]}-01"

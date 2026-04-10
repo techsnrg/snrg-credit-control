@@ -312,6 +312,8 @@ class SnrgManagingDirectorDashboard {
                     <div class="snrg-md-toolbar">
                         <div class="snrg-md-toolbar-meta"></div>
                         <div class="snrg-md-actions">
+                            <button class="snrg-md-action" data-route-type="List" data-route-name="Sales Order">Open Orders</button>
+                            <button class="snrg-md-action" data-route-type="List" data-route-name="Sales Invoice">Open Invoices</button>
                             <button class="snrg-md-action" data-route-type="Report" data-route-name="Credit Control Report">Open Credit Report</button>
                             <button class="snrg-md-action" data-route-type="List" data-route-name="Credit PTP">Open PTPs</button>
                             <button class="snrg-md-action" data-route-type="List" data-route-name="Demand Notice">Open Notices</button>
@@ -323,6 +325,46 @@ class SnrgManagingDirectorDashboard {
                     <div></div>
                 </section>
                 <section class="snrg-md-card-grid snrg-md-summary"></section>
+                <section class="snrg-md-grid">
+                    <div class="snrg-md-panel">
+                        <div class="snrg-md-panel-body">
+                            <div class="snrg-md-panel-title">
+                                <h3>Sales Pulse</h3>
+                                <span>Current commercial momentum and billing rhythm</span>
+                            </div>
+                            <div class="snrg-md-bars snrg-md-sales-mix"></div>
+                        </div>
+                    </div>
+                    <div class="snrg-md-panel">
+                        <div class="snrg-md-panel-body">
+                            <div class="snrg-md-panel-title">
+                                <h3>Monthly Billing Trend</h3>
+                                <span>Last six months of invoiced value</span>
+                            </div>
+                            <div class="snrg-md-bars snrg-md-sales-trend"></div>
+                        </div>
+                    </div>
+                </section>
+                <section class="snrg-md-grid">
+                    <div class="snrg-md-panel">
+                        <div class="snrg-md-panel-body">
+                            <div class="snrg-md-panel-title">
+                                <h3>Top Customers</h3>
+                                <span>Largest billed accounts in the last 90 days</span>
+                            </div>
+                            <div class="snrg-md-list snrg-md-sales-leaders"></div>
+                        </div>
+                    </div>
+                    <div class="snrg-md-panel">
+                        <div class="snrg-md-panel-body">
+                            <div class="snrg-md-panel-title">
+                                <h3>Execution Watchlist</h3>
+                                <span>Submitted orders stuck in billing or delivery</span>
+                            </div>
+                            <div class="snrg-md-list snrg-md-execution-watchlist"></div>
+                        </div>
+                    </div>
+                </section>
                 <section class="snrg-md-grid">
                     <div class="snrg-md-panel">
                         <div class="snrg-md-panel-body">
@@ -427,15 +469,19 @@ class SnrgManagingDirectorDashboard {
     }
 
     render_loading() {
-        const skeletons = Array.from({ length: 8 }, () => `<div class="snrg-md-skeleton"></div>`).join("");
+        const skeletons = Array.from({ length: 12 }, () => `<div class="snrg-md-skeleton"></div>`).join("");
         this.wrapper.find(".snrg-md-summary").html(skeletons);
-        this.wrapper.find(".snrg-md-approval-mix, .snrg-md-risk-mix, .snrg-md-approval-queue, .snrg-md-blocked-orders, .snrg-md-overdue-customers, .snrg-md-ptp-watchlist, .snrg-md-demand-notices")
+        this.wrapper.find(".snrg-md-sales-mix, .snrg-md-sales-trend, .snrg-md-sales-leaders, .snrg-md-execution-watchlist, .snrg-md-approval-mix, .snrg-md-risk-mix, .snrg-md-approval-queue, .snrg-md-blocked-orders, .snrg-md-overdue-customers, .snrg-md-ptp-watchlist, .snrg-md-demand-notices")
             .html(`<div class="snrg-md-empty">Loading dashboard data…</div>`);
     }
 
     render() {
         this.render_meta();
         this.render_summary();
+        this.render_mix(".snrg-md-sales-mix", this.data.sales_mix || [], "amount");
+        this.renderTrend(".snrg-md-sales-trend", this.data.sales_trend || []);
+        this.renderSalesLeaders(".snrg-md-sales-leaders", this.data.sales_leaders || []);
+        this.renderExecutionWatchlist(".snrg-md-execution-watchlist", this.data.execution_watchlist || []);
         this.render_mix(".snrg-md-approval-mix", this.data.approval_mix || [], "amount");
         this.render_mix(".snrg-md-risk-mix", this.data.risk_mix || [], "amount");
         this.render_order_list(".snrg-md-approval-queue", this.data.approval_queue || [], {
@@ -502,6 +548,25 @@ class SnrgManagingDirectorDashboard {
         this.wrapper.find(selector).html(html);
     }
 
+    renderTrend(selector, rows) {
+        const total = rows.reduce((sum, row) => sum + Number(row.amount || 0), 0) || 1;
+        const html = rows.length ? rows.map((row) => {
+            const share = Math.max(8, Math.round((Number(row.amount || 0) / total) * 100));
+            return `
+                <div>
+                    <div class="snrg-md-bar-label">
+                        <span>${frappe.utils.escape_html(row.label || "")} (${frappe.format(row.invoice_count || 0, { fieldtype: "Int" })})</span>
+                        <span>${this.money(row.amount || 0)}</span>
+                    </div>
+                    <div class="snrg-md-bar-track">
+                        <div class="snrg-md-bar-fill" style="width:${share}%"></div>
+                    </div>
+                </div>
+            `;
+        }).join("") : `<div class="snrg-md-empty">No invoice trend data yet.</div>`;
+        this.wrapper.find(selector).html(html);
+    }
+
     render_order_list(selector, rows, options) {
         const html = rows.length ? rows.map((row) => `
             <div class="snrg-md-item">
@@ -522,6 +587,53 @@ class SnrgManagingDirectorDashboard {
                 </div>
             </div>
         `).join("") : `<div class="snrg-md-empty">Nothing needs attention here right now.</div>`;
+        this.wrapper.find(selector).html(html);
+    }
+
+    renderSalesLeaders(selector, rows) {
+        const html = rows.length ? rows.map((row) => `
+            <div class="snrg-md-item">
+                <div class="snrg-md-item-top">
+                    <div>
+                        <p class="snrg-md-item-title">
+                            <a href="/app/customer/${encodeURIComponent(row.customer)}">${frappe.utils.escape_html(row.customer_name || row.customer || "")}</a>
+                        </p>
+                        <div class="snrg-md-item-sub">${row.last_invoice_date ? `Last invoice: ${frappe.datetime.str_to_user(row.last_invoice_date)}` : "No invoice date available"}</div>
+                    </div>
+                    ${this.statusPill("Issued")}
+                </div>
+                <div class="snrg-md-item-meta">
+                    ${this.metricPill("Billed", this.money(row.billed_amount))}
+                    ${this.metricPill("Invoices", `${row.invoice_count}`)}
+                    ${row.outstanding_amount ? this.metricPill("Outstanding", this.money(row.outstanding_amount)) : ""}
+                </div>
+            </div>
+        `).join("") : `<div class="snrg-md-empty">No recent billed customers for this scope.</div>`;
+        this.wrapper.find(selector).html(html);
+    }
+
+    renderExecutionWatchlist(selector, rows) {
+        const html = rows.length ? rows.map((row) => `
+            <div class="snrg-md-item">
+                <div class="snrg-md-item-top">
+                    <div>
+                        <p class="snrg-md-item-title">
+                            <a href="/app/sales-order/${encodeURIComponent(row.name)}">${frappe.utils.escape_html(row.name)}</a>
+                            · ${frappe.utils.escape_html(row.customer_name || row.customer || "")}
+                        </p>
+                        <div class="snrg-md-item-sub">${frappe.utils.escape_html(row.company || "")}${row.transaction_date ? ` · ${frappe.datetime.str_to_user(row.transaction_date)}` : ""}</div>
+                    </div>
+                    ${this.statusPill(row.status)}
+                </div>
+                <div class="snrg-md-item-meta">
+                    ${this.metricPill("Order", this.money(row.grand_total))}
+                    ${this.metricPill("Pending Billing", this.money(row.pending_billing_amount))}
+                    ${this.metricPill("Pending Delivery", this.money(row.pending_delivery_amount))}
+                    ${this.metricPill("Billed", `${this.percent(row.per_billed)}%`)}
+                    ${this.metricPill("Delivered", `${this.percent(row.per_delivered)}%`)}
+                </div>
+            </div>
+        `).join("") : `<div class="snrg-md-empty">No live execution backlog for the selected scope.</div>`;
         this.wrapper.find(selector).html(html);
     }
 
@@ -606,5 +718,9 @@ class SnrgManagingDirectorDashboard {
 
     money(value) {
         return format_currency(value || 0, this.data.currency || "INR");
+    }
+
+    percent(value) {
+        return frappe.format(value || 0, { fieldtype: "Percent" }).replace("%", "");
     }
 }

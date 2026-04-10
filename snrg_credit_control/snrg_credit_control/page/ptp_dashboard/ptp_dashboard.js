@@ -167,6 +167,20 @@ class SnrgPTPDashboard {
                     align-items: flex-start;
                     gap: 12px;
                 }
+                .snrg-ptp-list-amount {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: flex-end;
+                    gap: 3px;
+                    text-align: right;
+                }
+                .snrg-ptp-list-amount-label {
+                    font-size: 11px;
+                    color: #64748b;
+                    text-transform: uppercase;
+                    letter-spacing: .08em;
+                    font-weight: 700;
+                }
                 .snrg-ptp-list-title {
                     font-size: 16px;
                     line-height: 1.25;
@@ -607,7 +621,10 @@ class SnrgPTPDashboard {
                     <div>
                         <div class="snrg-ptp-list-title">${this.esc(row.customer_name || row.customer || row.name)}</div>
                     </div>
-                    <div class="snrg-ptp-list-title">${format_currency(row.committed_amount || 0)}</div>
+                    <div class="snrg-ptp-list-amount">
+                        <div class="snrg-ptp-list-amount-label">Pending Amount</div>
+                        <div class="snrg-ptp-list-title">${format_currency(row.difference_amount || 0)}</div>
+                    </div>
                 </div>
                 <div class="snrg-ptp-pill-row">
                     <span class="snrg-ptp-pill status-${this.slug(row.status)}">${this.esc(row.status || "Pending")}</span>
@@ -619,6 +636,7 @@ class SnrgPTPDashboard {
                 </div>
                 <div class="snrg-ptp-action-row">
                     <button class="snrg-ptp-link-btn" type="button" data-route-doctype="Credit PTP" data-route-name="${this.esc(row.name)}">Open PTP</button>
+                    <span class="snrg-ptp-pill">Committed: ${format_currency(row.committed_amount || 0)}</span>
                     ${row.sales_order ? `<button class="snrg-ptp-link-btn" type="button" data-route-doctype="Sales Order" data-route-name="${this.esc(row.sales_order)}">Open Sales Order</button>` : ""}
                     ${row.calendar_event ? `<button class="snrg-ptp-link-btn" type="button" data-route-doctype="Event" data-route-name="${this.esc(row.calendar_event)}">Open Event</button>` : ""}
                 </div>
