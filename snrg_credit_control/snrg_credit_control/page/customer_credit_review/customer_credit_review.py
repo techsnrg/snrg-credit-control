@@ -53,6 +53,29 @@ def _get_currency(company: str) -> str:
     return frappe.db.get_value("Company", company, "default_currency") or "INR"
 
 
+def _get_security_cheque_join() -> str:
+    if frappe.db.table_exists("Security Cheques - Active"):
+        return """
+        LEFT JOIN (
+            SELECT
+                sca.parent AS customer,
+                1 AS has_security_cheque
+            FROM `tabSecurity Cheques - Active` sca
+            WHERE sca.parenttype = 'Customer'
+              AND COALESCE(sca.bank, '') != ''
+            GROUP BY sca.parent
+        ) sec ON sec.customer = c.name
+        """
+
+    return """
+    LEFT JOIN (
+        SELECT
+            NULL AS customer,
+            0 AS has_security_cheque
+    ) sec ON 1 = 0
+    """
+
+
 def _get_columns():
     return [
         {"fieldname": "customer_code", "label": "Customer Code", "fieldtype": "Link", "options": "Customer", "width": 140},
@@ -87,6 +110,7 @@ def _get_columns():
 def _get_rows(company: str, customer: str | None = None):
     six_months_ago = add_months(getdate(today()), -6)
     customer_filter = "AND c.name = %(customer)s" if customer else ""
+    security_cheque_join = _get_security_cheque_join()
     values = {"company": company, "six_months_ago": six_months_ago}
     if customer:
         values["customer"] = customer
@@ -175,15 +199,7 @@ def _get_rows(company: str, customer: str | None = None):
             WHERE ccl.company = %(company)s
             GROUP BY ccl.parent
         ) credit ON credit.customer = c.name
-        LEFT JOIN (
-            SELECT
-                sca.parent AS customer,
-                1 AS has_security_cheque
-            FROM `tabSecurity Cheques - Active` sca
-            WHERE sca.parenttype = 'Customer'
-              AND COALESCE(sca.bank, '') != ''
-            GROUP BY sca.parent
-        ) sec ON sec.customer = c.name
+        {security_cheque_join}
         WHERE c.disabled = 0
           {customer_filter}
           AND (
