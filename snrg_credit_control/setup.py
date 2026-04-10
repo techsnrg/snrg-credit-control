@@ -487,6 +487,7 @@ def _ensure_credit_control_workspace():
     has_demand_notice = frappe.db.exists("DocType", "Demand Notice")
     has_demand_notice_settings = frappe.db.exists("DocType", "Demand Notice Settings")
     has_ptp_dashboard_page = frappe.db.exists("Page", "ptp-dashboard")
+    has_md_dashboard_page = frappe.db.exists("Page", "managing-director-dashboard")
 
     content_blocks = [
         {
@@ -512,6 +513,15 @@ def _ensure_credit_control_workspace():
                 "id": "ptp_dashboard_page_shortcut",
                 "type": "shortcut",
                 "data": {"shortcut_name": "PTP Dashboard", "col": 3},
+            }
+        )
+
+    if has_md_dashboard_page:
+        content_blocks.append(
+            {
+                "id": "md_dashboard_page_shortcut",
+                "type": "shortcut",
+                "data": {"shortcut_name": "Managing Director Dashboard", "col": 3},
             }
         )
 
@@ -559,6 +569,17 @@ def _ensure_credit_control_workspace():
             "dependencies": "",
         },
         {
+            "label": "Managing Director Dashboard",
+            "type": "Link",
+            "link_type": "Page",
+            "link_to": "managing-director-dashboard",
+            "hidden": 0,
+            "is_query_report": 0,
+            "link_count": 0,
+            "onboard": 1,
+            "dependencies": "",
+        },
+        {
             "label": "PTP Dashboard Report",
             "type": "Link",
             "link_type": "Report",
@@ -597,6 +618,17 @@ def _ensure_credit_control_workspace():
                 "link_to": "ptp-dashboard",
                 "icon": "dashboard",
                 "color": "Orange",
+            }
+        )
+
+    if has_md_dashboard_page:
+        shortcuts.append(
+            {
+                "type": "Page",
+                "label": "Managing Director Dashboard",
+                "link_to": "managing-director-dashboard",
+                "icon": "dashboard",
+                "color": "Dark Grey",
             }
         )
 
