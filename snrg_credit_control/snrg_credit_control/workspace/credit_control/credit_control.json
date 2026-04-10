@@ -1,7 +1,7 @@
 {
  "category": "Modules",
  "charts": [],
- "content": "[{\"id\":\"credit_control_header\",\"type\":\"header\",\"data\":{\"text\":\"Credit Management\",\"col\":12}},{\"id\":\"credit_ptp_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Credit PTP\",\"col\":3}},{\"id\":\"credit_report_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Credit Control Report\",\"col\":3}},{\"id\":\"demand_notice_header\",\"type\":\"header\",\"data\":{\"text\":\"Demand Notices\",\"col\":12}},{\"id\":\"demand_notice_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Demand Notice\",\"col\":3}},{\"id\":\"demand_notice_settings_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Demand Notice Settings\",\"col\":3}}]",
+ "content": "[{\"id\":\"credit_control_header\",\"type\":\"header\",\"data\":{\"text\":\"Credit Management\",\"col\":12}},{\"id\":\"credit_ptp_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Credit PTP\",\"col\":3}},{\"id\":\"credit_report_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Credit Control Report\",\"col\":3}},{\"id\":\"customer_credit_review_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Customer Credit Review\",\"col\":3}},{\"id\":\"customer_credit_profile_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Customer Credit Profile\",\"col\":3}},{\"id\":\"ptp_dashboard_page_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"PTP Dashboard\",\"col\":3}},{\"id\":\"md_dashboard_page_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Managing Director Dashboard\",\"col\":3}},{\"id\":\"demand_notice_header\",\"type\":\"header\",\"data\":{\"text\":\"Demand Notices\",\"col\":12}},{\"id\":\"demand_notice_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Demand Notice\",\"col\":3}},{\"id\":\"demand_notice_settings_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Demand Notice Settings\",\"col\":3}}]",
  "creation": "2026-03-28 12:00:00.000000",
  "developer_mode_only": 0,
  "disable_user_customization": 0,
@@ -43,6 +43,61 @@
    "link_to": "Credit Control Report",
    "link_type": "Report",
    "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Customer Credit Review",
+   "link_count": 0,
+   "link_to": "customer-credit-review",
+   "link_type": "Page",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Customer Credit Profile",
+   "link_count": 0,
+   "link_to": "customer-credit-profile",
+   "link_type": "Page",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "PTP Dashboard",
+   "link_count": 0,
+   "link_to": "ptp-dashboard",
+   "link_type": "Page",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Managing Director Dashboard",
+   "link_count": 0,
+   "link_to": "managing-director-dashboard",
+   "link_type": "Page",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "PTP Dashboard Report",
+   "link_count": 0,
+   "link_to": "PTP Dashboard",
+   "link_type": "Report",
+   "onboard": 0,
    "type": "Link"
   },
   {
@@ -97,6 +152,30 @@
    "label": "Credit Control Report",
    "link_to": "Credit Control Report",
    "type": "Report"
+  },
+  {
+   "color": "Blue",
+   "label": "Customer Credit Review",
+   "link_to": "customer-credit-review",
+   "type": "Page"
+  },
+  {
+   "color": "Teal",
+   "label": "Customer Credit Profile",
+   "link_to": "customer-credit-profile",
+   "type": "Page"
+  },
+  {
+   "color": "Orange",
+   "label": "PTP Dashboard",
+   "link_to": "ptp-dashboard",
+   "type": "Page"
+  },
+  {
+   "color": "Dark Grey",
+   "label": "Managing Director Dashboard",
+   "link_to": "managing-director-dashboard",
+   "type": "Page"
   },
   {
    "color": "Orange",
