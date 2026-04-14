@@ -130,10 +130,11 @@ def _get_salespeople(quotation_names):
     if not quotation_names:
         return {}
 
+    salesperson_fieldname = _get_salesperson_fieldname()
     rows = frappe.get_all(
         "Sales Team",
         filters={"parenttype": "Quotation", "parent": ["in", quotation_names]},
-        fields=["parent", "salesperson", "allocated_percentage", "idx"],
+        fields=["parent", salesperson_fieldname, "allocated_percentage", "idx"],
         order_by="parent asc, idx asc",
     )
 
@@ -141,7 +142,7 @@ def _get_salespeople(quotation_names):
     for row in rows:
         grouped[row.parent].append(
             {
-                "salesperson": row.salesperson,
+                "salesperson": row.get(salesperson_fieldname) or "",
                 "allocated_percentage": flt(row.allocated_percentage),
                 "idx": cint(row.idx),
             }
@@ -487,3 +488,11 @@ def _serialize_date(value):
     if not value:
         return ""
     return str(value)
+
+
+def _get_salesperson_fieldname():
+    meta = frappe.get_meta("Sales Team")
+    for candidate in ("sales_person", "salesperson"):
+        if meta.has_field(candidate):
+            return candidate
+    return "sales_person"
