@@ -20,6 +20,7 @@ def after_install():
     _ensure_customer_fields()
     _ensure_so_fields()
     _ensure_quotation_fields()
+    _ensure_sales_invoice_fields()
     _ensure_report()
     _ensure_employee_signatory_fields()
     _ensure_demand_notice_settings()
@@ -34,6 +35,7 @@ def after_migrate():
     _ensure_customer_fields()
     _ensure_so_fields()
     _ensure_quotation_fields()
+    _ensure_sales_invoice_fields()
     _ensure_report()
     _ensure_employee_signatory_fields()
     _ensure_demand_notice_settings()
@@ -254,6 +256,13 @@ _SO_FIELDS = [
         "options": "\nPending\nApproved\nRejected",
         "insert_after": "custom_snrg_approval_time",
     },
+    {
+        "fieldname": "custom_credit_clearance_date",
+        "fieldtype": "Date",
+        "label": "Credit Clearance Date",
+        "read_only": 1,
+        "insert_after": "custom_credit_approval_status",
+    },
 ]
 
 
@@ -263,6 +272,32 @@ def _ensure_so_fields():
 
 
 _QUOTATION_FIELDS = [
+    {
+        "fieldname": "custom_snrg_tracking_section",
+        "fieldtype": "Section Break",
+        "label": "Sales Tracking",
+        "insert_after": "valid_till",
+        "collapsible": 1,
+    },
+    {
+        "fieldname": "custom_expected_dispatch_date",
+        "fieldtype": "Date",
+        "label": "Expected Dispatch Date",
+        "insert_after": "custom_snrg_tracking_section",
+    },
+    {
+        "fieldname": "custom_latest_ho_remark",
+        "fieldtype": "Small Text",
+        "label": "Latest HO Remark",
+        "insert_after": "custom_expected_dispatch_date",
+    },
+    {
+        "fieldname": "custom_credit_clearance_date",
+        "fieldtype": "Date",
+        "label": "Credit Clearance Date",
+        "read_only": 1,
+        "insert_after": "custom_latest_ho_remark",
+    },
     {
         "fieldname": "custom_snrg_credit_check_status",
         "fieldtype": "Select",
@@ -338,6 +373,77 @@ _QUOTATION_FIELDS = [
 def _ensure_quotation_fields():
     for fdef in _QUOTATION_FIELDS:
         _ensure_custom_field("Quotation", fdef)
+
+
+_SALES_INVOICE_FIELDS = [
+    {
+        "fieldname": "custom_snrg_dispatch_section",
+        "fieldtype": "Section Break",
+        "label": "Dispatch & Delivery Tracking",
+        "insert_after": "transporter",
+        "collapsible": 1,
+    },
+    {
+        "fieldname": "custom_shipping_date",
+        "fieldtype": "Date",
+        "label": "Shipping Date",
+        "insert_after": "custom_snrg_dispatch_section",
+        "allow_on_submit": 1,
+    },
+    {
+        "fieldname": "custom_awb_number",
+        "fieldtype": "Data",
+        "label": "AWB Number",
+        "insert_after": "custom_shipping_date",
+        "allow_on_submit": 1,
+    },
+    {
+        "fieldname": "custom_no_of_cartons",
+        "fieldtype": "Int",
+        "label": "No. of Cartons",
+        "insert_after": "custom_awb_number",
+        "allow_on_submit": 1,
+    },
+    {
+        "fieldname": "custom_snrg_dispatch_col_break",
+        "fieldtype": "Column Break",
+        "insert_after": "custom_no_of_cartons",
+    },
+    {
+        "fieldname": "custom_delivery_status",
+        "fieldtype": "Select",
+        "label": "Delivery Status",
+        "options": "\nPending\nIn Transit\nDelivered\nPartially Delivered\nReturned\nHold",
+        "insert_after": "custom_snrg_dispatch_col_break",
+        "allow_on_submit": 1,
+    },
+    {
+        "fieldname": "custom_delivery_date",
+        "fieldtype": "Date",
+        "label": "Delivery Date",
+        "insert_after": "custom_delivery_status",
+        "allow_on_submit": 1,
+    },
+    {
+        "fieldname": "custom_pod_attachment",
+        "fieldtype": "Attach",
+        "label": "POD Attachment",
+        "insert_after": "custom_delivery_date",
+        "allow_on_submit": 1,
+    },
+    {
+        "fieldname": "custom_dispatch_delivery_remarks",
+        "fieldtype": "Small Text",
+        "label": "Dispatch / Delivery Remarks",
+        "insert_after": "custom_pod_attachment",
+        "allow_on_submit": 1,
+    },
+]
+
+
+def _ensure_sales_invoice_fields():
+    for fdef in _SALES_INVOICE_FIELDS:
+        _ensure_custom_field("Sales Invoice", fdef)
 
 
 # ---------------------------------------------------------------------------
@@ -488,6 +594,7 @@ def _ensure_credit_control_workspace():
     has_demand_notice_settings = frappe.db.exists("DocType", "Demand Notice Settings")
     has_ptp_dashboard_page = frappe.db.exists("Page", "ptp-dashboard")
     has_md_dashboard_page = frappe.db.exists("Page", "managing-director-dashboard")
+    has_sales_tracking_page = frappe.db.exists("Page", "sales-tracking")
 
     content_blocks = [
         {
@@ -522,6 +629,15 @@ def _ensure_credit_control_workspace():
                 "id": "md_dashboard_page_shortcut",
                 "type": "shortcut",
                 "data": {"shortcut_name": "Managing Director Dashboard", "col": 3},
+            }
+        )
+
+    if has_sales_tracking_page:
+        content_blocks.append(
+            {
+                "id": "sales_tracking_page_shortcut",
+                "type": "shortcut",
+                "data": {"shortcut_name": "Sales Tracking", "col": 3},
             }
         )
 
@@ -580,6 +696,17 @@ def _ensure_credit_control_workspace():
             "dependencies": "",
         },
         {
+            "label": "Sales Tracking",
+            "type": "Link",
+            "link_type": "Page",
+            "link_to": "sales-tracking",
+            "hidden": 0,
+            "is_query_report": 0,
+            "link_count": 0,
+            "onboard": 1,
+            "dependencies": "",
+        },
+        {
             "label": "PTP Dashboard Report",
             "type": "Link",
             "link_type": "Report",
@@ -629,6 +756,17 @@ def _ensure_credit_control_workspace():
                 "link_to": "managing-director-dashboard",
                 "icon": "dashboard",
                 "color": "Dark Grey",
+            }
+        )
+
+    if has_sales_tracking_page:
+        shortcuts.append(
+            {
+                "type": "Page",
+                "label": "Sales Tracking",
+                "link_to": "sales-tracking",
+                "icon": "table",
+                "color": "Blue",
             }
         )
 

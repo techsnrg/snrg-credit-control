@@ -4,6 +4,7 @@ from snrg_credit_control.credit_status import (
     build_credit_snapshot,
     render_credit_details_html,
     reset_credit_fields,
+    stamp_credit_clearance_date,
     stamp_credit_fields,
 )
 
@@ -23,7 +24,11 @@ def validate(doc, method=None):
         amount=doc.grand_total or doc.rounded_total,
         currency=doc.currency,
     )
+    previous_status = None
+    if not doc.is_new():
+        previous_status = frappe.db.get_value("Quotation", doc.name, "custom_snrg_credit_check_status")
     stamp_credit_fields(doc, snapshot)
+    stamp_credit_clearance_date(doc, snapshot, previous_status=previous_status)
 
 
 @frappe.whitelist()

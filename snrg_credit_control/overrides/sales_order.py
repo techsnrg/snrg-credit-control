@@ -16,6 +16,7 @@ from snrg_credit_control.credit_status import (
     escape_html,
     get_advance_balance,
     render_credit_details_html,
+    stamp_credit_clearance_date,
     stamp_credit_fields,
     zero,
 )
@@ -63,6 +64,8 @@ def _esc(val):
 def validate(doc, method=None):
     if not (doc.get("customer") and doc.get("company")):
         return
+
+    _sync_delivery_date_from_quotation(doc)
 
     # 1. Approver guard — only Credit Approvers may change override fields
     _check_approver_guard(doc)
@@ -155,6 +158,10 @@ def _get_ptp_reference_label(row):
 
 def _compute_credit_fields(doc):
     """Recompute all credit check fields. Non-blocking on save."""
+    previous_status = None
+    if not doc.is_new():
+        previous_status = frappe.db.get_value("Sales Order", doc.name, "custom_snrg_credit_check_status")
+
     snapshot = build_credit_snapshot(
         customer=doc.customer,
         company=doc.company,
@@ -163,6 +170,7 @@ def _compute_credit_fields(doc):
         more_prefix="…",
     )
     stamp_credit_fields(doc, snapshot)
+    stamp_credit_clearance_date(doc, snapshot, previous_status=previous_status)
 
     # Non-blocking heads-up on save (not on submit — submit throws instead)
     action = (frappe.form_dict.get("action") or "").lower()
@@ -173,6 +181,28 @@ def _compute_credit_fields(doc):
             indicator="orange",
             alert=True,
         )
+
+
+def _sync_delivery_date_from_quotation(doc):
+    if doc.get("delivery_date"):
+        return
+
+    quotation_names = [
+        row.prevdoc_docname
+        for row in (doc.items or [])
+        if getattr(row, "prevdoc_doctype", None) == "Quotation" and getattr(row, "prevdoc_docname", None)
+    ]
+    if not quotation_names:
+        return
+
+    quotation_name = quotation_names[0]
+    expected_dispatch_date = frappe.db.get_value(
+        "Quotation",
+        quotation_name,
+        "custom_expected_dispatch_date",
+    )
+    if expected_dispatch_date:
+        doc.delivery_date = expected_dispatch_date
 
 
 def _detect_notification_flags(doc):
