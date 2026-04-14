@@ -159,11 +159,16 @@ def _get_sales_orders(quotation_names):
     if not quotation_names:
         return grouped
 
+    quotation_link_fieldname, has_prevdoc_doctype = _get_sales_order_item_quotation_link_config()
+    if not quotation_link_fieldname:
+        return grouped
+
     placeholders = ", ".join(["%s"] * len(quotation_names))
+    extra_condition = "AND soi.prevdoc_doctype = 'Quotation'" if has_prevdoc_doctype else ""
     rows = frappe.db.sql(
         f"""
         SELECT DISTINCT
-            soi.prevdoc_docname AS quotation,
+            soi.{quotation_link_fieldname} AS quotation,
             so.name,
             so.transaction_date,
             so.delivery_date,
@@ -174,8 +179,8 @@ def _get_sales_orders(quotation_names):
             so.custom_credit_clearance_date
         FROM `tabSales Order Item` soi
         INNER JOIN `tabSales Order` so ON so.name = soi.parent
-        WHERE soi.prevdoc_doctype = 'Quotation'
-          AND soi.prevdoc_docname IN ({placeholders})
+        WHERE soi.{quotation_link_fieldname} IN ({placeholders})
+          {extra_condition}
           AND so.docstatus < 2
         ORDER BY so.transaction_date DESC, so.modified DESC
         """,
@@ -496,3 +501,11 @@ def _get_salesperson_fieldname():
         if meta.has_field(candidate):
             return candidate
     return "sales_person"
+
+
+def _get_sales_order_item_quotation_link_config():
+    meta = frappe.get_meta("Sales Order Item")
+    for candidate in ("prevdoc_docname", "quotation"):
+        if meta.has_field(candidate):
+            return candidate, meta.has_field("prevdoc_doctype")
+    return None, False
