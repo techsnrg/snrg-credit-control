@@ -379,11 +379,9 @@ class SnrgSalesTrackingPage {
             const action = $(event.currentTarget).data("summaryAction");
             if (action === "credit-hold") {
                 this.controls.credit_status.set_value("Credit Hold");
-                this.refresh();
             }
             if (action === "clear-credit-hold") {
                 this.controls.credit_status.set_value("");
-                this.refresh();
             }
         });
     }
