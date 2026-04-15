@@ -51,7 +51,7 @@ class SnrgSalesTrackingPage {
                     display:inline-flex; align-items:center; gap:6px; padding:7px 11px; border-radius:999px;
                     background:#f8fafc; border:1px solid #dbe3ef; font-size:12px; color:#334155;
                 }
-                .snrg-st-filter-row { display:grid; grid-template-columns:repeat(7, minmax(160px, 1fr)); gap:12px; align-items:start; }
+                .snrg-st-filter-row { display:grid; grid-template-columns:repeat(6, minmax(180px, 1fr)); gap:12px; align-items:start; }
                 .snrg-st-filter-slot {
                     width: 100%;
                 }
@@ -181,8 +181,7 @@ class SnrgSalesTrackingPage {
                     <div class="snrg-st-filter-row">
                         <div class="snrg-st-filter-slot snrg-st-company-filter"></div>
                         <div class="snrg-st-filter-slot snrg-st-month-filter"></div>
-                        <div class="snrg-st-filter-slot snrg-st-from-filter"></div>
-                        <div class="snrg-st-filter-slot snrg-st-to-filter"></div>
+                        <div class="snrg-st-filter-slot snrg-st-date-range-filter"></div>
                         <div class="snrg-st-filter-slot snrg-st-territory-filter"></div>
                         <div class="snrg-st-filter-slot snrg-st-credit-filter"></div>
                         <div class="snrg-st-filter-slot snrg-st-search-filter"></div>
@@ -223,17 +222,10 @@ class SnrgSalesTrackingPage {
             change: () => this.refresh(),
         });
 
-        this.controls.from_date = this.makeFilterControl(".snrg-st-from-filter", {
-            label: "From Date",
-            fieldname: "from_date",
-            fieldtype: "Date",
-            change: () => this.refresh(),
-        });
-
-        this.controls.to_date = this.makeFilterControl(".snrg-st-to-filter", {
-            label: "To Date",
-            fieldname: "to_date",
-            fieldtype: "Date",
+        this.controls.date_range = this.makeFilterControl(".snrg-st-date-range-filter", {
+            label: "Date Range",
+            fieldname: "date_range",
+            fieldtype: "DateRange",
             change: () => this.refresh(),
         });
 
@@ -332,13 +324,15 @@ class SnrgSalesTrackingPage {
 
     async refresh() {
         this.render_loading();
+        const dateRange = this.controls.date_range.get_value() || [];
+        const [fromDate, toDate] = Array.isArray(dateRange) ? dateRange : [null, null];
         const response = await frappe.call({
             method: "snrg_credit_control.snrg_credit_control.page.sales_tracking.sales_tracking.get_tracker_data",
             args: {
                 company: this.controls.company.get_value(),
                 order_month: this.controls.order_month.get_value(),
-                from_date: this.controls.from_date.get_value(),
-                to_date: this.controls.to_date.get_value(),
+                from_date: fromDate,
+                to_date: toDate,
                 territory: this.controls.territory.get_value(),
                 credit_status: this.controls.credit_status.get_value(),
                 search: this.controls.search.get_value(),
