@@ -52,18 +52,14 @@ class SnrgSalesTrackingPage {
                 }
                 .snrg-st-control-strip {
                     display:grid;
-                    grid-template-columns:minmax(96px,.85fr) minmax(104px,.85fr) minmax(118px,.9fr) minmax(104px,.85fr) minmax(104px,.85fr) minmax(128px,1fr) minmax(128px,1fr) auto;
+                    grid-template-columns:minmax(96px,.85fr) minmax(104px,.85fr) minmax(118px,.9fr) minmax(104px,.85fr) minmax(104px,.85fr) minmax(128px,1fr);
                     gap:5px;
                     align-items:end;
                 }
                 .snrg-st-filter-slot {
                     width: 100%;
                 }
-                .snrg-st-saved-view-filter { min-width: 0; }
-                .snrg-st-view-actions {
-                    display:flex; gap:4px; flex-wrap:nowrap; align-items:flex-end; justify-content:flex-end;
-                    min-width:0;
-                }
+                .snrg-st-saved-view-filter { min-width: 180px; }
                 .snrg-st-btn {
                     display:inline-flex; align-items:center; justify-content:center; gap:6px;
                     padding:5px 7px; border-radius:6px; border:1px solid #cbd5e1;
@@ -153,6 +149,40 @@ class SnrgSalesTrackingPage {
                     border-bottom:1px solid #e2e8f0; background:#fbfcfe;
                 }
                 .snrg-st-toolbar-actions { display:flex; gap:8px; flex-wrap:wrap; }
+                .snrg-st-toolbar-actions-top {
+                    display:flex; gap:8px; align-items:center; justify-content:flex-end; flex-wrap:wrap; width:100%;
+                }
+                .snrg-st-toolbar-actions-bottom {
+                    display:flex; gap:6px; align-items:flex-end; justify-content:flex-end; flex-wrap:wrap; width:100%;
+                }
+                .snrg-st-toolbar-saved-view {
+                    min-width:180px;
+                }
+                .snrg-st-toolbar-actions .frappe-control {
+                    margin-bottom: 0;
+                    padding: 2px 4px 3px;
+                    border: 1px solid #dde5f0;
+                    border-radius: 6px;
+                    background: #fff;
+                    min-height: 40px;
+                }
+                .snrg-st-toolbar-actions .frappe-control .control-label {
+                    font-size: 9px;
+                    font-weight: 700;
+                    color: #64748b;
+                    text-transform: uppercase;
+                    letter-spacing: .08em;
+                    margin-bottom: 2px;
+                }
+                .snrg-st-toolbar-actions .frappe-control input,
+                .snrg-st-toolbar-actions .frappe-control .input-with-feedback,
+                .snrg-st-toolbar-actions .frappe-control select {
+                    min-height: 24px;
+                    border-radius: 5px;
+                    border: 1px solid #dbe3ef;
+                    background: #fff;
+                    font-size: 10px;
+                }
                 .snrg-st-table-wrap {
                     overflow: auto;
                     max-height: calc(100vh - 190px);
@@ -231,6 +261,12 @@ class SnrgSalesTrackingPage {
                 .snrg-st-sla-days {
                     font-weight:600; color:#334155; white-space:nowrap; line-height:1;
                 }
+                .snrg-st-col-sla { width:118px; min-width:118px; }
+                .snrg-st-col-sla .snrg-st-th-content { gap:5px; }
+                .snrg-st-col-sla .snrg-st-th-main { gap:4px; }
+                .snrg-st-col-sla .snrg-st-th-label { font-size:10px; letter-spacing:.06em; }
+                .snrg-st-col-sla .snrg-st-sla-cell { gap:4px; }
+                .snrg-st-col-sla .snrg-st-pill { padding:2px 7px; font-size:9px; }
                 .snrg-st-remarks {
                     max-width:260px; white-space:normal; word-break:break-word; display:-webkit-box;
                     -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
@@ -242,8 +278,7 @@ class SnrgSalesTrackingPage {
                 }
                 @keyframes snrg-st-shimmer { 0% { background-position:200% 0; } 100% { background-position:-200% 0; } }
                 @media (max-width: 1500px) {
-                    .snrg-st-control-strip { grid-template-columns:repeat(4, minmax(0, 1fr)); }
-                    .snrg-st-view-actions { justify-content:flex-start; flex-wrap:wrap; }
+                    .snrg-st-control-strip { grid-template-columns:repeat(3, minmax(0, 1fr)); }
                     .snrg-st-summary { grid-template-columns:repeat(3, minmax(0, 1fr)); }
                 }
                 @media (max-width: 1180px) {
@@ -253,7 +288,8 @@ class SnrgSalesTrackingPage {
                 @media (max-width: 768px) {
                     .snrg-st-control-strip, .snrg-st-summary, .snrg-st-card-grid { grid-template-columns:1fr; }
                     .snrg-st-filter-title h2 { font-size:18px; }
-                    .snrg-st-view-actions { justify-content:flex-start; flex-wrap:wrap; }
+                    .snrg-st-toolbar-actions-top,
+                    .snrg-st-toolbar-actions-bottom { justify-content:flex-start; flex-wrap:wrap; }
                 }
             </style>
             <div class="snrg-st-page">
@@ -265,14 +301,6 @@ class SnrgSalesTrackingPage {
                         <div class="snrg-st-filter-slot snrg-st-territory-filter"></div>
                         <div class="snrg-st-filter-slot snrg-st-credit-filter"></div>
                         <div class="snrg-st-filter-slot snrg-st-search-filter"></div>
-                        <div class="snrg-st-saved-view-filter"></div>
-                        <div class="snrg-st-view-actions">
-                            <button class="snrg-st-btn snrg-st-save-view" type="button">Save View</button>
-                            <button class="snrg-st-btn snrg-st-save-as-view" type="button">Save As</button>
-                            <button class="snrg-st-btn snrg-st-delete-view" type="button">Delete View</button>
-                            <button class="snrg-st-btn snrg-st-reset-filters" type="button">Reset</button>
-                            <button class="snrg-st-btn snrg-st-export-table" type="button">Export</button>
-                        </div>
                     </div>
                 </section>
                 <section class="snrg-st-summary"></section>
@@ -283,7 +311,17 @@ class SnrgSalesTrackingPage {
                             <span class="snrg-st-muted">Click invoice, shortage, salesperson, SO delivery, or remarks cells for detail.</span>
                         </div>
                         <div class="snrg-st-toolbar-actions">
-                            <div class="snrg-st-row-count snrg-st-muted"></div>
+                            <div class="snrg-st-toolbar-actions-top">
+                                <div class="snrg-st-saved-view-filter snrg-st-toolbar-saved-view"></div>
+                                <div class="snrg-st-row-count snrg-st-muted"></div>
+                            </div>
+                            <div class="snrg-st-toolbar-actions-bottom">
+                                <button class="snrg-st-btn snrg-st-save-view" type="button">Save View</button>
+                                <button class="snrg-st-btn snrg-st-save-as-view" type="button">Save As</button>
+                                <button class="snrg-st-btn snrg-st-delete-view" type="button">Delete View</button>
+                                <button class="snrg-st-btn snrg-st-reset-filters" type="button">Reset</button>
+                                <button class="snrg-st-btn snrg-st-export-table" type="button">Export</button>
+                            </div>
                         </div>
                     </div>
                     <div class="snrg-st-table-wrap">
@@ -816,10 +854,10 @@ class SnrgSalesTrackingPage {
         }
 
         this.columns = this.buildColumns();
-        const headerHtml = this.columns.map((column) => `<th>${this.renderHeader(column)}</th>`).join("");
+        const headerHtml = this.columns.map((column) => `<th class="${this.getColumnClass(column)}" style="${this.getColumnStyle(column)}">${this.renderHeader(column)}</th>`).join("");
         const bodyHtml = rows.map((row, index) => `
             <tr data-row-index="${index}">
-                ${this.columns.map((column) => `<td>${column.render(row)}</td>`).join("")}
+                ${this.columns.map((column) => `<td class="${this.getColumnClass(column)}" style="${this.getColumnStyle(column)}">${column.render(row)}</td>`).join("")}
             </tr>
         `).join("");
         const footerHtml = this.renderFooter(rows);
@@ -858,12 +896,12 @@ class SnrgSalesTrackingPage {
             { key: "basic_value", label: "Basic Value", type: "number", render: (row) => this.money(row.basic_value, row.currency) },
             { key: "credit_status", label: "Credit Status", type: "select", render: (row) => this.statusPill(row.credit_status) },
             { key: "credit_clearance_date", label: "Credit Clearance Date", type: "date", render: (row) => this.formatDate(row.credit_clearance_date) },
-            { key: "quotation_to_credit_clearance_days", label: "Qtn to Credit SLA", type: "number", render: (row) => this.slaCell(row.quotation_to_credit_clearance_days, row.quotation_to_credit_clearance_sla) },
-            { key: "quotation_to_delivery_days", label: "Qtn to Delivery SLA", type: "number", render: (row) => this.slaCell(row.quotation_to_delivery_days, row.quotation_to_delivery_sla) },
-            { key: "invoice_to_delivery_days", label: "Inv to Delivery SLA", type: "number", render: (row) => this.slaCell(row.invoice_to_delivery_days, row.invoice_to_delivery_sla) },
-            { key: "delivery_to_pod_days", label: "Delivery to POD SLA", type: "number", render: (row) => this.slaCell(row.delivery_to_pod_days, row.delivery_to_pod_sla) },
-            { key: "credit_hold_age_days", label: "Credit Hold Age", type: "number", render: (row) => this.slaCell(row.credit_hold_age_days, row.credit_hold_age_sla) },
-            { key: "esd_delay_days", label: "ESD Delay", type: "number", render: (row) => this.slaCell(row.esd_delay_days, row.esd_delay_sla) },
+            { key: "quotation_to_credit_clearance_days", label: "Qtn to Credit SLA", type: "number", className: "snrg-st-col-sla", width: "118px", render: (row) => this.slaCell(row.quotation_to_credit_clearance_days, row.quotation_to_credit_clearance_sla) },
+            { key: "quotation_to_delivery_days", label: "Qtn to Delivery SLA", type: "number", className: "snrg-st-col-sla", width: "118px", render: (row) => this.slaCell(row.quotation_to_delivery_days, row.quotation_to_delivery_sla) },
+            { key: "invoice_to_delivery_days", label: "Inv to Delivery SLA", type: "number", className: "snrg-st-col-sla", width: "118px", render: (row) => this.slaCell(row.invoice_to_delivery_days, row.invoice_to_delivery_sla) },
+            { key: "delivery_to_pod_days", label: "Delivery to POD SLA", type: "number", className: "snrg-st-col-sla", width: "118px", render: (row) => this.slaCell(row.delivery_to_pod_days, row.delivery_to_pod_sla) },
+            { key: "credit_hold_age_days", label: "Credit Hold Age", type: "number", className: "snrg-st-col-sla", width: "118px", render: (row) => this.slaCell(row.credit_hold_age_days, row.credit_hold_age_sla) },
+            { key: "esd_delay_days", label: "ESD Delay", type: "number", className: "snrg-st-col-sla", width: "118px", render: (row) => this.slaCell(row.esd_delay_days, row.esd_delay_sla) },
             { key: "delay_reason", label: "Delay Reason", type: "text", render: (row) => this.escapeCell(row.delay_reason) },
             { key: "original_esd", label: "Original ESD", type: "date", render: (row) => this.formatDate(row.original_esd) },
             { key: "sales_order_delivery_date", label: "SO Delivery Date", type: "date", render: (row) => row.sales_orders?.length ? `<a class="snrg-st-link snrg-st-open-sales-orders">${this.formatDate(row.sales_order_delivery_date)}</a>` : this.emptyCell() },
@@ -881,6 +919,14 @@ class SnrgSalesTrackingPage {
             { key: "pod_status", label: "POD Received", type: "select", render: (row) => row.invoice_details?.length ? `<a class="snrg-st-link snrg-st-open-invoices">${this.statusPill(row.pod_status)}</a>` : this.statusPill("Pending") },
             { key: "remarks", label: "Remarks", type: "text", render: (row) => row.remarks ? `<a class="snrg-st-link snrg-st-open-invoices"><span class="snrg-st-remarks">${frappe.utils.escape_html(row.remarks)}</span></a>` : this.emptyCell() },
         ];
+    }
+
+    getColumnClass(column) {
+        return column.className || "";
+    }
+
+    getColumnStyle(column) {
+        return column.width ? `width:${column.width}; min-width:${column.width};` : "";
     }
 
     renderHeader(column) {
@@ -913,34 +959,34 @@ class SnrgSalesTrackingPage {
         const totals = this.getFooterTotals(rows);
         const footerCells = this.columns.map((column, index) => {
             if (index === 0) {
-                return `<td>Total (${frappe.format(rows.length || 0, { fieldtype: "Int" })} rows)</td>`;
+                return `<td class="${this.getColumnClass(column)}" style="${this.getColumnStyle(column)}">Total (${frappe.format(rows.length || 0, { fieldtype: "Int" })} rows)</td>`;
             }
 
             if (column.key === "order_value") {
-                return `<td>${this.money(totals.order_value, totals.currency)}</td>`;
+                return `<td class="${this.getColumnClass(column)}" style="${this.getColumnStyle(column)}">${this.money(totals.order_value, totals.currency)}</td>`;
             }
             if (column.key === "basic_value") {
-                return `<td>${this.money(totals.basic_value, totals.currency)}</td>`;
+                return `<td class="${this.getColumnClass(column)}" style="${this.getColumnStyle(column)}">${this.money(totals.basic_value, totals.currency)}</td>`;
             }
             if (column.key === "invoice_amount") {
-                return `<td>${this.money(totals.invoice_amount, totals.currency)}</td>`;
+                return `<td class="${this.getColumnClass(column)}" style="${this.getColumnStyle(column)}">${this.money(totals.invoice_amount, totals.currency)}</td>`;
             }
             if (column.key === "shortage_amount") {
-                return `<td>${this.money(totals.shortage_amount, totals.currency)}</td>`;
+                return `<td class="${this.getColumnClass(column)}" style="${this.getColumnStyle(column)}">${this.money(totals.shortage_amount, totals.currency)}</td>`;
             }
             if (column.key === "no_of_cartons") {
-                return `<td>${frappe.format(totals.no_of_cartons || 0, { fieldtype: "Int" })}</td>`;
+                return `<td class="${this.getColumnClass(column)}" style="${this.getColumnStyle(column)}">${frappe.format(totals.no_of_cartons || 0, { fieldtype: "Int" })}</td>`;
             }
             if (column.key === "credit_status") {
-                return `<td>${frappe.format(totals.credit_hold_count || 0, { fieldtype: "Int" })} hold</td>`;
+                return `<td class="${this.getColumnClass(column)}" style="${this.getColumnStyle(column)}">${frappe.format(totals.credit_hold_count || 0, { fieldtype: "Int" })} hold</td>`;
             }
             if (column.key === "delivery_status_overall") {
-                return `<td>${frappe.format(totals.delivery_complete_count || 0, { fieldtype: "Int" })} delivered</td>`;
+                return `<td class="${this.getColumnClass(column)}" style="${this.getColumnStyle(column)}">${frappe.format(totals.delivery_complete_count || 0, { fieldtype: "Int" })} delivered</td>`;
             }
             if (column.key === "pod_status") {
-                return `<td>${frappe.format(totals.pod_complete_count || 0, { fieldtype: "Int" })} complete</td>`;
+                return `<td class="${this.getColumnClass(column)}" style="${this.getColumnStyle(column)}">${frappe.format(totals.pod_complete_count || 0, { fieldtype: "Int" })} complete</td>`;
             }
-            return `<td></td>`;
+            return `<td class="${this.getColumnClass(column)}" style="${this.getColumnStyle(column)}"></td>`;
         }).join("");
 
         return `<tr>${footerCells}</tr>`;
