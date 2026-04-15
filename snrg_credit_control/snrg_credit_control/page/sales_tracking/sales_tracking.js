@@ -19,8 +19,6 @@ class SnrgSalesTrackingPage {
         this.kpiFilters = {};
         this.columns = [];
         this.suppressFilterRefresh = false;
-        this.savedViews = [];
-        this.activeSavedView = "";
 
         this.setup();
     }
@@ -31,7 +29,6 @@ class SnrgSalesTrackingPage {
         this.render_shell();
         this.make_filters();
         this.bind_events();
-        this.loadSavedViews();
         this.refresh();
     }
 
@@ -59,7 +56,6 @@ class SnrgSalesTrackingPage {
                 .snrg-st-filter-slot {
                     width: 100%;
                 }
-                .snrg-st-saved-view-filter { min-width: 180px; }
                 .snrg-st-btn {
                     display:inline-flex; align-items:center; justify-content:center; gap:6px;
                     padding:5px 7px; border-radius:6px; border:1px solid #cbd5e1;
@@ -89,39 +85,6 @@ class SnrgSalesTrackingPage {
                 .snrg-st-control-strip .frappe-control .link-field,
                 .snrg-st-control-strip .frappe-control select {
                     min-height: 26px;
-                    border-radius: 5px;
-                    border: 1px solid #dbe3ef;
-                    background: #fff;
-                    font-size: 10px;
-                }
-                .snrg-st-view-strip {
-                    margin-top: 6px;
-                    display:flex;
-                    gap:6px;
-                    align-items:flex-end;
-                    justify-content:flex-end;
-                    flex-wrap:wrap;
-                }
-                .snrg-st-view-strip .frappe-control {
-                    margin-bottom: 0;
-                    padding: 2px 4px 3px;
-                    border: 1px solid #dde5f0;
-                    border-radius: 6px;
-                    background: #fff;
-                    min-height: 40px;
-                }
-                .snrg-st-view-strip .frappe-control .control-label {
-                    font-size: 9px;
-                    font-weight: 700;
-                    color: #64748b;
-                    text-transform: uppercase;
-                    letter-spacing: .08em;
-                    margin-bottom: 2px;
-                }
-                .snrg-st-view-strip .frappe-control input,
-                .snrg-st-view-strip .frappe-control .input-with-feedback,
-                .snrg-st-view-strip .frappe-control select {
-                    min-height: 24px;
                     border-radius: 5px;
                     border: 1px solid #dbe3ef;
                     background: #fff;
@@ -287,7 +250,6 @@ class SnrgSalesTrackingPage {
                 @media (max-width: 768px) {
                     .snrg-st-control-strip, .snrg-st-summary, .snrg-st-card-grid { grid-template-columns:1fr; }
                     .snrg-st-filter-title h2 { font-size:18px; }
-                    .snrg-st-view-strip { justify-content:flex-start; }
                 }
             </style>
             <div class="snrg-st-page">
@@ -299,13 +261,6 @@ class SnrgSalesTrackingPage {
                         <div class="snrg-st-filter-slot snrg-st-territory-filter"></div>
                         <div class="snrg-st-filter-slot snrg-st-credit-filter"></div>
                         <div class="snrg-st-filter-slot snrg-st-search-filter"></div>
-                    </div>
-                    <div class="snrg-st-view-strip">
-                        <div class="snrg-st-saved-view-filter"></div>
-                        <button class="snrg-st-btn snrg-st-save-view" type="button">Save View</button>
-                        <button class="snrg-st-btn snrg-st-save-as-view" type="button">Save As</button>
-                        <button class="snrg-st-btn snrg-st-delete-view" type="button">Delete View</button>
-                        <button class="snrg-st-btn snrg-st-reset-filters" type="button">Reset</button>
                     </div>
                 </section>
                 <section class="snrg-st-summary"></section>
@@ -376,14 +331,6 @@ class SnrgSalesTrackingPage {
             change: frappe.utils.debounce(() => this.handleFilterChange(), 350),
         });
 
-        this.controls.saved_view = this.makeFilterControl(".snrg-st-saved-view-filter", {
-            label: "Saved View",
-            fieldname: "saved_view",
-            fieldtype: "Select",
-            options: "\n",
-            change: () => this.handleSavedViewChange(),
-        });
-
         this.render_loading();
     }
 
@@ -403,87 +350,6 @@ class SnrgSalesTrackingPage {
         this.refresh();
     }
 
-    handleSavedViewChange() {
-        if (this.suppressFilterRefresh) return;
-        const docname = this.controls.saved_view.get_value();
-        this.activeSavedView = docname || "";
-        if (!docname) {
-            return;
-        }
-        const view = this.savedViews.find((entry) => entry.name === docname);
-        if (!view?.state) {
-            return;
-        }
-        this.applyViewState(view.state);
-    }
-
-    async loadSavedViews() {
-        const response = await frappe.call({
-            method: "snrg_credit_control.snrg_credit_control.page.sales_tracking.sales_tracking.get_saved_views",
-        });
-        this.savedViews = response.message || [];
-        this.updateSavedViewOptions();
-    }
-
-    updateSavedViewOptions() {
-        if (!this.controls.saved_view) return;
-        const optionLines = [""];
-        this.savedViews.forEach((view) => optionLines.push(view.name));
-        this.setSelectOptions(this.controls.saved_view, optionLines);
-        if (this.activeSavedView && optionLines.includes(this.activeSavedView)) {
-            this.suppressFilterRefresh = true;
-            try {
-                this.controls.saved_view.set_value(this.activeSavedView);
-            } finally {
-                this.suppressFilterRefresh = false;
-            }
-        }
-    }
-
-    captureViewState() {
-        const dateRange = this.controls.date_range.get_value() || [];
-        const [from_date, to_date] = Array.isArray(dateRange) ? dateRange : [null, null];
-        return {
-            topFilters: {
-                company: this.controls.company.get_value() || "",
-                order_month: this.controls.order_month.get_value() || "",
-                from_date: from_date || "",
-                to_date: to_date || "",
-                territory: this.controls.territory.get_value() || "",
-                credit_status: this.controls.credit_status.get_value() || "",
-                search: this.controls.search.get_value() || "",
-            },
-            kpiFilters: { ...this.kpiFilters },
-            columnFilters: { ...this.columnFilters },
-            sortState: { ...this.sortState },
-        };
-    }
-
-    async applyViewState(state) {
-        if (!state || typeof state !== "object") return;
-        const topFilters = state.topFilters || {};
-
-        this.suppressFilterRefresh = true;
-        try {
-            this.controls.company.set_value(topFilters.company || "");
-            this.controls.order_month.set_value(topFilters.order_month || "");
-            this.controls.date_range.set_value([
-                topFilters.from_date || "",
-                topFilters.to_date || "",
-            ]);
-            this.controls.territory.set_value(topFilters.territory || "");
-            this.controls.credit_status.set_value(topFilters.credit_status || "");
-            this.controls.search.set_value(topFilters.search || "");
-            this.columnFilters = { ...(state.columnFilters || {}) };
-            this.sortState = { key: null, direction: null, ...(state.sortState || {}) };
-            this.kpiFilters = { ...(state.kpiFilters || {}) };
-        } finally {
-            this.suppressFilterRefresh = false;
-        }
-
-        await this.refresh();
-    }
-
     resetAllFilters() {
         this.suppressFilterRefresh = true;
         try {
@@ -493,70 +359,13 @@ class SnrgSalesTrackingPage {
             this.controls.territory.set_value("");
             this.controls.credit_status.set_value("");
             this.controls.search.set_value("");
-            this.controls.saved_view.set_value("");
             this.columnFilters = {};
             this.kpiFilters = {};
             this.sortState = { key: null, direction: null };
-            this.activeSavedView = "";
         } finally {
             this.suppressFilterRefresh = false;
         }
         this.refresh();
-    }
-
-    async saveCurrentView(forceNew) {
-        const existing = this.savedViews.find((entry) => entry.name === this.activeSavedView);
-        let defaultName = existing?.view_name || "";
-        if (forceNew) {
-            defaultName = "";
-        }
-
-        frappe.prompt(
-            [
-                {
-                    fieldname: "view_name",
-                    fieldtype: "Data",
-                    label: "View Name",
-                    reqd: 1,
-                    default: defaultName,
-                },
-            ],
-            async (values) => {
-                const response = await frappe.call({
-                    method: "snrg_credit_control.snrg_credit_control.page.sales_tracking.sales_tracking.save_saved_view",
-                    args: {
-                        view_name: values.view_name,
-                        state_json: JSON.stringify(this.captureViewState()),
-                        docname: forceNew ? "" : (existing?.name || ""),
-                    },
-                });
-                const saved = response.message || {};
-                this.activeSavedView = saved.name || values.view_name;
-                await this.loadSavedViews();
-                frappe.show_alert({ message: "Saved view updated", indicator: "green" });
-            },
-            forceNew ? "Save View As" : "Save View",
-            "Save"
-        );
-    }
-
-    async deleteCurrentView() {
-        const existing = this.savedViews.find((entry) => entry.name === this.activeSavedView);
-        if (!existing) {
-            frappe.show_alert({ message: "Select a saved view first", indicator: "orange" });
-            return;
-        }
-
-        frappe.confirm(`Delete saved view ${frappe.utils.escape_html(existing.view_name)}?`, async () => {
-            await frappe.call({
-                method: "snrg_credit_control.snrg_credit_control.page.sales_tracking.sales_tracking.delete_saved_view",
-                args: { docname: existing.name },
-            });
-            this.activeSavedView = "";
-            await this.loadSavedViews();
-            this.controls.saved_view.set_value("");
-            frappe.show_alert({ message: "Saved view deleted", indicator: "green" });
-        });
     }
 
     bind_events() {
@@ -646,11 +455,7 @@ class SnrgSalesTrackingPage {
             this.toggleKpiFilter(target.data("kpiGroup"), target.data("kpiValue"));
         });
 
-        this.wrapper.on("click", ".snrg-st-save-view", () => this.saveCurrentView(false));
-        this.wrapper.on("click", ".snrg-st-save-as-view", () => this.saveCurrentView(true));
-        this.wrapper.on("click", ".snrg-st-delete-view", () => this.deleteCurrentView());
         this.wrapper.on("click", ".snrg-st-reset-filters", () => this.resetAllFilters());
-        this.wrapper.on("click", ".snrg-st-export-table", () => this.exportTrackerView());
     }
 
     async refresh() {
@@ -872,6 +677,7 @@ class SnrgSalesTrackingPage {
                 key: "quotation_id",
                 label: "Quotation",
                 type: "text",
+                sortKey: "quotation_id",
                 render: (row) => `
                     <div class="snrg-st-cell-lines">
                         <a class="snrg-st-link snrg-st-open-quotation">${frappe.utils.escape_html(row.quotation_id)}</a>
@@ -883,6 +689,7 @@ class SnrgSalesTrackingPage {
                 key: "current_stage",
                 label: "Current Stage",
                 type: "select",
+                sortKey: "current_stage",
                 render: (row) => `
                     <div class="snrg-st-cell-lines">
                         <span>${this.statusPill(row.current_stage)}</span>
@@ -895,6 +702,7 @@ class SnrgSalesTrackingPage {
                 key: "channel_partner_name",
                 label: "Customer",
                 type: "text",
+                sortKey: "channel_partner_name",
                 render: (row) => `
                     <div class="snrg-st-cell-lines">
                         <span class="secondary">${this.escapeText(row.customer || "-")}</span>
@@ -1121,8 +929,9 @@ class SnrgSalesTrackingPage {
         }
 
         const column = this.columns.find((entry) => entry.key === key) || this.buildColumns().find((entry) => entry.key === key);
+        const sortKey = column?.sortKey || key;
         const multiplier = direction === "asc" ? 1 : -1;
-        return [...rows].sort((left, right) => multiplier * this.compareValues(left[key], right[key], column?.type));
+        return [...rows].sort((left, right) => multiplier * this.compareValues(left[sortKey], right[sortKey], column?.type));
     }
 
     compareValues(left, right, type) {
