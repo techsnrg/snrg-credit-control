@@ -59,8 +59,8 @@ class SnrgSalesTrackingPage {
                 }
                 .snrg-st-control-strip {
                     display:grid;
-                    grid-template-columns:minmax(120px,1fr) minmax(120px,.9fr) minmax(140px,1fr) minmax(120px,.9fr) minmax(120px,.9fr) minmax(150px,1.1fr) minmax(150px,1.1fr) auto;
-                    gap:6px;
+                    grid-template-columns:minmax(96px,.85fr) minmax(104px,.85fr) minmax(118px,.9fr) minmax(104px,.85fr) minmax(104px,.85fr) minmax(128px,1fr) minmax(128px,1fr) auto;
+                    gap:5px;
                     align-items:end;
                 }
                 .snrg-st-filter-slot {
@@ -69,12 +69,13 @@ class SnrgSalesTrackingPage {
                 .snrg-st-saved-view-filter { min-width: 0; }
                 .snrg-st-view-actions {
                     display:flex; gap:4px; flex-wrap:nowrap; align-items:flex-end; justify-content:flex-end;
+                    min-width:0;
                 }
                 .snrg-st-btn {
                     display:inline-flex; align-items:center; justify-content:center; gap:6px;
-                    padding:6px 8px; border-radius:6px; border:1px solid #cbd5e1;
+                    padding:5px 7px; border-radius:6px; border:1px solid #cbd5e1;
                     background:#fff; color:#0f172a; font-size:10px; font-weight:700; cursor:pointer;
-                    min-height:30px; white-space:nowrap;
+                    min-height:28px; white-space:nowrap;
                 }
                 .snrg-st-btn:hover { background:#f8fafc; border-color:#94a3b8; }
                 .snrg-st-control-strip .frappe-control {
@@ -98,11 +99,11 @@ class SnrgSalesTrackingPage {
                 .snrg-st-control-strip .frappe-control .input-with-feedback,
                 .snrg-st-control-strip .frappe-control .link-field,
                 .snrg-st-control-strip .frappe-control select {
-                    min-height: 28px;
+                    min-height: 26px;
                     border-radius: 5px;
                     border: 1px solid #dbe3ef;
                     background: #fff;
-                    font-size: 11px;
+                    font-size: 10px;
                 }
                 .snrg-st-summary {
                     display:grid;
@@ -118,19 +119,19 @@ class SnrgSalesTrackingPage {
                 .snrg-st-card-grid {
                     margin-top: 5px;
                     display: grid;
-                    grid-template-columns: repeat(2, minmax(0, 1fr));
-                    gap: 5px;
+                    grid-template-columns: repeat(3, minmax(0, 1fr));
+                    gap: 4px;
                 }
                 .snrg-st-mini-stat {
                     border: 1px solid #e3eaf3;
                     border-radius: 6px;
-                    padding: 5px 7px;
+                    padding: 4px 6px;
                     background: #fafcff;
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
-                    gap: 6px;
-                    min-height: 36px;
+                    gap: 5px;
+                    min-height: 32px;
                 }
                 .snrg-st-mini-stat.interactive { cursor:pointer; }
                 .snrg-st-mini-stat.active {
@@ -146,7 +147,7 @@ class SnrgSalesTrackingPage {
                     letter-spacing: .04em;
                 }
                 .snrg-st-mini-stat-value {
-                    font-size: 13px;
+                    font-size: 12px;
                     font-weight: 800;
                     color: #0f172a;
                 }
@@ -241,12 +242,12 @@ class SnrgSalesTrackingPage {
                     background-size:220% 100%; animation:snrg-st-shimmer 1.4s infinite;
                 }
                 @keyframes snrg-st-shimmer { 0% { background-position:200% 0; } 100% { background-position:-200% 0; } }
-                @media (max-width: 1600px) {
+                @media (max-width: 1500px) {
                     .snrg-st-control-strip { grid-template-columns:repeat(4, minmax(0, 1fr)); }
                     .snrg-st-view-actions { justify-content:flex-start; flex-wrap:wrap; }
                     .snrg-st-summary { grid-template-columns:repeat(3, minmax(0, 1fr)); }
                 }
-                @media (max-width: 1280px) {
+                @media (max-width: 1180px) {
                     .snrg-st-control-strip, .snrg-st-summary { grid-template-columns:repeat(2, minmax(0, 1fr)); }
                     .snrg-st-table-wrap { max-height: calc(100vh - 190px); }
                 }
