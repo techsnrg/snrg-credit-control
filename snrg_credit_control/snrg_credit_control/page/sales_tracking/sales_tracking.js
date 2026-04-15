@@ -711,8 +711,18 @@ class SnrgSalesTrackingPage {
                 `,
             },
             { key: "salesperson_summary", label: "Salesperson", type: "text", render: (row) => row.salespeople?.length ? `<a class="snrg-st-link snrg-st-open-salespeople">${frappe.utils.escape_html(row.salesperson_summary || "")}</a>` : this.emptyCell() },
-            { key: "order_value", label: "Order Value", type: "number", render: (row) => this.money(row.order_value, row.currency) },
-            { key: "basic_value", label: "Basic Value", type: "number", render: (row) => this.money(row.basic_value, row.currency) },
+            {
+                key: "quotation_value_summary",
+                label: "Quotation Value",
+                type: "number",
+                sortKey: "order_value",
+                render: (row) => `
+                    <div class="snrg-st-cell-lines">
+                        <span><strong>GT</strong> - ${this.money(row.order_value, row.currency)}</span>
+                        <span class="secondary"><strong>NT</strong> - ${this.money(row.basic_value, row.currency)}</span>
+                    </div>
+                `,
+            },
             { key: "credit_status", label: "Credit Status", type: "select", render: (row) => this.statusPill(row.credit_status) },
             { key: "credit_clearance_date", label: "Credit Clearance Date", type: "date", render: (row) => this.formatDate(row.credit_clearance_date) },
             { key: "quotation_to_credit_clearance_days", label: "Qtn to Credit SLA", type: "number", className: "snrg-st-col-sla", width: "118px", render: (row) => this.slaCell(row.quotation_to_credit_clearance_days, row.quotation_to_credit_clearance_sla) },
@@ -781,11 +791,15 @@ class SnrgSalesTrackingPage {
                 return `<td class="${this.getColumnClass(column)}" style="${this.getColumnStyle(column)}">Total (${frappe.format(rows.length || 0, { fieldtype: "Int" })} rows)</td>`;
             }
 
-            if (column.key === "order_value") {
-                return `<td class="${this.getColumnClass(column)}" style="${this.getColumnStyle(column)}">${this.money(totals.order_value, totals.currency)}</td>`;
-            }
-            if (column.key === "basic_value") {
-                return `<td class="${this.getColumnClass(column)}" style="${this.getColumnStyle(column)}">${this.money(totals.basic_value, totals.currency)}</td>`;
+            if (column.key === "quotation_value_summary") {
+                return `
+                    <td class="${this.getColumnClass(column)}" style="${this.getColumnStyle(column)}">
+                        <div class="snrg-st-cell-lines">
+                            <span><strong>GT</strong> - ${this.money(totals.order_value, totals.currency)}</span>
+                            <span class="secondary"><strong>NT</strong> - ${this.money(totals.basic_value, totals.currency)}</span>
+                        </div>
+                    </td>
+                `;
             }
             if (column.key === "invoice_amount") {
                 return `<td class="${this.getColumnClass(column)}" style="${this.getColumnStyle(column)}">${this.money(totals.invoice_amount, totals.currency)}</td>`;
@@ -1037,6 +1051,7 @@ class SnrgSalesTrackingPage {
             city: row.city,
             state: row.state,
             salesperson_summary: row.salesperson_summary,
+            quotation_value_summary: `GT: ${row.order_value || 0} | NT: ${row.basic_value || 0}`,
             order_value: row.order_value,
             basic_value: row.basic_value,
             credit_status: row.credit_status,
