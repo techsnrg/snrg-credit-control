@@ -39,14 +39,13 @@ class SnrgSalesTrackingPage {
         this.wrapper.find(".layout-main-section").html(`
             <style>
                 .snrg-st-page { display:flex; flex-direction:column; gap:10px; color:#10253f; }
+                .snrg-st-page-header-meta {
+                    display:inline-flex; align-items:center; margin-left:10px; vertical-align:middle;
+                }
                 .snrg-st-filter-panel {
                     border-radius:12px; border:1px solid #dde5f0; background:#fff;
                     box-shadow:none; padding:8px 10px 10px;
                 }
-                .snrg-st-filter-header {
-                    display:flex; justify-content:flex-end; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:6px;
-                }
-                .snrg-st-meta { display:flex; gap:8px; flex-wrap:wrap; }
                 .snrg-st-chip {
                     display:inline-flex; align-items:center; gap:6px; padding:5px 9px; border-radius:999px;
                     background:#f8fafc; border:1px solid #dbe3ef; font-size:11px; color:#334155; font-weight:600;
@@ -226,6 +225,12 @@ class SnrgSalesTrackingPage {
                 }
                 .snrg-st-cell-lines { display:flex; flex-direction:column; gap:2px; min-width:0; }
                 .snrg-st-cell-lines .secondary { color:#64748b; font-size:10px; }
+                .snrg-st-sla-cell {
+                    display:flex; align-items:center; gap:6px; flex-wrap:wrap; min-width:0;
+                }
+                .snrg-st-sla-days {
+                    font-weight:600; color:#334155; white-space:nowrap; line-height:1;
+                }
                 .snrg-st-remarks {
                     max-width:260px; white-space:normal; word-break:break-word; display:-webkit-box;
                     -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
@@ -253,9 +258,6 @@ class SnrgSalesTrackingPage {
             </style>
             <div class="snrg-st-page">
                 <section class="snrg-st-filter-panel">
-                    <div class="snrg-st-filter-header">
-                        <div class="snrg-st-meta"></div>
-                    </div>
                     <div class="snrg-st-control-strip">
                         <div class="snrg-st-filter-slot snrg-st-company-filter"></div>
                         <div class="snrg-st-filter-slot snrg-st-month-filter"></div>
@@ -718,9 +720,18 @@ class SnrgSalesTrackingPage {
 
     renderMeta() {
         const generated = this.data?.generated_on ? frappe.datetime.str_to_user(this.data.generated_on) : frappe.datetime.now_datetime();
-        this.wrapper.find(".snrg-st-meta").html(`
-            <span class="snrg-st-chip">Updated: ${frappe.utils.escape_html(generated)}</span>
-        `);
+        const chipHtml = `<span class="snrg-st-chip">Updated: ${frappe.utils.escape_html(generated)}</span>`;
+        const $pageHeaderMeta = this.page.wrapper.find(".snrg-st-page-header-meta");
+
+        if ($pageHeaderMeta.length) {
+            $pageHeaderMeta.html(chipHtml);
+            return;
+        }
+
+        const $titleText = this.page.wrapper.find(".page-head .title-text, .page-title .title-text").first();
+        if ($titleText.length) {
+            $titleText.after(`<span class="snrg-st-page-header-meta">${chipHtml}</span>`);
+        }
     }
 
     renderSummary() {
@@ -760,7 +771,7 @@ class SnrgSalesTrackingPage {
                 ],
             },
             {
-                label: "Exceptions",
+                label: "Breaches",
                 stats: [
                     { label: "Overdue ESD", value: counts.exceptions.overdue_esd || 0, group: "exception", key: "overdue_esd" },
                     { label: "Pending Dispatch", value: counts.exceptions.invoice_pending_dispatch || 0, group: "exception", key: "invoice_pending_dispatch" },
@@ -837,7 +848,6 @@ class SnrgSalesTrackingPage {
             },
             { key: "quotation_status", label: "Quotation Status", type: "select", render: (row) => this.statusPill(row.quotation_status) },
             { key: "current_stage", label: "Current Stage", type: "select", render: (row) => this.statusPill(row.current_stage) },
-            { key: "order_month", label: "Order Month", type: "text", render: (row) => this.escapeCell(row.order_month) },
             { key: "order_date", label: "Order Date", type: "date", render: (row) => this.formatDate(row.order_date) },
             { key: "channel_partner_name", label: "Channel Partner Name", type: "text", render: (row) => this.escapeCell(row.channel_partner_name) },
             { key: "zone", label: "Zone", type: "text", render: (row) => this.escapeCell(row.zone) },
@@ -1547,8 +1557,8 @@ class SnrgSalesTrackingPage {
             return this.emptyCell();
         }
         return `
-            <div class="snrg-st-cell-lines">
-                <span>${frappe.format(days || 0, { fieldtype: "Int" })}d</span>
+            <div class="snrg-st-sla-cell">
+                <span class="snrg-st-sla-days">${frappe.format(days || 0, { fieldtype: "Int" })}d</span>
                 <span>${this.statusPill(status)}</span>
             </div>
         `;
