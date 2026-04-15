@@ -49,7 +49,39 @@ class SnrgSalesTrackingPage {
                     display:inline-flex; align-items:center; gap:6px; padding:7px 11px; border-radius:999px;
                     background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.18); font-size:12px;
                 }
-                .snrg-st-filter-row { display:grid; grid-template-columns:repeat(6, minmax(0, 1fr)); gap:12px; align-items:end; }
+                .snrg-st-filter-row { display:grid; grid-template-columns:repeat(6, minmax(180px, 1fr)); gap:12px; align-items:start; }
+                .snrg-st-filter-row .form-group,
+                .snrg-st-filter-row .frappe-control,
+                .snrg-st-filter-row .control-input-wrapper,
+                .snrg-st-filter-row .control-value {
+                    width: 100%;
+                }
+                .snrg-st-filter-row .frappe-control {
+                    margin-bottom: 0;
+                    padding: 12px 14px 10px;
+                    border: 1px solid #dbe3ef;
+                    border-radius: 18px;
+                    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+                    box-shadow: 0 10px 24px rgba(15,23,42,.04);
+                    min-height: 84px;
+                }
+                .snrg-st-filter-row .frappe-control .control-label {
+                    font-size: 11px;
+                    font-weight: 700;
+                    color: #64748b;
+                    text-transform: uppercase;
+                    letter-spacing: .08em;
+                    margin-bottom: 8px;
+                }
+                .snrg-st-filter-row .frappe-control input,
+                .snrg-st-filter-row .frappe-control .input-with-feedback,
+                .snrg-st-filter-row .frappe-control .link-field,
+                .snrg-st-filter-row .frappe-control select {
+                    min-height: 40px;
+                    border-radius: 12px;
+                    border: 1px solid #dbe3ef;
+                    background: #fff;
+                }
                 .snrg-st-summary { display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:12px; }
                 .snrg-st-card {
                     border-radius:20px; padding:16px; border:1px solid #e2e8f0;
@@ -65,12 +97,16 @@ class SnrgSalesTrackingPage {
                     display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; padding:16px 18px;
                     border-bottom:1px solid #e2e8f0; background:#f8fafc;
                 }
-                .snrg-st-table-wrap { overflow:auto; }
+                .snrg-st-table-wrap {
+                    overflow: auto;
+                    max-height: calc(100vh - 260px);
+                }
                 .snrg-st-table { width:100%; min-width:1900px; border-collapse:separate; border-spacing:0; }
                 .snrg-st-table th {
-                    position:sticky; top:0; z-index:1; background:#f8fafc; border-bottom:1px solid #e2e8f0;
+                    position:sticky; top:0; z-index:3; background:#f8fafc; border-bottom:1px solid #e2e8f0;
                     font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:#64748b; text-align:left;
                     padding:12px 14px; white-space:nowrap;
+                    box-shadow: inset 0 -1px 0 #e2e8f0;
                 }
                 .snrg-st-table td {
                     padding:12px 14px; border-bottom:1px solid #edf2f7; font-size:13px; line-height:1.45; vertical-align:top;
@@ -105,7 +141,7 @@ class SnrgSalesTrackingPage {
                     background-size:220% 100%; animation:snrg-st-shimmer 1.4s infinite;
                 }
                 @keyframes snrg-st-shimmer { 0% { background-position:200% 0; } 100% { background-position:-200% 0; } }
-                @media (max-width: 1280px) { .snrg-st-filter-row, .snrg-st-summary { grid-template-columns:repeat(2, minmax(0, 1fr)); } }
+                @media (max-width: 1280px) { .snrg-st-filter-row, .snrg-st-summary { grid-template-columns:repeat(2, minmax(0, 1fr)); } .snrg-st-table-wrap { max-height: calc(100vh - 220px); } }
                 @media (max-width: 768px) { .snrg-st-filter-row, .snrg-st-summary { grid-template-columns:1fr; } .snrg-st-hero h2 { font-size:24px; } }
             </style>
             <div class="snrg-st-page">
