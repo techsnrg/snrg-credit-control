@@ -350,6 +350,7 @@ def _build_tracker_row(quotation, salespeople, sales_orders, invoices):
         "quotation_id": quotation.name,
         "quotation_url": f"/app/quotation/{quote(quotation.name)}",
         "quotation_comments_url": f"/app/quotation/{quote(quotation.name)}#comments",
+        "quotation_status": _get_quotation_status_label(quotation.docstatus),
         "order_month": getdate(quotation.transaction_date).strftime("%b %Y") if quotation.transaction_date else "",
         "order_month_value": getdate(quotation.transaction_date).strftime("%Y-%m") if quotation.transaction_date else "",
         "order_date": _serialize_date(quotation.transaction_date),
@@ -504,6 +505,16 @@ def _serialize_date(value):
     if not value:
         return ""
     return str(value)
+
+
+def _get_quotation_status_label(docstatus):
+    if cint(docstatus) == 0:
+        return "Draft"
+    if cint(docstatus) == 1:
+        return "Submitted"
+    if cint(docstatus) == 2:
+        return "Cancelled"
+    return ""
 
 
 def _get_salesperson_fieldname():

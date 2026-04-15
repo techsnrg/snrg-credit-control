@@ -86,6 +86,15 @@ class SnrgSalesTrackingPage {
                     border-radius:18px; padding:16px; border:1px solid #e2e8f0;
                     background:#fff; box-shadow:0 8px 18px rgba(15,23,42,.03);
                 }
+                .snrg-st-card.interactive {
+                    cursor: pointer;
+                    transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+                }
+                .snrg-st-card.interactive:hover {
+                    border-color: #94a3b8;
+                    box-shadow: 0 12px 24px rgba(15,23,42,.06);
+                    transform: translateY(-1px);
+                }
                 .snrg-st-card-label { font-size:11px; color:#5b7088; text-transform:uppercase; letter-spacing:.08em; font-weight:700; }
                 .snrg-st-card-value { margin-top:10px; font-size:24px; line-height:1.1; font-weight:800; color:#0f172a; }
                 .snrg-st-table-shell {
@@ -331,6 +340,18 @@ class SnrgSalesTrackingPage {
                 this.showSalesOrdersDialog(row);
             }
         });
+
+        this.wrapper.on("click", ".snrg-st-summary-card[data-summary-action]", (event) => {
+            const action = $(event.currentTarget).data("summaryAction");
+            if (action === "credit-hold") {
+                this.controls.credit_status.set_value("Credit Hold");
+                this.refresh();
+            }
+            if (action === "clear-credit-hold") {
+                this.controls.credit_status.set_value("");
+                this.refresh();
+            }
+        });
     }
 
     async refresh() {
@@ -425,24 +446,37 @@ class SnrgSalesTrackingPage {
         this.wrapper.find(".snrg-st-meta").html(`
             <span class="snrg-st-chip">Updated: ${frappe.utils.escape_html(generated)}</span>
             <span class="snrg-st-chip">Company: ${frappe.utils.escape_html(this.controls.company.get_value() || "All Companies")}</span>
-            <span class="snrg-st-chip">Rows: ${frappe.utils.escape_html(String(this.data?.summary?.row_count || 0))}</span>
         `);
     }
 
     renderSummary() {
         const summary = this.data?.summary || {};
+        const creditHoldActive = this.controls.credit_status.get_value() === "Credit Hold";
         const cards = [
-            { label: "Rows", value: frappe.format(summary.row_count || 0, { fieldtype: "Int" }) },
-            { label: "Order Value", value: format_currency(summary.order_value || 0, "INR") },
-            { label: "Invoiced", value: format_currency(summary.invoice_amount || 0, "INR") },
-            { label: "Credit Hold", value: frappe.format(summary.credit_hold_count || 0, { fieldtype: "Int" }) },
-            { label: "POD Complete", value: frappe.format(summary.pod_complete_count || 0, { fieldtype: "Int" }) },
+            {
+                label: "Credit Hold",
+                value: frappe.format(summary.credit_hold_count || 0, { fieldtype: "Int" }),
+                interactive: true,
+                action: creditHoldActive ? "clear-credit-hold" : "credit-hold",
+                helper: creditHoldActive ? "Click to clear filter" : "Click to filter table",
+            },
+            {
+                label: "Delivered",
+                value: frappe.format(summary.delivery_complete_count || 0, { fieldtype: "Int" }),
+                helper: "Rows with overall delivered status",
+            },
+            {
+                label: "POD Complete",
+                value: frappe.format(summary.pod_complete_count || 0, { fieldtype: "Int" }),
+                helper: "Rows where POD is complete",
+            },
         ];
 
         this.wrapper.find(".snrg-st-summary").html(cards.map((card) => `
-            <div class="snrg-st-card">
+            <div class="snrg-st-card snrg-st-summary-card ${card.interactive ? "interactive" : ""}" ${card.action ? `data-summary-action="${card.action}"` : ""}>
                 <div class="snrg-st-card-label">${frappe.utils.escape_html(card.label)}</div>
                 <div class="snrg-st-card-value">${card.value}</div>
+                ${card.helper ? `<div class="snrg-st-muted" style="margin-top:8px;font-size:12px;">${frappe.utils.escape_html(card.helper)}</div>` : ""}
             </div>
         `).join(""));
     }
@@ -482,6 +516,7 @@ class SnrgSalesTrackingPage {
     buildColumns() {
         return [
             { key: "quotation_id", label: "Quotation ID", type: "text", render: (row) => `<a class="snrg-st-link snrg-st-open-quotation">${frappe.utils.escape_html(row.quotation_id)}</a>` },
+            { key: "quotation_status", label: "Quotation Status", type: "select", render: (row) => this.statusPill(row.quotation_status) },
             { key: "order_month", label: "Order Month", type: "text", render: (row) => this.escapeCell(row.order_month) },
             { key: "order_date", label: "Order Date", type: "date", render: (row) => this.formatDate(row.order_date) },
             { key: "channel_partner_name", label: "Channel Partner Name", type: "text", render: (row) => this.escapeCell(row.channel_partner_name) },
@@ -542,7 +577,7 @@ class SnrgSalesTrackingPage {
         const totals = this.getFooterTotals(rows);
         const footerCells = this.columns.map((column, index) => {
             if (index === 0) {
-                return `<td>Total</td>`;
+                return `<td>Total (${frappe.format(rows.length || 0, { fieldtype: "Int" })} rows)</td>`;
             }
 
             if (column.key === "order_value") {
@@ -560,6 +595,15 @@ class SnrgSalesTrackingPage {
             if (column.key === "no_of_cartons") {
                 return `<td>${frappe.format(totals.no_of_cartons || 0, { fieldtype: "Int" })}</td>`;
             }
+            if (column.key === "credit_status") {
+                return `<td>${frappe.format(totals.credit_hold_count || 0, { fieldtype: "Int" })} hold</td>`;
+            }
+            if (column.key === "delivery_status_overall") {
+                return `<td>${frappe.format(totals.delivery_complete_count || 0, { fieldtype: "Int" })} delivered</td>`;
+            }
+            if (column.key === "pod_status") {
+                return `<td>${frappe.format(totals.pod_complete_count || 0, { fieldtype: "Int" })} complete</td>`;
+            }
             return `<td></td>`;
         }).join("");
 
@@ -573,6 +617,15 @@ class SnrgSalesTrackingPage {
             accumulator.invoice_amount += Number(row.invoice_amount || 0);
             accumulator.shortage_amount += Number(row.shortage_amount || 0);
             accumulator.no_of_cartons += Number(row.no_of_cartons || 0);
+            if (row.credit_status === "Credit Hold") {
+                accumulator.credit_hold_count += 1;
+            }
+            if (row.delivery_status_overall === "Delivered") {
+                accumulator.delivery_complete_count += 1;
+            }
+            if (row.pod_status === "Complete") {
+                accumulator.pod_complete_count += 1;
+            }
             if (!accumulator.currency && row.currency) {
                 accumulator.currency = row.currency;
             }
@@ -583,6 +636,9 @@ class SnrgSalesTrackingPage {
             invoice_amount: 0,
             shortage_amount: 0,
             no_of_cartons: 0,
+            credit_hold_count: 0,
+            delivery_complete_count: 0,
+            pod_complete_count: 0,
             currency: "INR",
         });
     }
@@ -841,6 +897,9 @@ class SnrgSalesTrackingPage {
             "Credit Hold": "red",
             "Credit OK": "green",
             "Mixed": "amber",
+            "Draft": "amber",
+            "Submitted": "blue",
+            "Cancelled": "red",
             "Pending": "amber",
             "Partially Delivered": "amber",
             "Partial": "amber",
