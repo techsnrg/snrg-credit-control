@@ -870,19 +870,38 @@ class SnrgSalesTrackingPage {
         return [
             {
                 key: "quotation_id",
-                label: "Quotation ID",
+                label: "Quotation",
                 type: "text",
                 render: (row) => `
                     <div class="snrg-st-cell-lines">
                         <a class="snrg-st-link snrg-st-open-quotation">${frappe.utils.escape_html(row.quotation_id)}</a>
+                        <span>${this.statusPill(row.quotation_status)}</span>
+                    </div>
+                `,
+            },
+            {
+                key: "current_stage",
+                label: "Current Stage",
+                type: "select",
+                render: (row) => `
+                    <div class="snrg-st-cell-lines">
+                        <span>${this.statusPill(row.current_stage)}</span>
                         <a href="#" class="snrg-st-link snrg-st-open-journey secondary">View Journey</a>
                     </div>
                 `,
             },
-            { key: "quotation_status", label: "Quotation Status", type: "select", render: (row) => this.statusPill(row.quotation_status) },
-            { key: "current_stage", label: "Current Stage", type: "select", render: (row) => this.statusPill(row.current_stage) },
-            { key: "order_date", label: "Order Date", type: "date", render: (row) => this.formatDate(row.order_date) },
-            { key: "channel_partner_name", label: "Channel Partner Name", type: "text", render: (row) => this.escapeCell(row.channel_partner_name) },
+            { key: "order_date", label: "Quotation Date", type: "date", render: (row) => this.formatDate(row.order_date) },
+            {
+                key: "channel_partner_name",
+                label: "Customer",
+                type: "text",
+                render: (row) => `
+                    <div class="snrg-st-cell-lines">
+                        <span class="secondary">${this.escapeText(row.customer || "-")}</span>
+                        <span>${this.escapeText(row.channel_partner_name || "-")}</span>
+                    </div>
+                `,
+            },
             { key: "zone", label: "Zone", type: "text", render: (row) => this.escapeCell(row.zone) },
             { key: "city", label: "City", type: "text", render: (row) => this.escapeCell(row.city) },
             { key: "state", label: "State", type: "text", render: (row) => this.escapeCell(row.state) },
