@@ -44,13 +44,7 @@ class SnrgSalesTrackingPage {
                     box-shadow:none; padding:8px 10px 10px;
                 }
                 .snrg-st-filter-header {
-                    display:flex; justify-content:space-between; gap:10px; align-items:flex-start; flex-wrap:wrap; margin-bottom:6px;
-                }
-                .snrg-st-filter-title h2 {
-                    margin:0; font-size:17px; line-height:1.1; font-weight:800; color:#0f172a;
-                }
-                .snrg-st-filter-title p {
-                    margin:2px 0 0; font-size:10px; line-height:1.35; color:#64748b; max-width:680px;
+                    display:flex; justify-content:flex-end; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:6px;
                 }
                 .snrg-st-meta { display:flex; gap:8px; flex-wrap:wrap; }
                 .snrg-st-chip {
@@ -260,10 +254,6 @@ class SnrgSalesTrackingPage {
             <div class="snrg-st-page">
                 <section class="snrg-st-filter-panel">
                     <div class="snrg-st-filter-header">
-                        <div class="snrg-st-filter-title">
-                            <h2>Sales Tracking</h2>
-                            <p>Track customer quotations through credit, billing, dispatch, delivery, and POD completion from one operational view.</p>
-                        </div>
                         <div class="snrg-st-meta"></div>
                     </div>
                     <div class="snrg-st-control-strip">
@@ -730,7 +720,6 @@ class SnrgSalesTrackingPage {
         const generated = this.data?.generated_on ? frappe.datetime.str_to_user(this.data.generated_on) : frappe.datetime.now_datetime();
         this.wrapper.find(".snrg-st-meta").html(`
             <span class="snrg-st-chip">Updated: ${frappe.utils.escape_html(generated)}</span>
-            <span class="snrg-st-chip">Company: ${frappe.utils.escape_html(this.controls.company.get_value() || "All Companies")}</span>
         `);
     }
 
