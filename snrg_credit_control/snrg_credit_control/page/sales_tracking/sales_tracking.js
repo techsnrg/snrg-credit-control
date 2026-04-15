@@ -17,6 +17,7 @@ class SnrgSalesTrackingPage {
         this.sortState = { key: null, direction: null };
         this.columnFilters = {};
         this.columns = [];
+        this.suppressFilterRefresh = false;
 
         this.setup();
     }
@@ -259,7 +260,7 @@ class SnrgSalesTrackingPage {
             fieldtype: "Link",
             options: "Company",
             default: frappe.defaults.get_user_default("Company"),
-            change: () => this.refresh(),
+            change: () => this.handleFilterChange(),
         });
 
         this.controls.order_month = this.makeFilterControl(".snrg-st-month-filter", {
@@ -267,14 +268,14 @@ class SnrgSalesTrackingPage {
             fieldname: "order_month",
             fieldtype: "Select",
             options: "\n",
-            change: () => this.refresh(),
+            change: () => this.handleFilterChange(),
         });
 
         this.controls.date_range = this.makeFilterControl(".snrg-st-date-range-filter", {
             label: "Date Range",
             fieldname: "date_range",
             fieldtype: "DateRange",
-            change: () => this.refresh(),
+            change: () => this.handleFilterChange(),
         });
 
         this.controls.territory = this.makeFilterControl(".snrg-st-territory-filter", {
@@ -282,7 +283,7 @@ class SnrgSalesTrackingPage {
             fieldname: "territory",
             fieldtype: "Select",
             options: "\n",
-            change: () => this.refresh(),
+            change: () => this.handleFilterChange(),
         });
 
         this.controls.credit_status = this.makeFilterControl(".snrg-st-credit-filter", {
@@ -290,7 +291,7 @@ class SnrgSalesTrackingPage {
             fieldname: "credit_status",
             fieldtype: "Select",
             options: "\nCredit OK\nCredit Hold\nMixed\nNot Run",
-            change: () => this.refresh(),
+            change: () => this.handleFilterChange(),
         });
 
         this.controls.search = this.makeFilterControl(".snrg-st-search-filter", {
@@ -298,7 +299,7 @@ class SnrgSalesTrackingPage {
             fieldname: "search",
             fieldtype: "Data",
             placeholder: "Quotation / customer",
-            change: frappe.utils.debounce(() => this.refresh(), 350),
+            change: frappe.utils.debounce(() => this.handleFilterChange(), 350),
         });
 
         this.render_loading();
@@ -313,6 +314,11 @@ class SnrgSalesTrackingPage {
         });
         control.refresh();
         return control;
+    }
+
+    handleFilterChange() {
+        if (this.suppressFilterRefresh) return;
+        this.refresh();
     }
 
     bind_events() {
@@ -399,8 +405,6 @@ class SnrgSalesTrackingPage {
             },
         });
         this.data = response.message || { rows: [], summary: {} };
-        this.updateOrderMonthOptions();
-        this.updateTerritoryOptions();
         this.render();
     }
 
@@ -422,8 +426,6 @@ class SnrgSalesTrackingPage {
 
     updateOrderMonthOptions() {
         if (!this.controls.order_month) return;
-
-        const currentValue = this.controls.order_month.get_value();
         const monthMap = new Map();
 
         (this.data?.rows || []).forEach((row) => {
@@ -439,17 +441,11 @@ class SnrgSalesTrackingPage {
                 optionLines.push(label);
             });
 
-        this.controls.order_month.df.options = optionLines.join("\n");
-        this.controls.order_month.refresh();
-        if (currentValue && optionLines.includes(currentValue)) {
-            this.controls.order_month.set_value(currentValue);
-        }
+        this.setSelectOptions(this.controls.order_month, optionLines);
     }
 
     updateTerritoryOptions() {
         if (!this.controls.territory) return;
-
-        const currentValue = this.controls.territory.get_value();
         const values = new Set();
         (this.data?.rows || []).forEach((row) => {
             if (row.zone) {
@@ -462,10 +458,31 @@ class SnrgSalesTrackingPage {
             .sort((left, right) => left.localeCompare(right, undefined, { sensitivity: "base" }))
             .forEach((value) => optionLines.push(value));
 
-        this.controls.territory.df.options = optionLines.join("\n");
-        this.controls.territory.refresh();
-        if (currentValue && optionLines.includes(currentValue)) {
-            this.controls.territory.set_value(currentValue);
+        this.setSelectOptions(this.controls.territory, optionLines);
+    }
+
+    setSelectOptions(control, optionLines) {
+        if (!control) return;
+
+        const currentValue = control.get_value();
+        const nextOptions = optionLines.join("\n");
+        const currentOptions = control.df.options || "";
+        const hasCurrentValue = currentValue && optionLines.includes(currentValue);
+
+        if (currentOptions === nextOptions && (!currentValue || hasCurrentValue)) {
+            return;
+        }
+
+        this.suppressFilterRefresh = true;
+        try {
+            control.df.options = nextOptions;
+            control.refresh();
+
+            if (currentValue && hasCurrentValue && control.get_value() !== currentValue) {
+                control.set_value(currentValue);
+            }
+        } finally {
+            this.suppressFilterRefresh = false;
         }
     }
 
