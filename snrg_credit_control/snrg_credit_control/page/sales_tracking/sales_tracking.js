@@ -137,6 +137,17 @@ class SnrgSalesTrackingPage {
                     padding:12px 14px; border-bottom:1px solid #edf2f7; font-size:13px; line-height:1.45; vertical-align:top;
                     color:#1e293b;
                 }
+                .snrg-st-table tfoot td {
+                    position: sticky;
+                    bottom: 0;
+                    z-index: 2;
+                    background: #f8fafc;
+                    border-top: 2px solid #cbd5e1;
+                    font-size: 12px;
+                    font-weight: 800;
+                    color: #0f172a;
+                    box-shadow: inset 0 1px 0 #e2e8f0;
+                }
                 .snrg-st-table tr:hover td { background:#fcfdff; }
                 .snrg-st-link { color:#0f766e; font-weight:700; text-decoration:none; cursor:pointer; }
                 .snrg-st-link:hover { text-decoration:underline; }
@@ -457,11 +468,13 @@ class SnrgSalesTrackingPage {
                 ${this.columns.map((column) => `<td>${column.render(row)}</td>`).join("")}
             </tr>
         `).join("");
+        const footerHtml = this.renderFooter(rows);
 
         this.wrapper.find(".snrg-st-table-container").html(`
             <table class="snrg-st-table">
                 <thead><tr>${headerHtml}</tr></thead>
                 <tbody>${bodyHtml}</tbody>
+                <tfoot>${footerHtml}</tfoot>
             </table>
         `);
     }
@@ -523,6 +536,55 @@ class SnrgSalesTrackingPage {
         const sourceRows = [...(this.data?.rows || [])];
         const filteredRows = sourceRows.filter((row) => this.rowMatchesFilters(row));
         return this.applySort(filteredRows);
+    }
+
+    renderFooter(rows) {
+        const totals = this.getFooterTotals(rows);
+        const footerCells = this.columns.map((column, index) => {
+            if (index === 0) {
+                return `<td>Total</td>`;
+            }
+
+            if (column.key === "order_value") {
+                return `<td>${this.money(totals.order_value, totals.currency)}</td>`;
+            }
+            if (column.key === "basic_value") {
+                return `<td>${this.money(totals.basic_value, totals.currency)}</td>`;
+            }
+            if (column.key === "invoice_amount") {
+                return `<td>${this.money(totals.invoice_amount, totals.currency)}</td>`;
+            }
+            if (column.key === "shortage_amount") {
+                return `<td>${this.money(totals.shortage_amount, totals.currency)}</td>`;
+            }
+            if (column.key === "no_of_cartons") {
+                return `<td>${frappe.format(totals.no_of_cartons || 0, { fieldtype: "Int" })}</td>`;
+            }
+            return `<td></td>`;
+        }).join("");
+
+        return `<tr>${footerCells}</tr>`;
+    }
+
+    getFooterTotals(rows) {
+        return rows.reduce((accumulator, row) => {
+            accumulator.order_value += Number(row.order_value || 0);
+            accumulator.basic_value += Number(row.basic_value || 0);
+            accumulator.invoice_amount += Number(row.invoice_amount || 0);
+            accumulator.shortage_amount += Number(row.shortage_amount || 0);
+            accumulator.no_of_cartons += Number(row.no_of_cartons || 0);
+            if (!accumulator.currency && row.currency) {
+                accumulator.currency = row.currency;
+            }
+            return accumulator;
+        }, {
+            order_value: 0,
+            basic_value: 0,
+            invoice_amount: 0,
+            shortage_amount: 0,
+            no_of_cartons: 0,
+            currency: "INR",
+        });
     }
 
     rowMatchesFilters(row) {
