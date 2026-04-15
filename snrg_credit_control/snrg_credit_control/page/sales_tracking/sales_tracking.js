@@ -16,17 +16,22 @@ class SnrgSalesTrackingPage {
         this.controls = {};
         this.sortState = { key: null, direction: null };
         this.columnFilters = {};
+        this.kpiFilters = {};
         this.columns = [];
         this.suppressFilterRefresh = false;
+        this.savedViews = [];
+        this.activeSavedView = "";
 
         this.setup();
     }
 
     setup() {
         this.page.set_primary_action("Refresh", () => this.refresh(), "refresh");
+        this.page.set_secondary_action("Export", () => this.exportTrackerView(), "download");
         this.render_shell();
         this.make_filters();
         this.bind_events();
+        this.loadSavedViews();
         this.refresh();
     }
 
@@ -53,9 +58,18 @@ class SnrgSalesTrackingPage {
                     background:#f8fafc; border:1px solid #dbe3ef; font-size:12px; color:#334155; font-weight:600;
                 }
                 .snrg-st-filter-row { display:grid; grid-template-columns:repeat(6, minmax(180px, 1fr)); gap:12px; align-items:start; }
+                .snrg-st-view-row { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-top:12px; }
                 .snrg-st-filter-slot {
                     width: 100%;
                 }
+                .snrg-st-saved-view-filter { min-width:260px; flex:1 1 260px; }
+                .snrg-st-view-actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+                .snrg-st-btn {
+                    display:inline-flex; align-items:center; justify-content:center; gap:6px;
+                    padding:8px 12px; border-radius:10px; border:1px solid #cbd5e1;
+                    background:#fff; color:#0f172a; font-size:12px; font-weight:700; cursor:pointer;
+                }
+                .snrg-st-btn:hover { background:#f8fafc; border-color:#94a3b8; }
                 .snrg-st-filter-row .frappe-control {
                     margin-bottom: 0;
                     padding: 8px 10px 8px;
@@ -114,6 +128,12 @@ class SnrgSalesTrackingPage {
                     justify-content: space-between;
                     gap: 8px;
                 }
+                .snrg-st-mini-stat.interactive { cursor:pointer; }
+                .snrg-st-mini-stat.active {
+                    border-color:#0f766e;
+                    background:#ecfeff;
+                    box-shadow: inset 0 0 0 1px rgba(15,118,110,.12);
+                }
                 .snrg-st-mini-stat-label {
                     font-size: 11px;
                     color: #64748b;
@@ -134,6 +154,7 @@ class SnrgSalesTrackingPage {
                     display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; padding:16px 18px;
                     border-bottom:1px solid #e2e8f0; background:#f8fafc;
                 }
+                .snrg-st-toolbar-actions { display:flex; gap:8px; flex-wrap:wrap; }
                 .snrg-st-table-wrap {
                     overflow: auto;
                     max-height: calc(100vh - 260px);
@@ -199,6 +220,7 @@ class SnrgSalesTrackingPage {
                 .snrg-st-pill.amber { background:#fffbeb; border-color:#fcd34d; color:#b45309; }
                 .snrg-st-pill.blue { background:#eff6ff; border-color:#bfdbfe; color:#1d4ed8; }
                 .snrg-st-pill.slate { background:#f8fafc; border-color:#cbd5e1; color:#475569; }
+                .snrg-st-pill.interactive { cursor:pointer; }
                 .snrg-st-empty {
                     padding:28px 16px; text-align:center; color:#64748b; font-size:13px; border:1px dashed #cbd5e1;
                     border-radius:18px; background:#f8fafc; margin:16px;
@@ -235,15 +257,27 @@ class SnrgSalesTrackingPage {
                         <div class="snrg-st-filter-slot snrg-st-credit-filter"></div>
                         <div class="snrg-st-filter-slot snrg-st-search-filter"></div>
                     </div>
+                    <div class="snrg-st-view-row">
+                        <div class="snrg-st-saved-view-filter"></div>
+                        <div class="snrg-st-view-actions">
+                            <button class="snrg-st-btn snrg-st-save-view" type="button">Save View</button>
+                            <button class="snrg-st-btn snrg-st-save-as-view" type="button">Save As</button>
+                            <button class="snrg-st-btn snrg-st-delete-view" type="button">Delete View</button>
+                            <button class="snrg-st-btn snrg-st-reset-filters" type="button">Reset</button>
+                            <button class="snrg-st-btn snrg-st-export-table" type="button">Export</button>
+                        </div>
+                    </div>
                 </section>
                 <section class="snrg-st-summary"></section>
                 <section class="snrg-st-table-shell">
                     <div class="snrg-st-table-toolbar">
                         <div class="snrg-st-toolbar-title">
                             <strong>Live Tracker</strong>
-                            <span class="snrg-st-muted">Click invoice, salesperson, SO delivery, or remarks cells for detail.</span>
+                            <span class="snrg-st-muted">Click invoice, shortage, salesperson, SO delivery, or remarks cells for detail.</span>
                         </div>
-                        <div class="snrg-st-row-count snrg-st-muted"></div>
+                        <div class="snrg-st-toolbar-actions">
+                            <div class="snrg-st-row-count snrg-st-muted"></div>
+                        </div>
                     </div>
                     <div class="snrg-st-table-wrap">
                         <div class="snrg-st-table-container"></div>
@@ -302,6 +336,14 @@ class SnrgSalesTrackingPage {
             change: frappe.utils.debounce(() => this.handleFilterChange(), 350),
         });
 
+        this.controls.saved_view = this.makeFilterControl(".snrg-st-saved-view-filter", {
+            label: "Saved View",
+            fieldname: "saved_view",
+            fieldtype: "Select",
+            options: "\n",
+            change: () => this.handleSavedViewChange(),
+        });
+
         this.render_loading();
     }
 
@@ -319,6 +361,162 @@ class SnrgSalesTrackingPage {
     handleFilterChange() {
         if (this.suppressFilterRefresh) return;
         this.refresh();
+    }
+
+    handleSavedViewChange() {
+        if (this.suppressFilterRefresh) return;
+        const docname = this.controls.saved_view.get_value();
+        this.activeSavedView = docname || "";
+        if (!docname) {
+            return;
+        }
+        const view = this.savedViews.find((entry) => entry.name === docname);
+        if (!view?.state) {
+            return;
+        }
+        this.applyViewState(view.state);
+    }
+
+    async loadSavedViews() {
+        const response = await frappe.call({
+            method: "snrg_credit_control.snrg_credit_control.page.sales_tracking.sales_tracking.get_saved_views",
+        });
+        this.savedViews = response.message || [];
+        this.updateSavedViewOptions();
+    }
+
+    updateSavedViewOptions() {
+        if (!this.controls.saved_view) return;
+        const optionLines = [""];
+        this.savedViews.forEach((view) => optionLines.push(view.name));
+        this.setSelectOptions(this.controls.saved_view, optionLines);
+        if (this.activeSavedView && optionLines.includes(this.activeSavedView)) {
+            this.suppressFilterRefresh = true;
+            try {
+                this.controls.saved_view.set_value(this.activeSavedView);
+            } finally {
+                this.suppressFilterRefresh = false;
+            }
+        }
+    }
+
+    captureViewState() {
+        const dateRange = this.controls.date_range.get_value() || [];
+        const [from_date, to_date] = Array.isArray(dateRange) ? dateRange : [null, null];
+        return {
+            topFilters: {
+                company: this.controls.company.get_value() || "",
+                order_month: this.controls.order_month.get_value() || "",
+                from_date: from_date || "",
+                to_date: to_date || "",
+                territory: this.controls.territory.get_value() || "",
+                credit_status: this.controls.credit_status.get_value() || "",
+                search: this.controls.search.get_value() || "",
+            },
+            kpiFilters: { ...this.kpiFilters },
+            columnFilters: { ...this.columnFilters },
+            sortState: { ...this.sortState },
+        };
+    }
+
+    async applyViewState(state) {
+        if (!state || typeof state !== "object") return;
+        const topFilters = state.topFilters || {};
+
+        this.suppressFilterRefresh = true;
+        try {
+            this.controls.company.set_value(topFilters.company || "");
+            this.controls.order_month.set_value(topFilters.order_month || "");
+            this.controls.date_range.set_value([
+                topFilters.from_date || "",
+                topFilters.to_date || "",
+            ]);
+            this.controls.territory.set_value(topFilters.territory || "");
+            this.controls.credit_status.set_value(topFilters.credit_status || "");
+            this.controls.search.set_value(topFilters.search || "");
+            this.columnFilters = { ...(state.columnFilters || {}) };
+            this.sortState = { key: null, direction: null, ...(state.sortState || {}) };
+            this.kpiFilters = { ...(state.kpiFilters || {}) };
+        } finally {
+            this.suppressFilterRefresh = false;
+        }
+
+        await this.refresh();
+    }
+
+    resetAllFilters() {
+        this.suppressFilterRefresh = true;
+        try {
+            this.controls.company.set_value(frappe.defaults.get_user_default("Company") || "");
+            this.controls.order_month.set_value("");
+            this.controls.date_range.set_value(["", ""]);
+            this.controls.territory.set_value("");
+            this.controls.credit_status.set_value("");
+            this.controls.search.set_value("");
+            this.controls.saved_view.set_value("");
+            this.columnFilters = {};
+            this.kpiFilters = {};
+            this.sortState = { key: null, direction: null };
+            this.activeSavedView = "";
+        } finally {
+            this.suppressFilterRefresh = false;
+        }
+        this.refresh();
+    }
+
+    async saveCurrentView(forceNew) {
+        const existing = this.savedViews.find((entry) => entry.name === this.activeSavedView);
+        let defaultName = existing?.view_name || "";
+        if (forceNew) {
+            defaultName = "";
+        }
+
+        frappe.prompt(
+            [
+                {
+                    fieldname: "view_name",
+                    fieldtype: "Data",
+                    label: "View Name",
+                    reqd: 1,
+                    default: defaultName,
+                },
+            ],
+            async (values) => {
+                const response = await frappe.call({
+                    method: "snrg_credit_control.snrg_credit_control.page.sales_tracking.sales_tracking.save_saved_view",
+                    args: {
+                        view_name: values.view_name,
+                        state_json: JSON.stringify(this.captureViewState()),
+                        docname: forceNew ? "" : (existing?.name || ""),
+                    },
+                });
+                const saved = response.message || {};
+                this.activeSavedView = saved.name || values.view_name;
+                await this.loadSavedViews();
+                frappe.show_alert({ message: "Saved view updated", indicator: "green" });
+            },
+            forceNew ? "Save View As" : "Save View",
+            "Save"
+        );
+    }
+
+    async deleteCurrentView() {
+        const existing = this.savedViews.find((entry) => entry.name === this.activeSavedView);
+        if (!existing) {
+            frappe.show_alert({ message: "Select a saved view first", indicator: "orange" });
+            return;
+        }
+
+        frappe.confirm(`Delete saved view ${frappe.utils.escape_html(existing.view_name)}?`, async () => {
+            await frappe.call({
+                method: "snrg_credit_control.snrg_credit_control.page.sales_tracking.sales_tracking.delete_saved_view",
+                args: { docname: existing.name },
+            });
+            this.activeSavedView = "";
+            await this.loadSavedViews();
+            this.controls.saved_view.set_value("");
+            frappe.show_alert({ message: "Saved view deleted", indicator: "green" });
+        });
     }
 
     bind_events() {
@@ -339,6 +537,15 @@ class SnrgSalesTrackingPage {
             const row = this.getVisibleRows()[index];
             if (row) {
                 frappe.set_route("Form", "Quotation", row.quotation_id);
+            }
+        });
+
+        this.wrapper.on("click", ".snrg-st-open-journey", (event) => {
+            event.preventDefault();
+            const index = Number($(event.currentTarget).closest("[data-row-index]").data("rowIndex"));
+            const row = this.getVisibleRows()[index];
+            if (row) {
+                this.showJourneyDialog(row);
             }
         });
 
@@ -367,6 +574,15 @@ class SnrgSalesTrackingPage {
             }
         });
 
+        this.wrapper.on("click", ".snrg-st-open-shortage", (event) => {
+            event.preventDefault();
+            const index = Number($(event.currentTarget).closest("[data-row-index]").data("rowIndex"));
+            const row = this.getVisibleRows()[index];
+            if (row) {
+                this.showShortageDialog(row);
+            }
+        });
+
         this.wrapper.on("click", ".snrg-st-open-sales-orders", (event) => {
             const index = Number($(event.currentTarget).closest("[data-row-index]").data("rowIndex"));
             const row = this.getVisibleRows()[index];
@@ -384,6 +600,17 @@ class SnrgSalesTrackingPage {
                 this.controls.credit_status.set_value("");
             }
         });
+
+        this.wrapper.on("click", ".snrg-st-mini-stat[data-kpi-group]", (event) => {
+            const target = $(event.currentTarget);
+            this.toggleKpiFilter(target.data("kpiGroup"), target.data("kpiValue"));
+        });
+
+        this.wrapper.on("click", ".snrg-st-save-view", () => this.saveCurrentView(false));
+        this.wrapper.on("click", ".snrg-st-save-as-view", () => this.saveCurrentView(true));
+        this.wrapper.on("click", ".snrg-st-delete-view", () => this.deleteCurrentView());
+        this.wrapper.on("click", ".snrg-st-reset-filters", () => this.resetAllFilters());
+        this.wrapper.on("click", ".snrg-st-export-table", () => this.exportTrackerView());
     }
 
     async refresh() {
@@ -495,57 +722,66 @@ class SnrgSalesTrackingPage {
     renderSummary() {
         const rows = this.getVisibleRows();
         const counts = this.getStatusCounts(rows);
-        const creditHoldActive = this.controls.credit_status.get_value() === "Credit Hold";
         const cards = [
             {
                 label: "Quotation Status",
                 stats: [
-                    { label: "Draft", value: counts.quotationStatus.Draft || 0 },
-                    { label: "Submitted", value: counts.quotationStatus.Submitted || 0 },
-                    { label: "Cancelled", value: counts.quotationStatus.Cancelled || 0 },
+                    { label: "Draft", value: counts.quotationStatus.Draft || 0, group: "quotation_status", key: "Draft" },
+                    { label: "Submitted", value: counts.quotationStatus.Submitted || 0, group: "quotation_status", key: "Submitted" },
+                    { label: "Cancelled", value: counts.quotationStatus.Cancelled || 0, group: "quotation_status", key: "Cancelled" },
                 ],
             },
             {
                 label: "Credit Status",
-                interactive: true,
-                action: creditHoldActive ? "clear-credit-hold" : "credit-hold",
-                helper: creditHoldActive ? "Click to clear hold filter" : "Click card to filter credit hold rows",
                 stats: [
-                    { label: "Credit Hold", value: counts.creditStatus["Credit Hold"] || 0 },
-                    { label: "Credit OK", value: counts.creditStatus["Credit OK"] || 0 },
-                    { label: "Mixed", value: counts.creditStatus.Mixed || 0 },
+                    { label: "Credit Hold", value: counts.creditStatus["Credit Hold"] || 0, group: "credit_status", key: "Credit Hold" },
+                    { label: "Credit OK", value: counts.creditStatus["Credit OK"] || 0, group: "credit_status", key: "Credit OK" },
+                    { label: "Mixed", value: counts.creditStatus.Mixed || 0, group: "credit_status", key: "Mixed" },
                 ],
             },
             {
                 label: "Delivery Status",
                 stats: [
-                    { label: "Delivered", value: counts.deliveryStatus.Delivered || 0 },
-                    { label: "Partial", value: counts.deliveryStatus["Partially Delivered"] || 0 },
-                    { label: "Pending", value: counts.deliveryStatus.Pending || 0 },
+                    { label: "Delivered", value: counts.deliveryStatus.Delivered || 0, group: "delivery_status_overall", key: "Delivered" },
+                    { label: "Partial", value: counts.deliveryStatus["Partially Delivered"] || 0, group: "delivery_status_overall", key: "Partially Delivered" },
+                    { label: "Pending", value: counts.deliveryStatus.Pending || 0, group: "delivery_status_overall", key: "Pending" },
                 ],
             },
             {
                 label: "POD Status",
                 stats: [
-                    { label: "Complete", value: counts.podStatus.Complete || 0 },
-                    { label: "Partial", value: counts.podStatus.Partial || 0 },
-                    { label: "Pending", value: counts.podStatus.Pending || 0 },
+                    { label: "Complete", value: counts.podStatus.Complete || 0, group: "pod_status", key: "Complete" },
+                    { label: "Partial", value: counts.podStatus.Partial || 0, group: "pod_status", key: "Partial" },
+                    { label: "Pending", value: counts.podStatus.Pending || 0, group: "pod_status", key: "Pending" },
+                ],
+            },
+            {
+                label: "Exceptions",
+                stats: [
+                    { label: "Overdue ESD", value: counts.exceptions.overdue_esd || 0, group: "exception", key: "overdue_esd" },
+                    { label: "Pending Dispatch", value: counts.exceptions.invoice_pending_dispatch || 0, group: "exception", key: "invoice_pending_dispatch" },
+                    { label: "Pending POD", value: counts.exceptions.delivered_pending_pod || 0, group: "exception", key: "delivered_pending_pod" },
+                    { label: "Hold Breached", value: counts.exceptions.credit_hold_breached || 0, group: "exception", key: "credit_hold_breached" },
+                    { label: "No Invoice After SO", value: counts.exceptions.no_invoice_after_so || 0, group: "exception", key: "no_invoice_after_so" },
                 ],
             },
         ];
 
         this.wrapper.find(".snrg-st-summary").html(cards.map((card) => `
-            <div class="snrg-st-card snrg-st-summary-card ${card.interactive ? "interactive" : ""}" ${card.action ? `data-summary-action="${card.action}"` : ""}>
+            <div class="snrg-st-card snrg-st-summary-card">
                 <div class="snrg-st-card-label">${frappe.utils.escape_html(card.label)}</div>
                 <div class="snrg-st-card-grid">
                     ${(card.stats || []).map((stat) => `
-                        <div class="snrg-st-mini-stat">
+                        <div
+                            class="snrg-st-mini-stat interactive ${this.isKpiFilterActive(stat.group, stat.key) ? "active" : ""}"
+                            data-kpi-group="${frappe.utils.escape_html(stat.group || "")}"
+                            data-kpi-value="${frappe.utils.escape_html(stat.key || "")}"
+                        >
                             <span class="snrg-st-mini-stat-label">${frappe.utils.escape_html(stat.label)}</span>
                             <span class="snrg-st-mini-stat-value">${frappe.format(stat.value || 0, { fieldtype: "Int" })}</span>
                         </div>
                     `).join("")}
                 </div>
-                ${card.helper ? `<div class="snrg-st-muted" style="margin-top:8px;font-size:12px;">${frappe.utils.escape_html(card.helper)}</div>` : ""}
             </div>
         `).join(""));
     }
@@ -584,8 +820,19 @@ class SnrgSalesTrackingPage {
 
     buildColumns() {
         return [
-            { key: "quotation_id", label: "Quotation ID", type: "text", render: (row) => `<a class="snrg-st-link snrg-st-open-quotation">${frappe.utils.escape_html(row.quotation_id)}</a>` },
+            {
+                key: "quotation_id",
+                label: "Quotation ID",
+                type: "text",
+                render: (row) => `
+                    <div class="snrg-st-cell-lines">
+                        <a class="snrg-st-link snrg-st-open-quotation">${frappe.utils.escape_html(row.quotation_id)}</a>
+                        <a href="#" class="snrg-st-link snrg-st-open-journey secondary">View Journey</a>
+                    </div>
+                `,
+            },
             { key: "quotation_status", label: "Quotation Status", type: "select", render: (row) => this.statusPill(row.quotation_status) },
+            { key: "current_stage", label: "Current Stage", type: "select", render: (row) => this.statusPill(row.current_stage) },
             { key: "order_month", label: "Order Month", type: "text", render: (row) => this.escapeCell(row.order_month) },
             { key: "order_date", label: "Order Date", type: "date", render: (row) => this.formatDate(row.order_date) },
             { key: "channel_partner_name", label: "Channel Partner Name", type: "text", render: (row) => this.escapeCell(row.channel_partner_name) },
@@ -597,6 +844,12 @@ class SnrgSalesTrackingPage {
             { key: "basic_value", label: "Basic Value", type: "number", render: (row) => this.money(row.basic_value, row.currency) },
             { key: "credit_status", label: "Credit Status", type: "select", render: (row) => this.statusPill(row.credit_status) },
             { key: "credit_clearance_date", label: "Credit Clearance Date", type: "date", render: (row) => this.formatDate(row.credit_clearance_date) },
+            { key: "quotation_to_credit_clearance_days", label: "Qtn to Credit SLA", type: "number", render: (row) => this.slaCell(row.quotation_to_credit_clearance_days, row.quotation_to_credit_clearance_sla) },
+            { key: "quotation_to_delivery_days", label: "Qtn to Delivery SLA", type: "number", render: (row) => this.slaCell(row.quotation_to_delivery_days, row.quotation_to_delivery_sla) },
+            { key: "invoice_to_delivery_days", label: "Inv to Delivery SLA", type: "number", render: (row) => this.slaCell(row.invoice_to_delivery_days, row.invoice_to_delivery_sla) },
+            { key: "delivery_to_pod_days", label: "Delivery to POD SLA", type: "number", render: (row) => this.slaCell(row.delivery_to_pod_days, row.delivery_to_pod_sla) },
+            { key: "credit_hold_age_days", label: "Credit Hold Age", type: "number", render: (row) => this.slaCell(row.credit_hold_age_days, row.credit_hold_age_sla) },
+            { key: "esd_delay_days", label: "ESD Delay", type: "number", render: (row) => this.slaCell(row.esd_delay_days, row.esd_delay_sla) },
             { key: "delay_reason", label: "Delay Reason", type: "text", render: (row) => this.escapeCell(row.delay_reason) },
             { key: "original_esd", label: "Original ESD", type: "date", render: (row) => this.formatDate(row.original_esd) },
             { key: "sales_order_delivery_date", label: "SO Delivery Date", type: "date", render: (row) => row.sales_orders?.length ? `<a class="snrg-st-link snrg-st-open-sales-orders">${this.formatDate(row.sales_order_delivery_date)}</a>` : this.emptyCell() },
@@ -604,7 +857,7 @@ class SnrgSalesTrackingPage {
             { key: "invoice_summary", label: "Invoice No", type: "text", render: (row) => row.invoice_details?.length ? `<a class="snrg-st-link snrg-st-open-invoices">${frappe.utils.escape_html(row.invoice_summary || "")}</a>` : this.emptyCell() },
             { key: "invoice_amount", label: "Invoice Amount", type: "number", render: (row) => row.invoice_details?.length ? `<a class="snrg-st-link snrg-st-open-invoices">${this.money(row.invoice_amount, row.currency)}</a>` : this.emptyCell() },
             { key: "invoice_date", label: "Invoice Date", type: "date", render: (row) => row.invoice_details?.length ? `<a class="snrg-st-link snrg-st-open-invoices">${this.formatDate(row.invoice_date)}</a>` : this.emptyCell() },
-            { key: "shortage_amount", label: "Shortage Details", type: "number", render: (row) => this.money(row.shortage_amount, row.currency) },
+            { key: "shortage_amount", label: "Shortage Details", type: "number", render: (row) => Math.abs(Number(row.shortage_amount || 0)) > 0.009 ? `<a href="#" class="snrg-st-link snrg-st-open-shortage">${this.money(row.shortage_amount, row.currency)}</a>` : this.money(row.shortage_amount, row.currency) },
             { key: "dispatch_date", label: "Dispatch Date", type: "date", render: (row) => row.invoice_details?.length ? `<a class="snrg-st-link snrg-st-open-invoices">${this.formatDate(row.dispatch_date)}</a>` : this.emptyCell() },
             { key: "no_of_cartons", label: "No. of Cartons", type: "number", render: (row) => row.invoice_details?.length ? `<a class="snrg-st-link snrg-st-open-invoices">${frappe.format(row.no_of_cartons || 0, { fieldtype: "Int" })}</a>` : this.emptyCell() },
             { key: "transport_name", label: "Transport Name", type: "text", render: (row) => row.invoice_details?.length ? `<a class="snrg-st-link snrg-st-open-invoices">${frappe.utils.escape_html(row.transport_name || "-")}</a>` : this.emptyCell() },
@@ -718,6 +971,13 @@ class SnrgSalesTrackingPage {
             creditStatus: {},
             deliveryStatus: {},
             podStatus: {},
+            exceptions: {
+                overdue_esd: 0,
+                invoice_pending_dispatch: 0,
+                delivered_pending_pod: 0,
+                credit_hold_breached: 0,
+                no_invoice_after_so: 0,
+            },
         };
 
         rows.forEach((row) => {
@@ -725,13 +985,18 @@ class SnrgSalesTrackingPage {
             counts.creditStatus[row.credit_status || "Unknown"] = (counts.creditStatus[row.credit_status || "Unknown"] || 0) + 1;
             counts.deliveryStatus[row.delivery_status_overall || "Unknown"] = (counts.deliveryStatus[row.delivery_status_overall || "Unknown"] || 0) + 1;
             counts.podStatus[row.pod_status || "Unknown"] = (counts.podStatus[row.pod_status || "Unknown"] || 0) + 1;
+            if (row.exception_overdue_esd) counts.exceptions.overdue_esd += 1;
+            if (row.exception_invoice_pending_dispatch) counts.exceptions.invoice_pending_dispatch += 1;
+            if (row.exception_delivered_pending_pod) counts.exceptions.delivered_pending_pod += 1;
+            if (row.exception_credit_hold_breached) counts.exceptions.credit_hold_breached += 1;
+            if (row.exception_no_invoice_after_so) counts.exceptions.no_invoice_after_so += 1;
         });
 
         return counts;
     }
 
     rowMatchesFilters(row) {
-        return Object.entries(this.columnFilters).every(([key, value]) => {
+        return this.rowMatchesKpiFilters(row) && Object.entries(this.columnFilters).every(([key, value]) => {
             if (value === null || value === undefined || value === "") {
                 return true;
             }
@@ -748,6 +1013,31 @@ class SnrgSalesTrackingPage {
 
             return String(rawValue || "").toLowerCase().includes(normalizedNeedle);
         });
+    }
+
+    rowMatchesKpiFilters(row) {
+        return Object.entries(this.kpiFilters).every(([group, value]) => {
+            if (!value) return true;
+            if (group === "exception") {
+                return Boolean(row[`exception_${value}`]);
+            }
+            return String(row[group] || "") === String(value);
+        });
+    }
+
+    isKpiFilterActive(group, value) {
+        return this.kpiFilters[group] === value;
+    }
+
+    toggleKpiFilter(group, value) {
+        if (!group || !value) return;
+        if (this.kpiFilters[group] === value) {
+            delete this.kpiFilters[group];
+        } else {
+            this.kpiFilters[group] = value;
+        }
+        this.renderSummary();
+        this.renderTable();
     }
 
     applySort(rows) {
@@ -846,6 +1136,266 @@ class SnrgSalesTrackingPage {
         return [...values].sort((left, right) => left.localeCompare(right, undefined, { sensitivity: "base" }));
     }
 
+    exportTrackerView() {
+        const rows = this.getVisibleRows();
+        const columns = this.buildColumns().map((column) => ({
+            label: column.label,
+            value: (row) => this.getExportValue(column.key, row),
+        }));
+        this.downloadCsv("sales_tracking_export.csv", columns, rows);
+    }
+
+    getExportValue(key, row) {
+        const mapping = {
+            quotation_id: row.quotation_id,
+            quotation_status: row.quotation_status,
+            current_stage: row.current_stage,
+            order_month: row.order_month,
+            order_date: row.order_date,
+            channel_partner_name: row.channel_partner_name,
+            zone: row.zone,
+            city: row.city,
+            state: row.state,
+            salesperson_summary: row.salesperson_summary,
+            order_value: row.order_value,
+            basic_value: row.basic_value,
+            credit_status: row.credit_status,
+            credit_clearance_date: row.credit_clearance_date,
+            quotation_to_credit_clearance_days: this.slaExport(row.quotation_to_credit_clearance_days, row.quotation_to_credit_clearance_sla),
+            quotation_to_delivery_days: this.slaExport(row.quotation_to_delivery_days, row.quotation_to_delivery_sla),
+            invoice_to_delivery_days: this.slaExport(row.invoice_to_delivery_days, row.invoice_to_delivery_sla),
+            delivery_to_pod_days: this.slaExport(row.delivery_to_pod_days, row.delivery_to_pod_sla),
+            credit_hold_age_days: this.slaExport(row.credit_hold_age_days, row.credit_hold_age_sla),
+            esd_delay_days: this.slaExport(row.esd_delay_days, row.esd_delay_sla),
+            delay_reason: row.delay_reason,
+            original_esd: row.original_esd,
+            sales_order_delivery_date: row.sales_order_delivery_date,
+            latest_ho_remark: row.latest_ho_remark,
+            invoice_summary: row.invoice_summary,
+            invoice_amount: row.invoice_amount,
+            invoice_date: row.invoice_date,
+            shortage_amount: row.shortage_amount,
+            dispatch_date: row.dispatch_date,
+            no_of_cartons: row.no_of_cartons,
+            transport_name: row.transport_name,
+            tracking_details: row.tracking_details,
+            delivery_status_overall: row.delivery_status_overall,
+            delivery_date: row.delivery_date,
+            pod_status: row.pod_status,
+            remarks: row.remarks,
+        };
+        return mapping[key] ?? row[key] ?? "";
+    }
+
+    slaExport(days, status) {
+        if (!days && status === "Pending") {
+            return "";
+        }
+        return `${days || 0}d ${status || ""}`.trim();
+    }
+
+    downloadCsv(filename, columns, rows) {
+        const escape = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+        const lines = [
+            columns.map((column) => escape(column.label)).join(","),
+            ...rows.map((row) => columns.map((column) => escape(column.value(row))).join(",")),
+        ];
+        const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = filename;
+        anchor.click();
+        URL.revokeObjectURL(url);
+    }
+
+    showJourneyDialog(row) {
+        const dialog = new frappe.ui.Dialog({
+            title: `Journey · ${row.quotation_id}`,
+            size: "extra-large",
+            fields: [{ fieldtype: "HTML", fieldname: "content" }],
+        });
+
+        const html = `
+            <div style="display:flex;flex-direction:column;gap:16px;">
+                <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;">
+                    ${this.renderJourneyStat("Stage", row.current_stage)}
+                    ${this.renderJourneyStat("Credit Status", row.credit_status)}
+                    ${this.renderJourneyStat("Delivery Status", row.delivery_status_overall)}
+                    ${this.renderJourneyStat("POD Status", row.pod_status)}
+                    ${this.renderJourneyStat("Quotation to Credit", this.slaExport(row.quotation_to_credit_clearance_days, row.quotation_to_credit_clearance_sla))}
+                    ${this.renderJourneyStat("Quotation to Delivery", this.slaExport(row.quotation_to_delivery_days, row.quotation_to_delivery_sla))}
+                    ${this.renderJourneyStat("Invoice to Delivery", this.slaExport(row.invoice_to_delivery_days, row.invoice_to_delivery_sla))}
+                    ${this.renderJourneyStat("Delivery to POD", this.slaExport(row.delivery_to_pod_days, row.delivery_to_pod_sla))}
+                </div>
+                <div>
+                    <h5 style="margin:0 0 8px;">Quotation Summary</h5>
+                    <table class="table table-bordered" style="margin:0;">
+                        <tbody>
+                            <tr><th>Customer</th><td>${this.escapeText(row.channel_partner_name)}</td><th>Order Value</th><td>${this.money(row.order_value, row.currency)}</td></tr>
+                            <tr><th>Original ESD</th><td>${this.textOrDash(row.original_esd)}</td><th>Credit Clearance Date</th><td>${this.textOrDash(row.credit_clearance_date)}</td></tr>
+                            <tr><th>Latest HO Remark</th><td colspan="3">${this.escapeText(row.latest_ho_remark || "-")}</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div>
+                    <h5 style="margin:0 0 8px;">Sales Orders</h5>
+                    ${this.renderSalesOrdersTable(row)}
+                </div>
+                <div>
+                    <h5 style="margin:0 0 8px;">Invoices</h5>
+                    ${this.renderInvoicesTable(row)}
+                </div>
+            </div>
+        `;
+
+        dialog.fields_dict.content.$wrapper.html(html);
+        dialog.show();
+    }
+
+    renderJourneyStat(label, value) {
+        return `
+            <div style="border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;background:#f8fafc;">
+                <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.08em;">${frappe.utils.escape_html(label)}</div>
+                <div style="margin-top:6px;font-size:14px;font-weight:800;color:#0f172a;">${frappe.utils.escape_html(String(value || "-"))}</div>
+            </div>
+        `;
+    }
+
+    renderInvoicesTable(row) {
+        const invoices = row.invoice_details || [];
+        if (!invoices.length) {
+            return `<div class="snrg-st-empty" style="margin:0;">No invoices linked yet.</div>`;
+        }
+        return `
+            <div style="overflow:auto;">
+                <table class="table table-bordered" style="margin:0;">
+                    <thead>
+                        <tr>
+                            <th>Invoice</th>
+                            <th>Date</th>
+                            <th>Amount</th>
+                            <th>Dispatch</th>
+                            <th>Delivery</th>
+                            <th>POD</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${invoices.map((invoice) => `
+                            <tr>
+                                <td><a href="/app/sales-invoice/${encodeURIComponent(invoice.name)}">${frappe.utils.escape_html(invoice.name)}</a></td>
+                                <td>${this.textOrDash(invoice.posting_date)}</td>
+                                <td>${this.money(invoice.grand_total, invoice.currency || row.currency)}</td>
+                                <td>${this.textOrDash(invoice.shipping_date)}</td>
+                                <td>${this.textOrDash(invoice.delivery_date)}</td>
+                                <td>${invoice.pod_received ? this.textOrDash(invoice.pod_received_date || "Yes") : "Pending"}</td>
+                            </tr>
+                        `).join("")}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+
+    renderSalesOrdersTable(row) {
+        const salesOrders = row.sales_orders || [];
+        if (!salesOrders.length) {
+            return `<div class="snrg-st-empty" style="margin:0;">No sales orders linked yet.</div>`;
+        }
+        return `
+            <div style="overflow:auto;">
+                <table class="table table-bordered" style="margin:0;">
+                    <thead>
+                        <tr>
+                            <th>Sales Order</th>
+                            <th>Date</th>
+                            <th>Delivery Date</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Credit Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${salesOrders.map((salesOrder) => `
+                            <tr>
+                                <td><a href="/app/sales-order/${encodeURIComponent(salesOrder.name)}">${frappe.utils.escape_html(salesOrder.name)}</a></td>
+                                <td>${this.textOrDash(salesOrder.transaction_date)}</td>
+                                <td>${this.textOrDash(salesOrder.delivery_date)}</td>
+                                <td>${this.money(salesOrder.grand_total, row.currency)}</td>
+                                <td>${this.escapeText(salesOrder.status)}</td>
+                                <td>${this.escapeText(salesOrder.credit_status || "-")}</td>
+                            </tr>
+                        `).join("")}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+
+    async showShortageDialog(row) {
+        const response = await frappe.call({
+            method: "snrg_credit_control.snrg_credit_control.page.sales_tracking.sales_tracking.get_shortage_details",
+            args: { quotation_id: row.quotation_id },
+        });
+        const payload = response.message || {};
+        const shortageRows = payload.rows || [];
+        const currency = payload.currency || row.currency || "INR";
+        const dialog = new frappe.ui.Dialog({
+            title: `Pending Items · ${row.quotation_id}`,
+            size: "extra-large",
+            fields: [{ fieldtype: "HTML", fieldname: "content" }],
+            primary_action_label: "Export CSV",
+            primary_action: () => {
+                this.downloadCsv(
+                    `${row.quotation_id}_pending_items.csv`,
+                    [
+                        { label: "Item Code", value: (entry) => entry.item_code || "" },
+                        { label: "Item Name", value: (entry) => entry.item_name || "" },
+                        { label: "Quotation Qty", value: (entry) => entry.quotation_qty || 0 },
+                        { label: "Invoiced Qty", value: (entry) => entry.invoiced_qty || 0 },
+                        { label: "Pending Qty", value: (entry) => entry.pending_qty || 0 },
+                        { label: "Quotation Value", value: (entry) => entry.quotation_value || 0 },
+                        { label: "Invoiced Value", value: (entry) => entry.invoiced_value || 0 },
+                        { label: "Pending Value", value: (entry) => entry.pending_value || 0 },
+                    ],
+                    shortageRows
+                );
+            },
+        });
+
+        const html = shortageRows.length ? `
+            <div style="overflow:auto;">
+                <table class="table table-bordered" style="margin:0;">
+                    <thead>
+                        <tr>
+                            <th>Item Code</th>
+                            <th>Item Name</th>
+                            <th>Quotation Qty</th>
+                            <th>Invoiced Qty</th>
+                            <th>Pending Qty</th>
+                            <th>Pending Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${shortageRows.map((entry) => `
+                            <tr>
+                                <td>${this.escapeText(entry.item_code || "-")}</td>
+                                <td>${this.escapeText(entry.item_name || "-")}</td>
+                                <td>${frappe.format(entry.quotation_qty || 0, { fieldtype: "Float", precision: 2 })}</td>
+                                <td>${frappe.format(entry.invoiced_qty || 0, { fieldtype: "Float", precision: 2 })}</td>
+                                <td>${frappe.format(entry.pending_qty || 0, { fieldtype: "Float", precision: 2 })}</td>
+                                <td>${this.money(entry.pending_value || 0, currency)}</td>
+                            </tr>
+                        `).join("")}
+                    </tbody>
+                </table>
+            </div>
+        ` : `<div class="snrg-st-empty" style="margin:0;">No pending items remaining for this quotation.</div>`;
+
+        dialog.fields_dict.content.$wrapper.html(html);
+        dialog.show();
+    }
+
     showInvoicesDialog(row) {
         const invoices = row.invoice_details || [];
         const dialog = new frappe.ui.Dialog({
@@ -868,6 +1418,7 @@ class SnrgSalesTrackingPage {
                             <th>Transporter</th>
                             <th>Delivery Status</th>
                             <th>Delivery Date</th>
+                            <th>POD Date</th>
                             <th>POD</th>
                             <th>Remarks</th>
                         </tr>
@@ -884,6 +1435,7 @@ class SnrgSalesTrackingPage {
                                 <td>${this.escapeCell(invoice.transporter)}</td>
                                 <td>${this.escapeCell(invoice.delivery_status || "Pending")}</td>
                                 <td>${this.formatDate(invoice.delivery_date)}</td>
+                                <td>${this.formatDate(invoice.pod_received_date)}</td>
                                 <td>${invoice.pod_received ? "Yes" : "No"}</td>
                                 <td>${this.escapeCell(invoice.dispatch_delivery_remarks)}</td>
                             </tr>
@@ -978,6 +1530,26 @@ class SnrgSalesTrackingPage {
         return frappe.datetime.str_to_user(value);
     }
 
+    textOrDash(value) {
+        return value ? frappe.utils.escape_html(String(value)) : "-";
+    }
+
+    escapeText(value) {
+        return frappe.utils.escape_html(String(value || ""));
+    }
+
+    slaCell(days, status) {
+        if ((!days && !status) || status === "Pending") {
+            return this.emptyCell();
+        }
+        return `
+            <div class="snrg-st-cell-lines">
+                <span>${frappe.format(days || 0, { fieldtype: "Int" })}d</span>
+                <span>${this.statusPill(status)}</span>
+            </div>
+        `;
+    }
+
     statusPill(value) {
         const label = value || "Pending";
         const tone = {
@@ -994,6 +1566,16 @@ class SnrgSalesTrackingPage {
             "Complete": "green",
             "In Transit": "blue",
             "Hold": "red",
+            "On Track": "green",
+            "Breached": "red",
+            "Draft Quotation": "amber",
+            "Submitted Awaiting SO": "blue",
+            "SO Created": "blue",
+            "Partially Invoiced": "amber",
+            "Fully Invoiced": "blue",
+            "Dispatched": "blue",
+            "POD Pending": "amber",
+            "Closed": "green",
         }[label] || "slate";
         return `<span class="snrg-st-pill ${tone}">${frappe.utils.escape_html(label)}</span>`;
     }

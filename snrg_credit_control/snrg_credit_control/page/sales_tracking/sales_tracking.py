@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from collections import defaultdict
+import json
 from urllib.parse import quote
 
 import frappe
-from frappe.utils import cint, flt, getdate, now_datetime
+from frappe.utils import cint, date_diff, flt, get_datetime, getdate, now_datetime, nowdate
 
 
 def get_context(context):
@@ -25,6 +26,7 @@ def get_tracker_data(
     delivery_status=None,
     limit=250,
 ):
+    sla_settings = _get_sla_settings()
     filters = {
         "company": company,
         "from_date": from_date,
@@ -39,6 +41,7 @@ def get_tracker_data(
         return {
             "generated_on": str(now_datetime()),
             "filters": filters,
+            "sla_settings": sla_settings,
             "summary": _build_summary([]),
             "rows": [],
         }
@@ -53,7 +56,7 @@ def get_tracker_data(
         salespeople = salespeople_by_quote.get(quotation.name, [])
         sales_orders = sales_orders_by_quote.get(quotation.name, [])
         invoices = invoices_by_quote.get(quotation.name, [])
-        row = _build_tracker_row(quotation, salespeople, sales_orders, invoices)
+        row = _build_tracker_row(quotation, salespeople, sales_orders, invoices, sla_settings)
         if credit_status and row["credit_status"] != credit_status:
             continue
         if delivery_status and row["delivery_status_overall"] != delivery_status:
@@ -63,13 +66,119 @@ def get_tracker_data(
     return {
         "generated_on": str(now_datetime()),
         "filters": filters,
+        "sla_settings": sla_settings,
         "summary": _build_summary(rows),
         "rows": rows,
     }
 
 
+@frappe.whitelist()
+def get_saved_views():
+    if not frappe.db.exists("DocType", "Sales Tracking Saved View"):
+        return []
+
+    views = frappe.get_all(
+        "Sales Tracking Saved View",
+        filters={"page_name": "sales-tracking", "is_shared": 1},
+        fields=["name", "view_name", "view_state_json", "modified", "modified_by"],
+        order_by="view_name asc",
+    )
+    return [
+        {
+            "name": row.name,
+            "view_name": row.view_name,
+            "modified": str(row.modified) if row.modified else "",
+            "modified_by": row.modified_by,
+            "state": _safe_json_loads(row.view_state_json),
+        }
+        for row in views
+    ]
+
+
+@frappe.whitelist()
+def save_saved_view(view_name, state_json, docname=None):
+    if not frappe.db.exists("DocType", "Sales Tracking Saved View"):
+        frappe.throw("Sales Tracking Saved View DocType is not available yet. Please run migrate.")
+
+    view_name = (view_name or "").strip()
+    if not view_name:
+        frappe.throw("View name is required.")
+
+    state = _safe_json_loads(state_json)
+    if not isinstance(state, dict):
+        frappe.throw("Saved view state must be valid JSON.")
+
+    existing_name = docname or frappe.db.exists("Sales Tracking Saved View", view_name)
+    if existing_name:
+        doc = frappe.get_doc("Sales Tracking Saved View", existing_name)
+        doc.view_name = view_name
+        doc.page_name = "sales-tracking"
+        doc.is_shared = 1
+        doc.view_state_json = json.dumps(state, separators=(",", ":"))
+        doc.save()
+        if doc.name != view_name:
+            new_name = frappe.rename_doc("Sales Tracking Saved View", doc.name, view_name, force=True)
+            doc = frappe.get_doc("Sales Tracking Saved View", new_name)
+    else:
+        doc = frappe.get_doc(
+            {
+                "doctype": "Sales Tracking Saved View",
+                "view_name": view_name,
+                "page_name": "sales-tracking",
+                "is_shared": 1,
+                "view_state_json": json.dumps(state, separators=(",", ":")),
+            }
+        ).insert()
+
+    return {
+        "name": doc.name,
+        "view_name": doc.view_name,
+        "state": state,
+    }
+
+
+@frappe.whitelist()
+def delete_saved_view(docname):
+    if not docname:
+        frappe.throw("Saved view name is required.")
+    frappe.delete_doc("Sales Tracking Saved View", docname)
+    return {"ok": True}
+
+
+@frappe.whitelist()
+def get_shortage_details(quotation_id):
+    quotation_id = (quotation_id or "").strip()
+    if not quotation_id:
+        frappe.throw("Quotation ID is required.")
+
+    quotation = frappe.db.get_value(
+        "Quotation",
+        quotation_id,
+        ["name", "currency", "customer_name", "party_name"],
+        as_dict=True,
+    )
+    if not quotation:
+        frappe.throw("Quotation not found.")
+
+    rows = _get_shortage_rows_for_quotation(quotation_id)
+    return {
+        "quotation_id": quotation_id,
+        "currency": quotation.get("currency") or "INR",
+        "channel_partner_name": quotation.get("customer_name") or quotation.get("party_name") or "",
+        "rows": rows,
+        "totals": {
+            "quotation_qty": sum(flt(row["quotation_qty"]) for row in rows),
+            "invoiced_qty": sum(flt(row["invoiced_qty"]) for row in rows),
+            "pending_qty": sum(flt(row["pending_qty"]) for row in rows),
+            "quotation_value": sum(flt(row["quotation_value"]) for row in rows),
+            "invoiced_value": sum(flt(row["invoiced_value"]) for row in rows),
+            "pending_value": sum(flt(row["pending_value"]) for row in rows),
+        },
+    }
+
+
 def _get_quotations(filters, limit=250):
-    conditions = ["q.quotation_to = 'Customer'", "q.docstatus < 2"]
+    conditions = ["q.quotation_to = 'Customer'"]
     values = {}
 
     if filters.get("company"):
@@ -121,6 +230,7 @@ def _get_quotations(filters, limit=250):
             q.custom_expected_dispatch_date,
             q.custom_latest_ho_remark,
             q.custom_snrg_credit_check_status,
+            q.custom_snrg_credit_checked_on,
             q.custom_credit_clearance_date,
             q.docstatus,
             c.custom_city,
@@ -186,6 +296,7 @@ def _get_sales_orders(quotation_names):
             so.status,
             so.docstatus,
             so.custom_snrg_credit_check_status,
+            so.custom_snrg_credit_checked_on,
             so.custom_credit_clearance_date
         FROM `tabSales Order Item` soi
         INNER JOIN `tabSales Order` so ON so.name = soi.parent
@@ -213,6 +324,7 @@ def _get_sales_orders(quotation_names):
                 "status": row.status,
                 "docstatus": cint(row.docstatus),
                 "credit_status": row.custom_snrg_credit_check_status or "",
+                "credit_checked_on": _serialize_date(row.custom_snrg_credit_checked_on),
                 "credit_clearance_date": _serialize_date(row.custom_credit_clearance_date),
             }
         )
@@ -259,9 +371,11 @@ def _get_invoices(sales_orders_by_quote):
     if not invoice_names:
         return grouped
 
+    unique_invoice_names = list(set(invoice_names))
+
     invoice_docs = frappe.get_all(
         "Sales Invoice",
-        filters={"name": ["in", list(set(invoice_names))]},
+        filters={"name": ["in", unique_invoice_names]},
         fields=[
             "name",
             "posting_date",
@@ -278,6 +392,7 @@ def _get_invoices(sales_orders_by_quote):
         ],
         order_by="posting_date desc, modified desc",
     )
+    pod_date_map = _get_pod_received_dates(invoice_docs)
 
     invoice_map = {
         doc.name: {
@@ -294,6 +409,7 @@ def _get_invoices(sales_orders_by_quote):
             "delivery_date": _serialize_date(doc.custom_delivery_date),
             "pod_attachment": doc.custom_pod_attachment or "",
             "pod_received": bool(doc.custom_pod_attachment),
+            "pod_received_date": _serialize_date(pod_date_map.get(doc.name)),
         }
         for doc in invoice_docs
     }
@@ -317,7 +433,7 @@ def _get_invoices(sales_orders_by_quote):
     return grouped
 
 
-def _build_tracker_row(quotation, salespeople, sales_orders, invoices):
+def _build_tracker_row(quotation, salespeople, sales_orders, invoices, sla_settings):
     salespeople = salespeople or []
     if not salespeople and quotation.owner:
         salespeople = [
@@ -335,6 +451,8 @@ def _build_tracker_row(quotation, salespeople, sales_orders, invoices):
     latest_delivery = _get_latest_by(invoices, "delivery_date")
     latest_sales_order = _get_latest_by(sales_orders, "delivery_date")
     latest_remark_invoice = _get_latest_non_empty(invoices, "dispatch_delivery_remarks", "shipping_date", fallback_key="posting_date")
+    earliest_invoice = _get_earliest_by(invoices, "posting_date")
+    latest_pod = _get_latest_by(invoices, "pod_received_date")
 
     invoice_total = sum(flt(invoice.get("grand_total")) for invoice in invoices)
     cartons_total = sum(cint(invoice.get("no_of_cartons")) for invoice in invoices)
@@ -345,12 +463,71 @@ def _build_tracker_row(quotation, salespeople, sales_orders, invoices):
     credit_clearance_date = _derive_credit_clearance_date(quotation, sales_orders)
     overall_delivery_status = _derive_delivery_status(invoices)
     pod_status = _derive_pod_status(invoices)
+    credit_hold_since = _derive_credit_hold_since(quotation, sales_orders, credit_status)
+    shortage_amount = flt(quotation.grand_total) - invoice_total
+    current_stage = _derive_current_stage(
+        quotation=quotation,
+        sales_orders=sales_orders,
+        invoices=invoices,
+        invoice_total=invoice_total,
+        shortage_amount=shortage_amount,
+        delivery_status=overall_delivery_status,
+        pod_status=pod_status,
+    )
+
+    quotation_to_credit_clearance_sla = _build_sla_metric(
+        quotation.transaction_date,
+        credit_clearance_date,
+        sla_settings.get("quotation_to_credit_clearance_days"),
+    )
+    quotation_to_delivery_sla = _build_sla_metric(
+        quotation.transaction_date,
+        latest_delivery.get("delivery_date") if latest_delivery else "",
+        sla_settings.get("quotation_to_delivery_days"),
+    )
+    invoice_to_delivery_sla = _build_sla_metric(
+        earliest_invoice.get("posting_date") if earliest_invoice else "",
+        latest_delivery.get("delivery_date") if latest_delivery else "",
+        sla_settings.get("invoice_to_delivery_days"),
+    )
+    delivery_to_pod_sla = _build_sla_metric(
+        latest_delivery.get("delivery_date") if latest_delivery else "",
+        latest_pod.get("pod_received_date") if latest_pod else "",
+        sla_settings.get("delivery_to_pod_days"),
+    )
+    credit_hold_age_sla = _build_sla_metric(
+        credit_hold_since,
+        "",
+        sla_settings.get("credit_hold_age_days"),
+        active=credit_status == "Credit Hold",
+    )
+    esd_delay_sla = _build_esd_delay_metric(
+        quotation.custom_expected_dispatch_date,
+        latest_delivery.get("delivery_date") if latest_delivery else "",
+        sla_settings.get("esd_delay_days"),
+        active=current_stage not in {"Closed", "Cancelled"},
+    )
+    no_invoice_after_so_sla = _build_sla_metric(
+        latest_sales_order.get("transaction_date") if latest_sales_order else "",
+        earliest_invoice.get("posting_date") if earliest_invoice else "",
+        sla_settings.get("no_invoice_after_so_days"),
+        active=bool(sales_orders),
+    )
+
+    exceptions = {
+        "overdue_esd": bool(esd_delay_sla["days"] and esd_delay_sla["status"] == "Breached"),
+        "invoice_pending_dispatch": any(not invoice.get("shipping_date") for invoice in invoices),
+        "delivered_pending_pod": overall_delivery_status == "Delivered" and pod_status != "Complete",
+        "credit_hold_breached": credit_status == "Credit Hold" and credit_hold_age_sla["status"] == "Breached",
+        "no_invoice_after_so": bool(sales_orders) and not invoices and no_invoice_after_so_sla["status"] == "Breached",
+    }
 
     return {
         "quotation_id": quotation.name,
         "quotation_url": f"/app/quotation/{quote(quotation.name)}",
         "quotation_comments_url": f"/app/quotation/{quote(quotation.name)}#comments",
         "quotation_status": _get_quotation_status_label(quotation.docstatus),
+        "current_stage": current_stage,
         "order_month": getdate(quotation.transaction_date).strftime("%b %Y") if quotation.transaction_date else "",
         "order_month_value": getdate(quotation.transaction_date).strftime("%Y-%m") if quotation.transaction_date else "",
         "order_date": _serialize_date(quotation.transaction_date),
@@ -369,19 +546,40 @@ def _build_tracker_row(quotation, salespeople, sales_orders, invoices):
         "latest_ho_remark": quotation.custom_latest_ho_remark or "",
         "credit_status": credit_status,
         "credit_clearance_date": credit_clearance_date,
+        "credit_hold_since": _serialize_date(credit_hold_since),
         "invoice_summary": _get_invoice_summary(latest_invoice_no, latest_invoice_count),
         "invoice_details": invoices,
         "invoice_amount": invoice_total,
         "invoice_date": latest_invoice.get("posting_date") if latest_invoice else "",
-        "shortage_amount": flt(quotation.grand_total) - invoice_total,
+        "shortage_amount": shortage_amount,
         "dispatch_date": latest_dispatch.get("shipping_date") if latest_dispatch else "",
         "transport_name": latest_dispatch.get("transporter") if latest_dispatch else "",
         "tracking_details": latest_dispatch.get("awb_number") if latest_dispatch else "",
         "delivery_status_overall": overall_delivery_status,
         "delivery_date": latest_delivery.get("delivery_date") if latest_delivery else "",
         "pod_status": pod_status,
+        "pod_received_date": latest_pod.get("pod_received_date") if latest_pod else "",
         "remarks": latest_remark_invoice.get("dispatch_delivery_remarks") if latest_remark_invoice else "",
         "no_of_cartons": cartons_total,
+        "quotation_to_credit_clearance_days": quotation_to_credit_clearance_sla["days"],
+        "quotation_to_credit_clearance_sla": quotation_to_credit_clearance_sla["status"],
+        "quotation_to_delivery_days": quotation_to_delivery_sla["days"],
+        "quotation_to_delivery_sla": quotation_to_delivery_sla["status"],
+        "invoice_to_delivery_days": invoice_to_delivery_sla["days"],
+        "invoice_to_delivery_sla": invoice_to_delivery_sla["status"],
+        "delivery_to_pod_days": delivery_to_pod_sla["days"],
+        "delivery_to_pod_sla": delivery_to_pod_sla["status"],
+        "credit_hold_age_days": credit_hold_age_sla["days"],
+        "credit_hold_age_sla": credit_hold_age_sla["status"],
+        "esd_delay_days": esd_delay_sla["days"],
+        "esd_delay_sla": esd_delay_sla["status"],
+        "no_invoice_after_so_days": no_invoice_after_so_sla["days"],
+        "no_invoice_after_so_sla": no_invoice_after_so_sla["status"],
+        "exception_overdue_esd": exceptions["overdue_esd"],
+        "exception_invoice_pending_dispatch": exceptions["invoice_pending_dispatch"],
+        "exception_delivered_pending_pod": exceptions["delivered_pending_pod"],
+        "exception_credit_hold_breached": exceptions["credit_hold_breached"],
+        "exception_no_invoice_after_so": exceptions["no_invoice_after_so"],
         "currency": quotation.currency or "INR",
     }
 
@@ -395,6 +593,27 @@ def _build_summary(rows):
         "delivery_complete_count": sum(1 for row in rows if row["delivery_status_overall"] == "Delivered"),
         "pod_complete_count": sum(1 for row in rows if row["pod_status"] == "Complete"),
     }
+
+
+def _get_sla_settings():
+    defaults = {
+        "quotation_to_credit_clearance_days": 3,
+        "quotation_to_delivery_days": 10,
+        "invoice_to_delivery_days": 4,
+        "delivery_to_pod_days": 2,
+        "credit_hold_age_days": 2,
+        "esd_delay_days": 1,
+        "no_invoice_after_so_days": 3,
+    }
+    if not frappe.db.exists("DocType", "Sales Tracking SLA Settings"):
+        return defaults
+
+    settings = {}
+    for fieldname, fallback in defaults.items():
+        settings[fieldname] = cint(
+            frappe.db.get_single_value("Sales Tracking SLA Settings", fieldname) or fallback
+        )
+    return settings
 
 
 def _get_primary_salesperson(salespeople):
@@ -435,6 +654,20 @@ def _derive_credit_clearance_date(quotation, sales_orders):
     return _serialize_date(quotation.custom_credit_clearance_date)
 
 
+def _derive_credit_hold_since(quotation, sales_orders, credit_status):
+    if credit_status != "Credit Hold":
+        return ""
+
+    dated_rows = [
+        row.get("credit_checked_on")
+        for row in sales_orders
+        if row.get("credit_status") == "Credit Hold" and row.get("credit_checked_on")
+    ]
+    if dated_rows:
+        return max(dated_rows)
+    return _serialize_date(quotation.custom_snrg_credit_checked_on)
+
+
 def _derive_delivery_status(invoices):
     if not invoices:
         return "Pending"
@@ -464,6 +697,51 @@ def _derive_pod_status(invoices):
     return "Partial"
 
 
+def _derive_current_stage(quotation, sales_orders, invoices, invoice_total, shortage_amount, delivery_status, pod_status):
+    if cint(quotation.docstatus) == 2:
+        return "Cancelled"
+    if pod_status == "Complete":
+        return "Closed"
+    if delivery_status == "Delivered":
+        return "POD Pending"
+    if any(invoice.get("shipping_date") for invoice in invoices):
+        return "Dispatched"
+    if invoices:
+        if flt(shortage_amount) > 0.01:
+            return "Partially Invoiced"
+        return "Fully Invoiced"
+    if sales_orders:
+        return "SO Created"
+    if cint(quotation.docstatus) == 1:
+        return "Submitted Awaiting SO"
+    return "Draft Quotation"
+
+
+def _build_sla_metric(start_date, end_date, threshold_days, active=True):
+    if not active or not start_date or not threshold_days:
+        return {"days": 0, "status": "Pending"}
+
+    start = getdate(start_date)
+    end = getdate(end_date) if end_date else getdate(nowdate())
+    days = max(date_diff(end, start), 0)
+    return {
+        "days": days,
+        "status": "Breached" if days > cint(threshold_days) else "On Track",
+    }
+
+
+def _build_esd_delay_metric(esd_date, delivery_date, threshold_days, active=True):
+    if not active or not esd_date:
+        return {"days": 0, "status": "Pending"}
+
+    end_date = getdate(delivery_date) if delivery_date else getdate(nowdate())
+    delay_days = max(date_diff(end_date, getdate(esd_date)), 0)
+    return {
+        "days": delay_days,
+        "status": "Breached" if delay_days > cint(threshold_days) else "On Track",
+    }
+
+
 def _normalize_delivery_status(value):
     value = (value or "").strip()
     if not value:
@@ -489,6 +767,13 @@ def _get_latest_by(rows, date_key):
     return rows[0] if rows else None
 
 
+def _get_earliest_by(rows, date_key):
+    dated_rows = [row for row in rows if row.get(date_key)]
+    if dated_rows:
+        return min(dated_rows, key=lambda row: (getdate(row[date_key]), row.get("name", "")))
+    return rows[0] if rows else None
+
+
 def _get_latest_non_empty(rows, value_key, primary_date_key, fallback_key=None):
     candidates = [row for row in rows if row.get(value_key)]
     if not candidates:
@@ -505,6 +790,114 @@ def _serialize_date(value):
     if not value:
         return ""
     return str(value)
+
+
+def _safe_json_loads(value):
+    if not value:
+        return {}
+    try:
+        return json.loads(value)
+    except Exception:
+        return {}
+
+
+def _get_pod_received_dates(invoice_docs):
+    file_urls = [doc.custom_pod_attachment for doc in invoice_docs if doc.custom_pod_attachment]
+    if not file_urls:
+        return {}
+
+    files = frappe.get_all(
+        "File",
+        filters={
+            "attached_to_doctype": "Sales Invoice",
+            "file_url": ["in", list(set(file_urls))],
+        },
+        fields=["attached_to_name", "creation", "file_url"],
+        order_by="creation desc",
+    )
+    pod_date_map = {}
+    for file_doc in files:
+        if not file_doc.attached_to_name or file_doc.attached_to_name in pod_date_map:
+            continue
+        pod_date_map[file_doc.attached_to_name] = get_datetime(file_doc.creation).date()
+    return pod_date_map
+
+
+def _get_shortage_rows_for_quotation(quotation_id):
+    quotation_items = frappe.get_all(
+        "Quotation Item",
+        filters={"parent": quotation_id},
+        fields=["item_code", "item_name", "qty", "amount", "idx"],
+        order_by="idx asc",
+    )
+
+    sales_orders = _get_sales_orders([quotation_id]).get(quotation_id, [])
+    sales_order_names = [row["name"] for row in sales_orders]
+    invoice_item_rows = []
+    if sales_order_names:
+        invoice_item_rows = frappe.db.sql(
+            f"""
+            SELECT
+                sii.item_code,
+                sii.item_name,
+                sii.qty,
+                sii.amount
+            FROM `tabSales Invoice Item` sii
+            INNER JOIN `tabSales Invoice` si ON si.name = sii.parent
+            WHERE sii.sales_order IN ({", ".join(["%s"] * len(sales_order_names))})
+              AND si.docstatus = 1
+              AND COALESCE(si.is_return, 0) = 0
+            """,
+            tuple(sales_order_names),
+            as_dict=True,
+        )
+
+    details_by_key = {}
+    order_keys = []
+    for row in quotation_items:
+        key = (row.item_code or "", row.item_name or "")
+        if key not in details_by_key:
+            order_keys.append(key)
+            details_by_key[key] = {
+                "item_code": row.item_code or "",
+                "item_name": row.item_name or "",
+                "quotation_qty": 0,
+                "invoiced_qty": 0,
+                "pending_qty": 0,
+                "quotation_value": 0,
+                "invoiced_value": 0,
+                "pending_value": 0,
+            }
+        details_by_key[key]["quotation_qty"] += flt(row.qty)
+        details_by_key[key]["quotation_value"] += flt(row.amount)
+
+    for row in invoice_item_rows:
+        key = (row.item_code or "", row.item_name or "")
+        if key not in details_by_key:
+            order_keys.append(key)
+            details_by_key[key] = {
+                "item_code": row.item_code or "",
+                "item_name": row.item_name or "",
+                "quotation_qty": 0,
+                "invoiced_qty": 0,
+                "pending_qty": 0,
+                "quotation_value": 0,
+                "invoiced_value": 0,
+                "pending_value": 0,
+            }
+        details_by_key[key]["invoiced_qty"] += flt(row.qty)
+        details_by_key[key]["invoiced_value"] += flt(row.amount)
+
+    rows = []
+    for key in order_keys:
+        detail = details_by_key[key]
+        detail["pending_qty"] = flt(detail["quotation_qty"]) - flt(detail["invoiced_qty"])
+        detail["pending_value"] = flt(detail["quotation_value"]) - flt(detail["invoiced_value"])
+        if abs(detail["pending_qty"]) < 0.0001 and abs(detail["pending_value"]) < 0.01:
+            continue
+        rows.append(detail)
+
+    return rows
 
 
 def _get_quotation_status_label(docstatus):
