@@ -35,20 +35,20 @@ class SnrgSalesTrackingPage {
                 .snrg-st-page { display:flex; flex-direction:column; gap:18px; color:#10253f; }
                 .snrg-st-filter-panel {
                     border-radius:22px; border:1px solid #dbe3ef; background:#fff;
-                    box-shadow:0 10px 22px rgba(15,23,42,.04); padding:20px 20px 18px;
+                    box-shadow:0 10px 22px rgba(15,23,42,.04); padding:18px 18px 14px;
                 }
                 .snrg-st-filter-header {
-                    display:flex; justify-content:space-between; gap:16px; align-items:flex-start; flex-wrap:wrap; margin-bottom:16px;
+                    display:flex; justify-content:space-between; gap:16px; align-items:flex-start; flex-wrap:wrap; margin-bottom:12px;
                 }
                 .snrg-st-filter-title h2 {
-                    margin:0; font-size:24px; line-height:1.1; font-weight:800; color:#0f172a;
+                    margin:0; font-size:22px; line-height:1.1; font-weight:800; color:#0f172a;
                 }
                 .snrg-st-filter-title p {
-                    margin:6px 0 0; font-size:13px; line-height:1.55; color:#64748b; max-width:760px;
+                    margin:4px 0 0; font-size:12px; line-height:1.5; color:#64748b; max-width:760px;
                 }
                 .snrg-st-meta { display:flex; gap:10px; flex-wrap:wrap; }
                 .snrg-st-chip {
-                    display:inline-flex; align-items:center; gap:6px; padding:7px 11px; border-radius:999px;
+                    display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px;
                     background:#f8fafc; border:1px solid #dbe3ef; font-size:12px; color:#334155; font-weight:600;
                 }
                 .snrg-st-filter-row { display:grid; grid-template-columns:repeat(6, minmax(180px, 1fr)); gap:12px; align-items:start; }
@@ -57,12 +57,12 @@ class SnrgSalesTrackingPage {
                 }
                 .snrg-st-filter-row .frappe-control {
                     margin-bottom: 0;
-                    padding: 10px 12px 10px;
+                    padding: 8px 10px 8px;
                     border: 1px solid #dbe3ef;
-                    border-radius: 16px;
+                    border-radius: 14px;
                     background: #fbfdff;
                     box-shadow: none;
-                    min-height: 78px;
+                    min-height: 66px;
                 }
                 .snrg-st-filter-row .frappe-control .control-label {
                     font-size: 11px;
@@ -70,20 +70,20 @@ class SnrgSalesTrackingPage {
                     color: #64748b;
                     text-transform: uppercase;
                     letter-spacing: .08em;
-                    margin-bottom: 8px;
+                    margin-bottom: 6px;
                 }
                 .snrg-st-filter-row .frappe-control input,
                 .snrg-st-filter-row .frappe-control .input-with-feedback,
                 .snrg-st-filter-row .frappe-control .link-field,
                 .snrg-st-filter-row .frappe-control select {
-                    min-height: 40px;
-                    border-radius: 12px;
+                    min-height: 36px;
+                    border-radius: 10px;
                     border: 1px solid #dbe3ef;
                     background: #fff;
                 }
-                .snrg-st-summary { display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:12px; }
+                .snrg-st-summary { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:10px; }
                 .snrg-st-card {
-                    border-radius:18px; padding:16px; border:1px solid #e2e8f0;
+                    border-radius:16px; padding:12px 14px; border:1px solid #e2e8f0;
                     background:#fff; box-shadow:0 8px 18px rgba(15,23,42,.03);
                 }
                 .snrg-st-card.interactive {
@@ -96,7 +96,35 @@ class SnrgSalesTrackingPage {
                     transform: translateY(-1px);
                 }
                 .snrg-st-card-label { font-size:11px; color:#5b7088; text-transform:uppercase; letter-spacing:.08em; font-weight:700; }
-                .snrg-st-card-value { margin-top:10px; font-size:24px; line-height:1.1; font-weight:800; color:#0f172a; }
+                .snrg-st-card-value { margin-top:6px; font-size:18px; line-height:1.1; font-weight:800; color:#0f172a; }
+                .snrg-st-card-grid {
+                    margin-top: 10px;
+                    display: grid;
+                    grid-template-columns: repeat(2, minmax(0, 1fr));
+                    gap: 8px;
+                }
+                .snrg-st-mini-stat {
+                    border: 1px solid #e2e8f0;
+                    border-radius: 12px;
+                    padding: 8px 10px;
+                    background: #f8fafc;
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: 8px;
+                }
+                .snrg-st-mini-stat-label {
+                    font-size: 11px;
+                    color: #64748b;
+                    font-weight: 700;
+                    text-transform: uppercase;
+                    letter-spacing: .04em;
+                }
+                .snrg-st-mini-stat-value {
+                    font-size: 16px;
+                    font-weight: 800;
+                    color: #0f172a;
+                }
                 .snrg-st-table-shell {
                     border-radius:24px; border:1px solid #e2e8f0; background:#fff;
                     box-shadow:0 12px 24px rgba(15,23,42,.04); overflow:hidden;
@@ -187,7 +215,7 @@ class SnrgSalesTrackingPage {
                 }
                 @keyframes snrg-st-shimmer { 0% { background-position:200% 0; } 100% { background-position:-200% 0; } }
                 @media (max-width: 1280px) { .snrg-st-filter-row, .snrg-st-summary { grid-template-columns:repeat(2, minmax(0, 1fr)); } .snrg-st-table-wrap { max-height: calc(100vh - 220px); } }
-                @media (max-width: 768px) { .snrg-st-filter-row, .snrg-st-summary { grid-template-columns:1fr; } .snrg-st-filter-title h2 { font-size:24px; } }
+                @media (max-width: 768px) { .snrg-st-filter-row, .snrg-st-summary, .snrg-st-card-grid { grid-template-columns:1fr; } .snrg-st-filter-title h2 { font-size:24px; } }
             </style>
             <div class="snrg-st-page">
                 <section class="snrg-st-filter-panel">
@@ -450,32 +478,58 @@ class SnrgSalesTrackingPage {
     }
 
     renderSummary() {
-        const summary = this.data?.summary || {};
+        const rows = this.getVisibleRows();
+        const counts = this.getStatusCounts(rows);
         const creditHoldActive = this.controls.credit_status.get_value() === "Credit Hold";
         const cards = [
             {
-                label: "Credit Hold",
-                value: frappe.format(summary.credit_hold_count || 0, { fieldtype: "Int" }),
+                label: "Quotation Status",
+                stats: [
+                    { label: "Draft", value: counts.quotationStatus.Draft || 0 },
+                    { label: "Submitted", value: counts.quotationStatus.Submitted || 0 },
+                    { label: "Cancelled", value: counts.quotationStatus.Cancelled || 0 },
+                ],
+            },
+            {
+                label: "Credit Status",
                 interactive: true,
                 action: creditHoldActive ? "clear-credit-hold" : "credit-hold",
-                helper: creditHoldActive ? "Click to clear filter" : "Click to filter table",
+                helper: creditHoldActive ? "Click to clear hold filter" : "Click card to filter credit hold rows",
+                stats: [
+                    { label: "Credit Hold", value: counts.creditStatus["Credit Hold"] || 0 },
+                    { label: "Credit OK", value: counts.creditStatus["Credit OK"] || 0 },
+                    { label: "Mixed", value: counts.creditStatus.Mixed || 0 },
+                ],
             },
             {
-                label: "Delivered",
-                value: frappe.format(summary.delivery_complete_count || 0, { fieldtype: "Int" }),
-                helper: "Rows with overall delivered status",
+                label: "Delivery Status",
+                stats: [
+                    { label: "Delivered", value: counts.deliveryStatus.Delivered || 0 },
+                    { label: "Partial", value: counts.deliveryStatus["Partially Delivered"] || 0 },
+                    { label: "Pending", value: counts.deliveryStatus.Pending || 0 },
+                ],
             },
             {
-                label: "POD Complete",
-                value: frappe.format(summary.pod_complete_count || 0, { fieldtype: "Int" }),
-                helper: "Rows where POD is complete",
+                label: "POD Status",
+                stats: [
+                    { label: "Complete", value: counts.podStatus.Complete || 0 },
+                    { label: "Partial", value: counts.podStatus.Partial || 0 },
+                    { label: "Pending", value: counts.podStatus.Pending || 0 },
+                ],
             },
         ];
 
         this.wrapper.find(".snrg-st-summary").html(cards.map((card) => `
             <div class="snrg-st-card snrg-st-summary-card ${card.interactive ? "interactive" : ""}" ${card.action ? `data-summary-action="${card.action}"` : ""}>
                 <div class="snrg-st-card-label">${frappe.utils.escape_html(card.label)}</div>
-                <div class="snrg-st-card-value">${card.value}</div>
+                <div class="snrg-st-card-grid">
+                    ${(card.stats || []).map((stat) => `
+                        <div class="snrg-st-mini-stat">
+                            <span class="snrg-st-mini-stat-label">${frappe.utils.escape_html(stat.label)}</span>
+                            <span class="snrg-st-mini-stat-value">${frappe.format(stat.value || 0, { fieldtype: "Int" })}</span>
+                        </div>
+                    `).join("")}
+                </div>
                 ${card.helper ? `<div class="snrg-st-muted" style="margin-top:8px;font-size:12px;">${frappe.utils.escape_html(card.helper)}</div>` : ""}
             </div>
         `).join(""));
@@ -641,6 +695,24 @@ class SnrgSalesTrackingPage {
             pod_complete_count: 0,
             currency: "INR",
         });
+    }
+
+    getStatusCounts(rows) {
+        const counts = {
+            quotationStatus: {},
+            creditStatus: {},
+            deliveryStatus: {},
+            podStatus: {},
+        };
+
+        rows.forEach((row) => {
+            counts.quotationStatus[row.quotation_status || "Unknown"] = (counts.quotationStatus[row.quotation_status || "Unknown"] || 0) + 1;
+            counts.creditStatus[row.credit_status || "Unknown"] = (counts.creditStatus[row.credit_status || "Unknown"] || 0) + 1;
+            counts.deliveryStatus[row.delivery_status_overall || "Unknown"] = (counts.deliveryStatus[row.delivery_status_overall || "Unknown"] || 0) + 1;
+            counts.podStatus[row.pod_status || "Unknown"] = (counts.podStatus[row.pod_status || "Unknown"] || 0) + 1;
+        });
+
+        return counts;
     }
 
     rowMatchesFilters(row) {
