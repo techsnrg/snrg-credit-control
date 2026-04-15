@@ -14,6 +14,9 @@ class SnrgSalesTrackingPage {
         this.wrapper = $(wrapper);
         this.data = null;
         this.controls = {};
+        this.sortState = { key: null, direction: null };
+        this.columnFilters = {};
+        this.columns = [];
 
         this.setup();
     }
@@ -107,6 +110,32 @@ class SnrgSalesTrackingPage {
                     font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:#64748b; text-align:left;
                     padding:12px 14px; white-space:nowrap;
                     box-shadow: inset 0 -1px 0 #e2e8f0;
+                }
+                .snrg-st-th-content {
+                    display:flex; align-items:center; justify-content:space-between; gap:8px;
+                }
+                .snrg-st-th-main {
+                    display:inline-flex; align-items:center; gap:6px; min-width:0;
+                }
+                .snrg-st-th-label {
+                    cursor:pointer; user-select:none;
+                }
+                .snrg-st-th-sort {
+                    font-size:10px; color:#94a3b8;
+                }
+                .snrg-st-th-actions {
+                    display:inline-flex; align-items:center; gap:4px;
+                }
+                .snrg-st-th-btn {
+                    display:inline-flex; align-items:center; justify-content:center;
+                    width:22px; height:22px; border-radius:999px; border:1px solid transparent;
+                    background:transparent; color:#64748b; cursor:pointer;
+                }
+                .snrg-st-th-btn:hover {
+                    border-color:#cbd5e1; background:#fff;
+                }
+                .snrg-st-th-btn.active {
+                    border-color:#94a3b8; background:#fff; color:#0f172a;
                 }
                 .snrg-st-table td {
                     padding:12px 14px; border-bottom:1px solid #edf2f7; font-size:13px; line-height:1.45; vertical-align:top;
@@ -234,9 +263,21 @@ class SnrgSalesTrackingPage {
     }
 
     bind_events() {
+        this.wrapper.on("click", ".snrg-st-sort-toggle", (event) => {
+            const key = $(event.currentTarget).data("columnKey");
+            if (!key) return;
+            this.toggleSort(key);
+        });
+
+        this.wrapper.on("click", ".snrg-st-filter-toggle", (event) => {
+            const key = $(event.currentTarget).data("columnKey");
+            if (!key) return;
+            this.openColumnFilter(key);
+        });
+
         this.wrapper.on("click", ".snrg-st-open-quotation", (event) => {
             const index = Number($(event.currentTarget).closest("[data-row-index]").data("rowIndex"));
-            const row = this.data?.rows?.[index];
+            const row = this.getVisibleRows()[index];
             if (row) {
                 frappe.set_route("Form", "Quotation", row.quotation_id);
             }
@@ -245,7 +286,7 @@ class SnrgSalesTrackingPage {
         this.wrapper.on("click", ".snrg-st-open-comments", (event) => {
             event.preventDefault();
             const index = Number($(event.currentTarget).closest("[data-row-index]").data("rowIndex"));
-            const row = this.data?.rows?.[index];
+            const row = this.getVisibleRows()[index];
             if (row?.quotation_comments_url) {
                 window.location.href = row.quotation_comments_url;
             }
@@ -253,7 +294,7 @@ class SnrgSalesTrackingPage {
 
         this.wrapper.on("click", ".snrg-st-open-salespeople", (event) => {
             const index = Number($(event.currentTarget).closest("[data-row-index]").data("rowIndex"));
-            const row = this.data?.rows?.[index];
+            const row = this.getVisibleRows()[index];
             if (row) {
                 this.showSalespeopleDialog(row);
             }
@@ -261,7 +302,7 @@ class SnrgSalesTrackingPage {
 
         this.wrapper.on("click", ".snrg-st-open-invoices", (event) => {
             const index = Number($(event.currentTarget).closest("[data-row-index]").data("rowIndex"));
-            const row = this.data?.rows?.[index];
+            const row = this.getVisibleRows()[index];
             if (row) {
                 this.showInvoicesDialog(row);
             }
@@ -269,7 +310,7 @@ class SnrgSalesTrackingPage {
 
         this.wrapper.on("click", ".snrg-st-open-sales-orders", (event) => {
             const index = Number($(event.currentTarget).closest("[data-row-index]").data("rowIndex"));
-            const row = this.data?.rows?.[index];
+            const row = this.getVisibleRows()[index];
             if (row) {
                 this.showSalesOrdersDialog(row);
             }
@@ -335,49 +376,24 @@ class SnrgSalesTrackingPage {
     }
 
     renderTable() {
-        const rows = this.data?.rows || [];
-        this.wrapper.find(".snrg-st-row-count").text(`${rows.length} row${rows.length === 1 ? "" : "s"}`);
+        const rows = this.getVisibleRows();
+        const totalRows = this.data?.rows?.length || 0;
+        this.wrapper.find(".snrg-st-row-count").text(
+            totalRows === rows.length
+                ? `${rows.length} row${rows.length === 1 ? "" : "s"}`
+                : `${rows.length} of ${totalRows} rows`
+        );
 
         if (!rows.length) {
             this.wrapper.find(".snrg-st-table-container").html(`<div class="snrg-st-empty">No quotations matched the current filters.</div>`);
             return;
         }
 
-        const columns = [
-            ["Quotation ID", (row) => `<a class="snrg-st-link snrg-st-open-quotation">${frappe.utils.escape_html(row.quotation_id)}</a>`],
-            ["Order Month", (row) => this.escapeCell(row.order_month)],
-            ["Order Date", (row) => this.formatDate(row.order_date)],
-            ["Channel Partner Name", (row) => this.escapeCell(row.channel_partner_name)],
-            ["Zone", (row) => this.escapeCell(row.zone)],
-            ["City", (row) => this.escapeCell(row.city)],
-            ["State", (row) => this.escapeCell(row.state)],
-            ["Salesperson", (row) => row.salespeople?.length ? `<a class="snrg-st-link snrg-st-open-salespeople">${frappe.utils.escape_html(row.salesperson_summary || "")}</a>` : this.emptyCell()],
-            ["Order Value", (row) => this.money(row.order_value, row.currency)],
-            ["Basic Value", (row) => this.money(row.basic_value, row.currency)],
-            ["Credit Status", (row) => this.statusPill(row.credit_status)],
-            ["Credit Clearance Date", (row) => this.formatDate(row.credit_clearance_date)],
-            ["Delay Reason", (row) => this.escapeCell(row.delay_reason)],
-            ["Original ESD", (row) => this.formatDate(row.original_esd)],
-            ["SO Delivery Date", (row) => row.sales_orders?.length ? `<a class="snrg-st-link snrg-st-open-sales-orders">${this.formatDate(row.sales_order_delivery_date)}</a>` : this.emptyCell()],
-            ["Latest HO Remark", (row) => row.latest_ho_remark ? `<a href="#" class="snrg-st-link snrg-st-open-comments"><span class="snrg-st-remarks">${frappe.utils.escape_html(row.latest_ho_remark)}</span></a>` : this.emptyCell()],
-            ["Invoice No", (row) => row.invoice_details?.length ? `<a class="snrg-st-link snrg-st-open-invoices">${frappe.utils.escape_html(row.invoice_summary || "")}</a>` : this.emptyCell()],
-            ["Invoice Amount", (row) => row.invoice_details?.length ? `<a class="snrg-st-link snrg-st-open-invoices">${this.money(row.invoice_amount, row.currency)}</a>` : this.emptyCell()],
-            ["Invoice Date", (row) => row.invoice_details?.length ? `<a class="snrg-st-link snrg-st-open-invoices">${this.formatDate(row.invoice_date)}</a>` : this.emptyCell()],
-            ["Shortage Details", (row) => this.money(row.shortage_amount, row.currency)],
-            ["Dispatch Date", (row) => row.invoice_details?.length ? `<a class="snrg-st-link snrg-st-open-invoices">${this.formatDate(row.dispatch_date)}</a>` : this.emptyCell()],
-            ["No. of Cartons", (row) => row.invoice_details?.length ? `<a class="snrg-st-link snrg-st-open-invoices">${frappe.format(row.no_of_cartons || 0, { fieldtype: "Int" })}</a>` : this.emptyCell()],
-            ["Transport Name", (row) => row.invoice_details?.length ? `<a class="snrg-st-link snrg-st-open-invoices">${frappe.utils.escape_html(row.transport_name || "-")}</a>` : this.emptyCell()],
-            ["Tracking Details", (row) => row.invoice_details?.length ? `<a class="snrg-st-link snrg-st-open-invoices">${frappe.utils.escape_html(row.tracking_details || "-")}</a>` : this.emptyCell()],
-            ["Delivery Status", (row) => row.invoice_details?.length ? `<a class="snrg-st-link snrg-st-open-invoices">${this.statusPill(row.delivery_status_overall)}</a>` : this.statusPill("Pending")],
-            ["Delivery Date", (row) => row.invoice_details?.length ? `<a class="snrg-st-link snrg-st-open-invoices">${this.formatDate(row.delivery_date)}</a>` : this.emptyCell()],
-            ["POD Received", (row) => row.invoice_details?.length ? `<a class="snrg-st-link snrg-st-open-invoices">${this.statusPill(row.pod_status)}</a>` : this.statusPill("Pending")],
-            ["Remarks", (row) => row.remarks ? `<a class="snrg-st-link snrg-st-open-invoices"><span class="snrg-st-remarks">${frappe.utils.escape_html(row.remarks)}</span></a>` : this.emptyCell()],
-        ];
-
-        const headerHtml = columns.map(([label]) => `<th>${frappe.utils.escape_html(label)}</th>`).join("");
+        this.columns = this.buildColumns();
+        const headerHtml = this.columns.map((column) => `<th>${this.renderHeader(column)}</th>`).join("");
         const bodyHtml = rows.map((row, index) => `
             <tr data-row-index="${index}">
-                ${columns.map(([, renderer]) => `<td>${renderer(row)}</td>`).join("")}
+                ${this.columns.map((column) => `<td>${column.render(row)}</td>`).join("")}
             </tr>
         `).join("");
 
@@ -387,6 +403,181 @@ class SnrgSalesTrackingPage {
                 <tbody>${bodyHtml}</tbody>
             </table>
         `);
+    }
+
+    buildColumns() {
+        return [
+            { key: "quotation_id", label: "Quotation ID", type: "text", render: (row) => `<a class="snrg-st-link snrg-st-open-quotation">${frappe.utils.escape_html(row.quotation_id)}</a>` },
+            { key: "order_month", label: "Order Month", type: "text", render: (row) => this.escapeCell(row.order_month) },
+            { key: "order_date", label: "Order Date", type: "date", render: (row) => this.formatDate(row.order_date) },
+            { key: "channel_partner_name", label: "Channel Partner Name", type: "text", render: (row) => this.escapeCell(row.channel_partner_name) },
+            { key: "zone", label: "Zone", type: "text", render: (row) => this.escapeCell(row.zone) },
+            { key: "city", label: "City", type: "text", render: (row) => this.escapeCell(row.city) },
+            { key: "state", label: "State", type: "text", render: (row) => this.escapeCell(row.state) },
+            { key: "salesperson_summary", label: "Salesperson", type: "text", render: (row) => row.salespeople?.length ? `<a class="snrg-st-link snrg-st-open-salespeople">${frappe.utils.escape_html(row.salesperson_summary || "")}</a>` : this.emptyCell() },
+            { key: "order_value", label: "Order Value", type: "number", render: (row) => this.money(row.order_value, row.currency) },
+            { key: "basic_value", label: "Basic Value", type: "number", render: (row) => this.money(row.basic_value, row.currency) },
+            { key: "credit_status", label: "Credit Status", type: "select", render: (row) => this.statusPill(row.credit_status) },
+            { key: "credit_clearance_date", label: "Credit Clearance Date", type: "date", render: (row) => this.formatDate(row.credit_clearance_date) },
+            { key: "delay_reason", label: "Delay Reason", type: "text", render: (row) => this.escapeCell(row.delay_reason) },
+            { key: "original_esd", label: "Original ESD", type: "date", render: (row) => this.formatDate(row.original_esd) },
+            { key: "sales_order_delivery_date", label: "SO Delivery Date", type: "date", render: (row) => row.sales_orders?.length ? `<a class="snrg-st-link snrg-st-open-sales-orders">${this.formatDate(row.sales_order_delivery_date)}</a>` : this.emptyCell() },
+            { key: "latest_ho_remark", label: "Latest HO Remark", type: "text", render: (row) => row.latest_ho_remark ? `<a href="#" class="snrg-st-link snrg-st-open-comments"><span class="snrg-st-remarks">${frappe.utils.escape_html(row.latest_ho_remark)}</span></a>` : this.emptyCell() },
+            { key: "invoice_summary", label: "Invoice No", type: "text", render: (row) => row.invoice_details?.length ? `<a class="snrg-st-link snrg-st-open-invoices">${frappe.utils.escape_html(row.invoice_summary || "")}</a>` : this.emptyCell() },
+            { key: "invoice_amount", label: "Invoice Amount", type: "number", render: (row) => row.invoice_details?.length ? `<a class="snrg-st-link snrg-st-open-invoices">${this.money(row.invoice_amount, row.currency)}</a>` : this.emptyCell() },
+            { key: "invoice_date", label: "Invoice Date", type: "date", render: (row) => row.invoice_details?.length ? `<a class="snrg-st-link snrg-st-open-invoices">${this.formatDate(row.invoice_date)}</a>` : this.emptyCell() },
+            { key: "shortage_amount", label: "Shortage Details", type: "number", render: (row) => this.money(row.shortage_amount, row.currency) },
+            { key: "dispatch_date", label: "Dispatch Date", type: "date", render: (row) => row.invoice_details?.length ? `<a class="snrg-st-link snrg-st-open-invoices">${this.formatDate(row.dispatch_date)}</a>` : this.emptyCell() },
+            { key: "no_of_cartons", label: "No. of Cartons", type: "number", render: (row) => row.invoice_details?.length ? `<a class="snrg-st-link snrg-st-open-invoices">${frappe.format(row.no_of_cartons || 0, { fieldtype: "Int" })}</a>` : this.emptyCell() },
+            { key: "transport_name", label: "Transport Name", type: "text", render: (row) => row.invoice_details?.length ? `<a class="snrg-st-link snrg-st-open-invoices">${frappe.utils.escape_html(row.transport_name || "-")}</a>` : this.emptyCell() },
+            { key: "tracking_details", label: "Tracking Details", type: "text", render: (row) => row.invoice_details?.length ? `<a class="snrg-st-link snrg-st-open-invoices">${frappe.utils.escape_html(row.tracking_details || "-")}</a>` : this.emptyCell() },
+            { key: "delivery_status_overall", label: "Delivery Status", type: "select", render: (row) => row.invoice_details?.length ? `<a class="snrg-st-link snrg-st-open-invoices">${this.statusPill(row.delivery_status_overall)}</a>` : this.statusPill("Pending") },
+            { key: "delivery_date", label: "Delivery Date", type: "date", render: (row) => row.invoice_details?.length ? `<a class="snrg-st-link snrg-st-open-invoices">${this.formatDate(row.delivery_date)}</a>` : this.emptyCell() },
+            { key: "pod_status", label: "POD Received", type: "select", render: (row) => row.invoice_details?.length ? `<a class="snrg-st-link snrg-st-open-invoices">${this.statusPill(row.pod_status)}</a>` : this.statusPill("Pending") },
+            { key: "remarks", label: "Remarks", type: "text", render: (row) => row.remarks ? `<a class="snrg-st-link snrg-st-open-invoices"><span class="snrg-st-remarks">${frappe.utils.escape_html(row.remarks)}</span></a>` : this.emptyCell() },
+        ];
+    }
+
+    renderHeader(column) {
+        const isSorted = this.sortState.key === column.key;
+        const sortIndicator = !isSorted
+            ? "↕"
+            : (this.sortState.direction === "asc" ? "↑" : "↓");
+        const hasFilter = !!this.columnFilters[column.key];
+
+        return `
+            <div class="snrg-st-th-content">
+                <div class="snrg-st-th-main">
+                    <span class="snrg-st-th-label snrg-st-sort-toggle" data-column-key="${frappe.utils.escape_html(column.key)}">${frappe.utils.escape_html(column.label)}</span>
+                    <span class="snrg-st-th-sort">${sortIndicator}</span>
+                </div>
+                <div class="snrg-st-th-actions">
+                    <button class="snrg-st-th-btn snrg-st-filter-toggle ${hasFilter ? "active" : ""}" data-column-key="${frappe.utils.escape_html(column.key)}" title="Filter">⏷</button>
+                </div>
+            </div>
+        `;
+    }
+
+    getVisibleRows() {
+        const sourceRows = [...(this.data?.rows || [])];
+        const filteredRows = sourceRows.filter((row) => this.rowMatchesFilters(row));
+        return this.applySort(filteredRows);
+    }
+
+    rowMatchesFilters(row) {
+        return Object.entries(this.columnFilters).every(([key, value]) => {
+            if (value === null || value === undefined || value === "") {
+                return true;
+            }
+
+            const rawValue = row[key];
+            if (Array.isArray(value)) {
+                return value.includes(rawValue || "");
+            }
+
+            const normalizedNeedle = String(value).trim().toLowerCase();
+            if (!normalizedNeedle) {
+                return true;
+            }
+
+            return String(rawValue || "").toLowerCase().includes(normalizedNeedle);
+        });
+    }
+
+    applySort(rows) {
+        const { key, direction } = this.sortState;
+        if (!key || !direction) {
+            return rows;
+        }
+
+        const column = this.columns.find((entry) => entry.key === key) || this.buildColumns().find((entry) => entry.key === key);
+        const multiplier = direction === "asc" ? 1 : -1;
+        return [...rows].sort((left, right) => multiplier * this.compareValues(left[key], right[key], column?.type));
+    }
+
+    compareValues(left, right, type) {
+        if (type === "number") {
+            return (Number(left || 0) - Number(right || 0));
+        }
+        if (type === "date") {
+            const leftDate = left ? new Date(left).getTime() : 0;
+            const rightDate = right ? new Date(right).getTime() : 0;
+            return leftDate - rightDate;
+        }
+        return String(left || "").localeCompare(String(right || ""), undefined, { sensitivity: "base" });
+    }
+
+    toggleSort(key) {
+        if (this.sortState.key !== key) {
+            this.sortState = { key, direction: "asc" };
+        } else if (this.sortState.direction === "asc") {
+            this.sortState = { key, direction: "desc" };
+        } else if (this.sortState.direction === "desc") {
+            this.sortState = { key: null, direction: null };
+        } else {
+            this.sortState = { key, direction: "asc" };
+        }
+        this.renderTable();
+    }
+
+    openColumnFilter(key) {
+        const column = this.columns.find((entry) => entry.key === key) || this.buildColumns().find((entry) => entry.key === key);
+        if (!column) return;
+
+        const currentValue = this.columnFilters[key] || "";
+        const fields = [];
+
+        if (column.type === "select") {
+            const options = this.getUniqueColumnValues(key).filter(Boolean);
+            fields.push({
+                fieldtype: "Select",
+                fieldname: "filter_value",
+                label: column.label,
+                options: ["", ...options].join("\n"),
+                default: currentValue,
+            });
+        } else {
+            fields.push({
+                fieldtype: "Data",
+                fieldname: "filter_value",
+                label: `${column.label} contains`,
+                default: currentValue,
+            });
+        }
+
+        const dialog = new frappe.ui.Dialog({
+            title: `Filter · ${column.label}`,
+            fields,
+            primary_action_label: "Apply",
+            primary_action: (values) => {
+                const nextValue = values.filter_value || "";
+                if (nextValue) {
+                    this.columnFilters[key] = nextValue;
+                } else {
+                    delete this.columnFilters[key];
+                }
+                dialog.hide();
+                this.renderTable();
+            },
+            secondary_action_label: "Clear",
+            secondary_action: () => {
+                delete this.columnFilters[key];
+                dialog.hide();
+                this.renderTable();
+            },
+        });
+
+        dialog.show();
+    }
+
+    getUniqueColumnValues(key) {
+        const values = new Set();
+        (this.data?.rows || []).forEach((row) => {
+            if (row[key]) {
+                values.add(String(row[key]));
+            }
+        });
+        return [...values].sort((left, right) => left.localeCompare(right, undefined, { sensitivity: "base" }));
     }
 
     showInvoicesDialog(row) {
