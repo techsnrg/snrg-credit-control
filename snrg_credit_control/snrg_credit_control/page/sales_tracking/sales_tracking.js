@@ -34,22 +34,22 @@ class SnrgSalesTrackingPage {
             <style>
                 .snrg-st-page { display:flex; flex-direction:column; gap:18px; color:#10253f; }
                 .snrg-st-filter-panel {
-                    border-radius:24px; border:1px solid #e2e8f0; background:#fff;
-                    box-shadow:0 12px 24px rgba(15,23,42,.04); padding:18px;
+                    border-radius:22px; border:1px solid #dbe3ef; background:#fff;
+                    box-shadow:0 10px 22px rgba(15,23,42,.04); padding:20px 20px 18px;
                 }
                 .snrg-st-filter-header {
-                    display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap; margin-bottom:14px;
+                    display:flex; justify-content:space-between; gap:16px; align-items:flex-start; flex-wrap:wrap; margin-bottom:16px;
                 }
                 .snrg-st-filter-title h2 {
-                    margin:0; font-size:28px; line-height:1.08; font-weight:800; color:#0f172a;
+                    margin:0; font-size:24px; line-height:1.1; font-weight:800; color:#0f172a;
                 }
                 .snrg-st-filter-title p {
-                    margin:6px 0 0; font-size:13px; line-height:1.6; color:#64748b; max-width:760px;
+                    margin:6px 0 0; font-size:13px; line-height:1.55; color:#64748b; max-width:760px;
                 }
                 .snrg-st-meta { display:flex; gap:10px; flex-wrap:wrap; }
                 .snrg-st-chip {
                     display:inline-flex; align-items:center; gap:6px; padding:7px 11px; border-radius:999px;
-                    background:#f8fafc; border:1px solid #dbe3ef; font-size:12px; color:#334155;
+                    background:#f8fafc; border:1px solid #dbe3ef; font-size:12px; color:#334155; font-weight:600;
                 }
                 .snrg-st-filter-row { display:grid; grid-template-columns:repeat(6, minmax(180px, 1fr)); gap:12px; align-items:start; }
                 .snrg-st-filter-slot {
@@ -57,12 +57,12 @@ class SnrgSalesTrackingPage {
                 }
                 .snrg-st-filter-row .frappe-control {
                     margin-bottom: 0;
-                    padding: 12px 14px 10px;
+                    padding: 10px 12px 10px;
                     border: 1px solid #dbe3ef;
-                    border-radius: 18px;
-                    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-                    box-shadow: 0 10px 24px rgba(15,23,42,.04);
-                    min-height: 84px;
+                    border-radius: 16px;
+                    background: #fbfdff;
+                    box-shadow: none;
+                    min-height: 78px;
                 }
                 .snrg-st-filter-row .frappe-control .control-label {
                     font-size: 11px;
@@ -83,8 +83,8 @@ class SnrgSalesTrackingPage {
                 }
                 .snrg-st-summary { display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:12px; }
                 .snrg-st-card {
-                    border-radius:20px; padding:16px; border:1px solid #e2e8f0;
-                    background:linear-gradient(180deg, #ffffff 0%, #f8fafc 100%); box-shadow:0 12px 24px rgba(15,23,42,.04);
+                    border-radius:18px; padding:16px; border:1px solid #e2e8f0;
+                    background:#fff; box-shadow:0 8px 18px rgba(15,23,42,.03);
                 }
                 .snrg-st-card-label { font-size:11px; color:#5b7088; text-transform:uppercase; letter-spacing:.08em; font-weight:700; }
                 .snrg-st-card-value { margin-top:10px; font-size:24px; line-height:1.1; font-weight:800; color:#0f172a; }
@@ -232,8 +232,8 @@ class SnrgSalesTrackingPage {
         this.controls.territory = this.makeFilterControl(".snrg-st-territory-filter", {
             label: "Zone",
             fieldname: "territory",
-            fieldtype: "Link",
-            options: "Territory",
+            fieldtype: "Select",
+            options: "\n",
             change: () => this.refresh(),
         });
 
@@ -340,6 +340,7 @@ class SnrgSalesTrackingPage {
         });
         this.data = response.message || { rows: [], summary: {} };
         this.updateOrderMonthOptions();
+        this.updateTerritoryOptions();
         this.render();
     }
 
@@ -353,6 +354,7 @@ class SnrgSalesTrackingPage {
 
     render() {
         this.updateOrderMonthOptions();
+        this.updateTerritoryOptions();
         this.renderMeta();
         this.renderSummary();
         this.renderTable();
@@ -381,6 +383,29 @@ class SnrgSalesTrackingPage {
         this.controls.order_month.refresh();
         if (currentValue && optionLines.includes(currentValue)) {
             this.controls.order_month.set_value(currentValue);
+        }
+    }
+
+    updateTerritoryOptions() {
+        if (!this.controls.territory) return;
+
+        const currentValue = this.controls.territory.get_value();
+        const values = new Set();
+        (this.data?.rows || []).forEach((row) => {
+            if (row.zone) {
+                values.add(String(row.zone));
+            }
+        });
+
+        const optionLines = [""];
+        [...values]
+            .sort((left, right) => left.localeCompare(right, undefined, { sensitivity: "base" }))
+            .forEach((value) => optionLines.push(value));
+
+        this.controls.territory.df.options = optionLines.join("\n");
+        this.controls.territory.refresh();
+        if (currentValue && optionLines.includes(currentValue)) {
+            this.controls.territory.set_value(currentValue);
         }
     }
 
