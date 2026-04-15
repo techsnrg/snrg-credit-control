@@ -33,26 +33,25 @@ class SnrgSalesTrackingPage {
         this.wrapper.find(".layout-main-section").html(`
             <style>
                 .snrg-st-page { display:flex; flex-direction:column; gap:18px; color:#10253f; }
-                .snrg-st-hero {
-                    position:relative; overflow:hidden; border-radius:28px; padding:24px;
-                    background:
-                        radial-gradient(circle at top right, rgba(255,255,255,.16), transparent 28%),
-                        linear-gradient(130deg, #123b44 0%, #0f766e 45%, #d97706 100%);
-                    color:#fff; box-shadow:0 20px 40px rgba(15,23,42,.10);
+                .snrg-st-filter-panel {
+                    border-radius:24px; border:1px solid #e2e8f0; background:#fff;
+                    box-shadow:0 12px 24px rgba(15,23,42,.04); padding:18px;
                 }
-                .snrg-st-hero::after {
-                    content:""; position:absolute; right:-110px; bottom:-120px; width:280px; height:280px;
-                    border-radius:50%; background:rgba(255,255,255,.08);
+                .snrg-st-filter-header {
+                    display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap; margin-bottom:14px;
                 }
-                .snrg-st-kicker { font-size:11px; text-transform:uppercase; letter-spacing:.18em; font-weight:700; opacity:.84; }
-                .snrg-st-hero h2 { margin:8px 0 10px; font-size:30px; line-height:1.08; font-weight:800; color:#fff; }
-                .snrg-st-hero p { margin:0; max-width:900px; font-size:14px; line-height:1.6; color:rgba(255,255,255,.88); }
-                .snrg-st-meta { display:flex; gap:10px; flex-wrap:wrap; margin-top:18px; }
+                .snrg-st-filter-title h2 {
+                    margin:0; font-size:28px; line-height:1.08; font-weight:800; color:#0f172a;
+                }
+                .snrg-st-filter-title p {
+                    margin:6px 0 0; font-size:13px; line-height:1.6; color:#64748b; max-width:760px;
+                }
+                .snrg-st-meta { display:flex; gap:10px; flex-wrap:wrap; }
                 .snrg-st-chip {
                     display:inline-flex; align-items:center; gap:6px; padding:7px 11px; border-radius:999px;
-                    background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.18); font-size:12px;
+                    background:#f8fafc; border:1px solid #dbe3ef; font-size:12px; color:#334155;
                 }
-                .snrg-st-filter-row { display:grid; grid-template-columns:repeat(6, minmax(180px, 1fr)); gap:12px; align-items:start; }
+                .snrg-st-filter-row { display:grid; grid-template-columns:repeat(7, minmax(160px, 1fr)); gap:12px; align-items:start; }
                 .snrg-st-filter-slot {
                     width: 100%;
                 }
@@ -168,22 +167,26 @@ class SnrgSalesTrackingPage {
                 }
                 @keyframes snrg-st-shimmer { 0% { background-position:200% 0; } 100% { background-position:-200% 0; } }
                 @media (max-width: 1280px) { .snrg-st-filter-row, .snrg-st-summary { grid-template-columns:repeat(2, minmax(0, 1fr)); } .snrg-st-table-wrap { max-height: calc(100vh - 220px); } }
-                @media (max-width: 768px) { .snrg-st-filter-row, .snrg-st-summary { grid-template-columns:1fr; } .snrg-st-hero h2 { font-size:24px; } }
+                @media (max-width: 768px) { .snrg-st-filter-row, .snrg-st-summary { grid-template-columns:1fr; } .snrg-st-filter-title h2 { font-size:24px; } }
             </style>
             <div class="snrg-st-page">
-                <section class="snrg-st-hero">
-                    <div class="snrg-st-kicker">Quotation-Led Operations</div>
-                    <h2>Sales Tracking</h2>
-                    <p>Track customer quotations through credit, billing, dispatch, delivery, and POD completion from one operational view, while keeping drill-down access to the linked sales orders and invoices.</p>
-                    <div class="snrg-st-meta"></div>
-                </section>
-                <section class="snrg-st-filter-row">
-                    <div class="snrg-st-filter-slot snrg-st-company-filter"></div>
-                    <div class="snrg-st-filter-slot snrg-st-from-filter"></div>
-                    <div class="snrg-st-filter-slot snrg-st-to-filter"></div>
-                    <div class="snrg-st-filter-slot snrg-st-territory-filter"></div>
-                    <div class="snrg-st-filter-slot snrg-st-credit-filter"></div>
-                    <div class="snrg-st-filter-slot snrg-st-search-filter"></div>
+                <section class="snrg-st-filter-panel">
+                    <div class="snrg-st-filter-header">
+                        <div class="snrg-st-filter-title">
+                            <h2>Sales Tracking</h2>
+                            <p>Track customer quotations through credit, billing, dispatch, delivery, and POD completion from one operational view.</p>
+                        </div>
+                        <div class="snrg-st-meta"></div>
+                    </div>
+                    <div class="snrg-st-filter-row">
+                        <div class="snrg-st-filter-slot snrg-st-company-filter"></div>
+                        <div class="snrg-st-filter-slot snrg-st-month-filter"></div>
+                        <div class="snrg-st-filter-slot snrg-st-from-filter"></div>
+                        <div class="snrg-st-filter-slot snrg-st-to-filter"></div>
+                        <div class="snrg-st-filter-slot snrg-st-territory-filter"></div>
+                        <div class="snrg-st-filter-slot snrg-st-credit-filter"></div>
+                        <div class="snrg-st-filter-slot snrg-st-search-filter"></div>
+                    </div>
                 </section>
                 <section class="snrg-st-summary"></section>
                 <section class="snrg-st-table-shell">
@@ -210,6 +213,14 @@ class SnrgSalesTrackingPage {
             options: "Company",
             default: frappe.defaults.get_user_default("Company"),
             change: () => this.refresh(),
+        });
+
+        this.controls.order_month = this.makeFilterControl(".snrg-st-month-filter", {
+            label: "Order Month",
+            fieldname: "order_month",
+            fieldtype: "Data",
+            placeholder: "YYYY-MM",
+            change: frappe.utils.debounce(() => this.refresh(), 350),
         });
 
         this.controls.from_date = this.makeFilterControl(".snrg-st-from-filter", {
@@ -325,6 +336,7 @@ class SnrgSalesTrackingPage {
             method: "snrg_credit_control.snrg_credit_control.page.sales_tracking.sales_tracking.get_tracker_data",
             args: {
                 company: this.controls.company.get_value(),
+                order_month: this.controls.order_month.get_value(),
                 from_date: this.controls.from_date.get_value(),
                 to_date: this.controls.to_date.get_value(),
                 territory: this.controls.territory.get_value(),

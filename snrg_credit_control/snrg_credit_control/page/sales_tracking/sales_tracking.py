@@ -17,6 +17,7 @@ def get_tracker_data(
     company=None,
     from_date=None,
     to_date=None,
+    order_month=None,
     territory=None,
     customer=None,
     search=None,
@@ -28,6 +29,7 @@ def get_tracker_data(
         "company": company,
         "from_date": from_date,
         "to_date": to_date,
+        "order_month": order_month,
         "territory": territory,
         "customer": customer,
         "search": search,
@@ -79,6 +81,9 @@ def _get_quotations(filters, limit=250):
     if filters.get("to_date"):
         conditions.append("q.transaction_date <= %(to_date)s")
         values["to_date"] = filters["to_date"]
+    if filters.get("order_month"):
+        conditions.append("DATE_FORMAT(q.transaction_date, '%%Y-%%m') = %(order_month)s")
+        values["order_month"] = filters["order_month"]
     if filters.get("territory"):
         conditions.append("q.territory = %(territory)s")
         values["territory"] = filters["territory"]
