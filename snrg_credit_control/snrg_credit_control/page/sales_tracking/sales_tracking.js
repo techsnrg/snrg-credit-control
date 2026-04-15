@@ -94,6 +94,39 @@ class SnrgSalesTrackingPage {
                     background: #fff;
                     font-size: 10px;
                 }
+                .snrg-st-view-strip {
+                    margin-top: 6px;
+                    display:flex;
+                    gap:6px;
+                    align-items:flex-end;
+                    justify-content:flex-end;
+                    flex-wrap:wrap;
+                }
+                .snrg-st-view-strip .frappe-control {
+                    margin-bottom: 0;
+                    padding: 2px 4px 3px;
+                    border: 1px solid #dde5f0;
+                    border-radius: 6px;
+                    background: #fff;
+                    min-height: 40px;
+                }
+                .snrg-st-view-strip .frappe-control .control-label {
+                    font-size: 9px;
+                    font-weight: 700;
+                    color: #64748b;
+                    text-transform: uppercase;
+                    letter-spacing: .08em;
+                    margin-bottom: 2px;
+                }
+                .snrg-st-view-strip .frappe-control input,
+                .snrg-st-view-strip .frappe-control .input-with-feedback,
+                .snrg-st-view-strip .frappe-control select {
+                    min-height: 24px;
+                    border-radius: 5px;
+                    border: 1px solid #dbe3ef;
+                    background: #fff;
+                    font-size: 10px;
+                }
                 .snrg-st-summary {
                     display:grid;
                     grid-template-columns:repeat(5, minmax(0, 1fr));
@@ -149,40 +182,6 @@ class SnrgSalesTrackingPage {
                     border-bottom:1px solid #e2e8f0; background:#fbfcfe;
                 }
                 .snrg-st-toolbar-actions { display:flex; gap:8px; flex-wrap:wrap; }
-                .snrg-st-toolbar-actions-top {
-                    display:flex; gap:8px; align-items:center; justify-content:flex-end; flex-wrap:wrap; width:100%;
-                }
-                .snrg-st-toolbar-actions-bottom {
-                    display:flex; gap:6px; align-items:flex-end; justify-content:flex-end; flex-wrap:wrap; width:100%;
-                }
-                .snrg-st-toolbar-saved-view {
-                    min-width:180px;
-                }
-                .snrg-st-toolbar-actions .frappe-control {
-                    margin-bottom: 0;
-                    padding: 2px 4px 3px;
-                    border: 1px solid #dde5f0;
-                    border-radius: 6px;
-                    background: #fff;
-                    min-height: 40px;
-                }
-                .snrg-st-toolbar-actions .frappe-control .control-label {
-                    font-size: 9px;
-                    font-weight: 700;
-                    color: #64748b;
-                    text-transform: uppercase;
-                    letter-spacing: .08em;
-                    margin-bottom: 2px;
-                }
-                .snrg-st-toolbar-actions .frappe-control input,
-                .snrg-st-toolbar-actions .frappe-control .input-with-feedback,
-                .snrg-st-toolbar-actions .frappe-control select {
-                    min-height: 24px;
-                    border-radius: 5px;
-                    border: 1px solid #dbe3ef;
-                    background: #fff;
-                    font-size: 10px;
-                }
                 .snrg-st-table-wrap {
                     overflow: auto;
                     max-height: calc(100vh - 190px);
@@ -288,8 +287,7 @@ class SnrgSalesTrackingPage {
                 @media (max-width: 768px) {
                     .snrg-st-control-strip, .snrg-st-summary, .snrg-st-card-grid { grid-template-columns:1fr; }
                     .snrg-st-filter-title h2 { font-size:18px; }
-                    .snrg-st-toolbar-actions-top,
-                    .snrg-st-toolbar-actions-bottom { justify-content:flex-start; flex-wrap:wrap; }
+                    .snrg-st-view-strip { justify-content:flex-start; }
                 }
             </style>
             <div class="snrg-st-page">
@@ -302,6 +300,13 @@ class SnrgSalesTrackingPage {
                         <div class="snrg-st-filter-slot snrg-st-credit-filter"></div>
                         <div class="snrg-st-filter-slot snrg-st-search-filter"></div>
                     </div>
+                    <div class="snrg-st-view-strip">
+                        <div class="snrg-st-saved-view-filter"></div>
+                        <button class="snrg-st-btn snrg-st-save-view" type="button">Save View</button>
+                        <button class="snrg-st-btn snrg-st-save-as-view" type="button">Save As</button>
+                        <button class="snrg-st-btn snrg-st-delete-view" type="button">Delete View</button>
+                        <button class="snrg-st-btn snrg-st-reset-filters" type="button">Reset</button>
+                    </div>
                 </section>
                 <section class="snrg-st-summary"></section>
                 <section class="snrg-st-table-shell">
@@ -311,17 +316,7 @@ class SnrgSalesTrackingPage {
                             <span class="snrg-st-muted">Click invoice, shortage, salesperson, SO delivery, or remarks cells for detail.</span>
                         </div>
                         <div class="snrg-st-toolbar-actions">
-                            <div class="snrg-st-toolbar-actions-top">
-                                <div class="snrg-st-saved-view-filter snrg-st-toolbar-saved-view"></div>
-                                <div class="snrg-st-row-count snrg-st-muted"></div>
-                            </div>
-                            <div class="snrg-st-toolbar-actions-bottom">
-                                <button class="snrg-st-btn snrg-st-save-view" type="button">Save View</button>
-                                <button class="snrg-st-btn snrg-st-save-as-view" type="button">Save As</button>
-                                <button class="snrg-st-btn snrg-st-delete-view" type="button">Delete View</button>
-                                <button class="snrg-st-btn snrg-st-reset-filters" type="button">Reset</button>
-                                <button class="snrg-st-btn snrg-st-export-table" type="button">Export</button>
-                            </div>
+                            <div class="snrg-st-row-count snrg-st-muted"></div>
                         </div>
                     </div>
                     <div class="snrg-st-table-wrap">
