@@ -53,10 +53,7 @@ class SnrgSalesTrackingPage {
                     background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.18); font-size:12px;
                 }
                 .snrg-st-filter-row { display:grid; grid-template-columns:repeat(6, minmax(180px, 1fr)); gap:12px; align-items:start; }
-                .snrg-st-filter-row .form-group,
-                .snrg-st-filter-row .frappe-control,
-                .snrg-st-filter-row .control-input-wrapper,
-                .snrg-st-filter-row .control-value {
+                .snrg-st-filter-slot {
                     width: 100%;
                 }
                 .snrg-st-filter-row .frappe-control {
@@ -181,12 +178,12 @@ class SnrgSalesTrackingPage {
                     <div class="snrg-st-meta"></div>
                 </section>
                 <section class="snrg-st-filter-row">
-                    <div class="snrg-st-company-filter"></div>
-                    <div class="snrg-st-from-filter"></div>
-                    <div class="snrg-st-to-filter"></div>
-                    <div class="snrg-st-territory-filter"></div>
-                    <div class="snrg-st-credit-filter"></div>
-                    <div class="snrg-st-search-filter"></div>
+                    <div class="snrg-st-filter-slot snrg-st-company-filter"></div>
+                    <div class="snrg-st-filter-slot snrg-st-from-filter"></div>
+                    <div class="snrg-st-filter-slot snrg-st-to-filter"></div>
+                    <div class="snrg-st-filter-slot snrg-st-territory-filter"></div>
+                    <div class="snrg-st-filter-slot snrg-st-credit-filter"></div>
+                    <div class="snrg-st-filter-slot snrg-st-search-filter"></div>
                 </section>
                 <section class="snrg-st-summary"></section>
                 <section class="snrg-st-table-shell">
@@ -206,7 +203,7 @@ class SnrgSalesTrackingPage {
     }
 
     make_filters() {
-        this.controls.company = this.page.add_field({
+        this.controls.company = this.makeFilterControl(".snrg-st-company-filter", {
             label: "Company",
             fieldname: "company",
             fieldtype: "Link",
@@ -214,52 +211,57 @@ class SnrgSalesTrackingPage {
             default: frappe.defaults.get_user_default("Company"),
             change: () => this.refresh(),
         });
-        $(this.controls.company.wrapper).appendTo(this.wrapper.find(".snrg-st-company-filter"));
 
-        this.controls.from_date = this.page.add_field({
+        this.controls.from_date = this.makeFilterControl(".snrg-st-from-filter", {
             label: "From Date",
             fieldname: "from_date",
             fieldtype: "Date",
             change: () => this.refresh(),
         });
-        $(this.controls.from_date.wrapper).appendTo(this.wrapper.find(".snrg-st-from-filter"));
 
-        this.controls.to_date = this.page.add_field({
+        this.controls.to_date = this.makeFilterControl(".snrg-st-to-filter", {
             label: "To Date",
             fieldname: "to_date",
             fieldtype: "Date",
             change: () => this.refresh(),
         });
-        $(this.controls.to_date.wrapper).appendTo(this.wrapper.find(".snrg-st-to-filter"));
 
-        this.controls.territory = this.page.add_field({
+        this.controls.territory = this.makeFilterControl(".snrg-st-territory-filter", {
             label: "Zone",
             fieldname: "territory",
             fieldtype: "Link",
             options: "Territory",
             change: () => this.refresh(),
         });
-        $(this.controls.territory.wrapper).appendTo(this.wrapper.find(".snrg-st-territory-filter"));
 
-        this.controls.credit_status = this.page.add_field({
+        this.controls.credit_status = this.makeFilterControl(".snrg-st-credit-filter", {
             label: "Credit Status",
             fieldname: "credit_status",
             fieldtype: "Select",
             options: "\nCredit OK\nCredit Hold\nMixed\nNot Run",
             change: () => this.refresh(),
         });
-        $(this.controls.credit_status.wrapper).appendTo(this.wrapper.find(".snrg-st-credit-filter"));
 
-        this.controls.search = this.page.add_field({
+        this.controls.search = this.makeFilterControl(".snrg-st-search-filter", {
             label: "Search",
             fieldname: "search",
             fieldtype: "Data",
             placeholder: "Quotation / customer",
             change: frappe.utils.debounce(() => this.refresh(), 350),
         });
-        $(this.controls.search.wrapper).appendTo(this.wrapper.find(".snrg-st-search-filter"));
 
         this.render_loading();
+    }
+
+    makeFilterControl(selector, df) {
+        const parent = this.wrapper.find(selector).get(0);
+        const control = frappe.ui.form.make_control({
+            parent,
+            df,
+            render_input: true,
+        });
+        control.refresh();
+        return control;
     }
 
     bind_events() {
