@@ -38,19 +38,19 @@ class SnrgSalesTrackingPage {
     render_shell() {
         this.wrapper.find(".layout-main-section").html(`
             <style>
-                .snrg-st-page { display:flex; flex-direction:column; gap:12px; color:#10253f; }
+                .snrg-st-page { display:flex; flex-direction:column; gap:10px; color:#10253f; }
                 .snrg-st-filter-panel {
                     border-radius:12px; border:1px solid #dde5f0; background:#fff;
-                    box-shadow:none; padding:10px 12px 12px;
+                    box-shadow:none; padding:8px 10px 10px;
                 }
                 .snrg-st-filter-header {
-                    display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap; margin-bottom:8px;
+                    display:flex; justify-content:space-between; gap:10px; align-items:flex-start; flex-wrap:wrap; margin-bottom:6px;
                 }
                 .snrg-st-filter-title h2 {
-                    margin:0; font-size:18px; line-height:1.1; font-weight:800; color:#0f172a;
+                    margin:0; font-size:17px; line-height:1.1; font-weight:800; color:#0f172a;
                 }
                 .snrg-st-filter-title p {
-                    margin:3px 0 0; font-size:11px; line-height:1.45; color:#64748b; max-width:720px;
+                    margin:2px 0 0; font-size:10px; line-height:1.35; color:#64748b; max-width:680px;
                 }
                 .snrg-st-meta { display:flex; gap:8px; flex-wrap:wrap; }
                 .snrg-st-chip {
@@ -59,8 +59,8 @@ class SnrgSalesTrackingPage {
                 }
                 .snrg-st-control-strip {
                     display:grid;
-                    grid-template-columns:minmax(140px,1fr) minmax(140px,1fr) minmax(150px,1fr) minmax(140px,1fr) minmax(140px,1fr) minmax(160px,1.2fr) minmax(170px,1.2fr) auto;
-                    gap:8px;
+                    grid-template-columns:minmax(120px,1fr) minmax(120px,.9fr) minmax(140px,1fr) minmax(120px,.9fr) minmax(120px,.9fr) minmax(150px,1.1fr) minmax(150px,1.1fr) auto;
+                    gap:6px;
                     align-items:end;
                 }
                 .snrg-st-filter-slot {
@@ -68,23 +68,23 @@ class SnrgSalesTrackingPage {
                 }
                 .snrg-st-saved-view-filter { min-width: 0; }
                 .snrg-st-view-actions {
-                    display:flex; gap:6px; flex-wrap:nowrap; align-items:flex-end; justify-content:flex-end;
+                    display:flex; gap:4px; flex-wrap:nowrap; align-items:flex-end; justify-content:flex-end;
                 }
                 .snrg-st-btn {
                     display:inline-flex; align-items:center; justify-content:center; gap:6px;
-                    padding:7px 10px; border-radius:8px; border:1px solid #cbd5e1;
-                    background:#fff; color:#0f172a; font-size:11px; font-weight:700; cursor:pointer;
-                    min-height:34px; white-space:nowrap;
+                    padding:6px 8px; border-radius:6px; border:1px solid #cbd5e1;
+                    background:#fff; color:#0f172a; font-size:10px; font-weight:700; cursor:pointer;
+                    min-height:30px; white-space:nowrap;
                 }
                 .snrg-st-btn:hover { background:#f8fafc; border-color:#94a3b8; }
                 .snrg-st-control-strip .frappe-control {
                     margin-bottom: 0;
-                    padding: 4px 6px 4px;
+                    padding: 3px 5px 4px;
                     border: 1px solid #dde5f0;
-                    border-radius: 8px;
+                    border-radius: 6px;
                     background: #fff;
                     box-shadow: none;
-                    min-height: 54px;
+                    min-height: 48px;
                 }
                 .snrg-st-control-strip .frappe-control .control-label {
                     font-size: 10px;
@@ -92,45 +92,45 @@ class SnrgSalesTrackingPage {
                     color: #64748b;
                     text-transform: uppercase;
                     letter-spacing: .08em;
-                    margin-bottom: 3px;
+                    margin-bottom: 2px;
                 }
                 .snrg-st-control-strip .frappe-control input,
                 .snrg-st-control-strip .frappe-control .input-with-feedback,
                 .snrg-st-control-strip .frappe-control .link-field,
                 .snrg-st-control-strip .frappe-control select {
-                    min-height: 32px;
-                    border-radius: 6px;
+                    min-height: 28px;
+                    border-radius: 5px;
                     border: 1px solid #dbe3ef;
                     background: #fff;
-                    font-size: 12px;
+                    font-size: 11px;
                 }
                 .snrg-st-summary {
                     display:grid;
                     grid-template-columns:repeat(5, minmax(0, 1fr));
-                    gap:8px;
+                    gap:6px;
                     align-items:start;
                 }
                 .snrg-st-card {
-                    border-radius:10px; padding:8px 10px; border:1px solid #dde5f0;
+                    border-radius:8px; padding:7px 8px; border:1px solid #dde5f0;
                     background:#fff; box-shadow:none; min-height:100%;
                 }
-                .snrg-st-card-label { font-size:10px; color:#5b7088; text-transform:uppercase; letter-spacing:.08em; font-weight:700; }
+                .snrg-st-card-label { font-size:9px; color:#5b7088; text-transform:uppercase; letter-spacing:.08em; font-weight:700; }
                 .snrg-st-card-grid {
-                    margin-top: 6px;
+                    margin-top: 5px;
                     display: grid;
                     grid-template-columns: repeat(2, minmax(0, 1fr));
-                    gap: 6px;
+                    gap: 5px;
                 }
                 .snrg-st-mini-stat {
                     border: 1px solid #e3eaf3;
-                    border-radius: 7px;
-                    padding: 6px 8px;
+                    border-radius: 6px;
+                    padding: 5px 7px;
                     background: #fafcff;
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
                     gap: 6px;
-                    min-height: 42px;
+                    min-height: 36px;
                 }
                 .snrg-st-mini-stat.interactive { cursor:pointer; }
                 .snrg-st-mini-stat.active {
@@ -139,14 +139,14 @@ class SnrgSalesTrackingPage {
                     box-shadow:none;
                 }
                 .snrg-st-mini-stat-label {
-                    font-size: 10px;
+                    font-size: 9px;
                     color: #64748b;
                     font-weight: 700;
                     text-transform: uppercase;
                     letter-spacing: .04em;
                 }
                 .snrg-st-mini-stat-value {
-                    font-size: 14px;
+                    font-size: 13px;
                     font-weight: 800;
                     color: #0f172a;
                 }
@@ -155,19 +155,19 @@ class SnrgSalesTrackingPage {
                     box-shadow:none; overflow:hidden;
                 }
                 .snrg-st-table-toolbar {
-                    display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; padding:10px 12px;
+                    display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; padding:8px 10px;
                     border-bottom:1px solid #e2e8f0; background:#fbfcfe;
                 }
                 .snrg-st-toolbar-actions { display:flex; gap:8px; flex-wrap:wrap; }
                 .snrg-st-table-wrap {
                     overflow: auto;
-                    max-height: calc(100vh - 220px);
+                    max-height: calc(100vh - 190px);
                 }
                 .snrg-st-table { width:100%; min-width:1900px; border-collapse:separate; border-spacing:0; }
                 .snrg-st-table th {
                     position:sticky; top:0; z-index:3; background:#f8fafc; border-bottom:1px solid #e2e8f0;
                     font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:#64748b; text-align:left;
-                    padding:10px 12px; white-space:nowrap;
+                    padding:8px 10px; white-space:nowrap;
                     box-shadow: inset 0 -1px 0 #e2e8f0;
                 }
                 .snrg-st-th-content {
@@ -197,7 +197,7 @@ class SnrgSalesTrackingPage {
                     border-color:#94a3b8; background:#fff; color:#0f172a;
                 }
                 .snrg-st-table td {
-                    padding:9px 12px; border-bottom:1px solid #edf2f7; font-size:12px; line-height:1.35; vertical-align:top;
+                    padding:7px 10px; border-bottom:1px solid #edf2f7; font-size:12px; line-height:1.3; vertical-align:top;
                     color:#1e293b;
                 }
                 .snrg-st-table tfoot td {
@@ -206,7 +206,7 @@ class SnrgSalesTrackingPage {
                     z-index: 2;
                     background: #f8fafc;
                     border-top: 2px solid #cbd5e1;
-                    font-size: 11px;
+                    font-size: 10px;
                     font-weight: 800;
                     color: #0f172a;
                     box-shadow: inset 0 1px 0 #e2e8f0;
@@ -229,8 +229,8 @@ class SnrgSalesTrackingPage {
                     padding:28px 16px; text-align:center; color:#64748b; font-size:13px; border:1px dashed #cbd5e1;
                     border-radius:18px; background:#f8fafc; margin:16px;
                 }
-                .snrg-st-cell-lines { display:flex; flex-direction:column; gap:3px; min-width:0; }
-                .snrg-st-cell-lines .secondary { color:#64748b; font-size:11px; }
+                .snrg-st-cell-lines { display:flex; flex-direction:column; gap:2px; min-width:0; }
+                .snrg-st-cell-lines .secondary { color:#64748b; font-size:10px; }
                 .snrg-st-remarks {
                     max-width:260px; white-space:normal; word-break:break-word; display:-webkit-box;
                     -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
