@@ -82,8 +82,13 @@ def _get_quotations(filters, limit=250):
         conditions.append("q.transaction_date <= %(to_date)s")
         values["to_date"] = filters["to_date"]
     if filters.get("order_month"):
-        conditions.append("DATE_FORMAT(q.transaction_date, '%%Y-%%m') = %(order_month)s")
-        values["order_month"] = filters["order_month"]
+        order_month = (filters.get("order_month") or "").strip()
+        if len(order_month) == 7 and order_month[4] == "-":
+            conditions.append("DATE_FORMAT(q.transaction_date, '%%Y-%%m') = %(order_month)s")
+            values["order_month"] = order_month
+        else:
+            conditions.append("DATE_FORMAT(q.transaction_date, '%%b %%Y') = %(order_month_label)s")
+            values["order_month_label"] = order_month
     if filters.get("territory"):
         conditions.append("q.territory = %(territory)s")
         values["territory"] = filters["territory"]
@@ -346,6 +351,7 @@ def _build_tracker_row(quotation, salespeople, sales_orders, invoices):
         "quotation_url": f"/app/quotation/{quote(quotation.name)}",
         "quotation_comments_url": f"/app/quotation/{quote(quotation.name)}#comments",
         "order_month": getdate(quotation.transaction_date).strftime("%b %Y") if quotation.transaction_date else "",
+        "order_month_value": getdate(quotation.transaction_date).strftime("%Y-%m") if quotation.transaction_date else "",
         "order_date": _serialize_date(quotation.transaction_date),
         "channel_partner_name": quotation.customer_name or quotation.customer,
         "zone": quotation.territory or "",

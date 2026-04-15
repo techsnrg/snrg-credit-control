@@ -218,9 +218,9 @@ class SnrgSalesTrackingPage {
         this.controls.order_month = this.makeFilterControl(".snrg-st-month-filter", {
             label: "Order Month",
             fieldname: "order_month",
-            fieldtype: "Data",
-            placeholder: "YYYY-MM",
-            change: frappe.utils.debounce(() => this.refresh(), 350),
+            fieldtype: "Select",
+            options: "\n",
+            change: () => this.refresh(),
         });
 
         this.controls.from_date = this.makeFilterControl(".snrg-st-from-filter", {
@@ -345,6 +345,7 @@ class SnrgSalesTrackingPage {
             },
         });
         this.data = response.message || { rows: [], summary: {} };
+        this.updateOrderMonthOptions();
         this.render();
     }
 
@@ -357,9 +358,36 @@ class SnrgSalesTrackingPage {
     }
 
     render() {
+        this.updateOrderMonthOptions();
         this.renderMeta();
         this.renderSummary();
         this.renderTable();
+    }
+
+    updateOrderMonthOptions() {
+        if (!this.controls.order_month) return;
+
+        const currentValue = this.controls.order_month.get_value();
+        const monthMap = new Map();
+
+        (this.data?.rows || []).forEach((row) => {
+            if (row.order_month_value && row.order_month) {
+                monthMap.set(row.order_month_value, row.order_month);
+            }
+        });
+
+        const optionLines = [""];
+        [...monthMap.entries()]
+            .sort((left, right) => right[0].localeCompare(left[0]))
+            .forEach(([, label]) => {
+                optionLines.push(label);
+            });
+
+        this.controls.order_month.df.options = optionLines.join("\n");
+        this.controls.order_month.refresh();
+        if (currentValue && optionLines.includes(currentValue)) {
+            this.controls.order_month.set_value(currentValue);
+        }
     }
 
     renderMeta() {
