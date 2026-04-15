@@ -723,8 +723,18 @@ class SnrgSalesTrackingPage {
                     </div>
                 `,
             },
-            { key: "credit_status", label: "Credit Status", type: "select", render: (row) => this.statusPill(row.credit_status) },
-            { key: "credit_clearance_date", label: "Credit Clearance Date", type: "date", render: (row) => this.formatDate(row.credit_clearance_date) },
+            {
+                key: "credit_status",
+                label: "Credit Status",
+                type: "select",
+                sortKey: "credit_status",
+                render: (row) => `
+                    <div class="snrg-st-cell-lines">
+                        <span>${this.statusPill(row.credit_status)}</span>
+                        <span class="secondary">Clearance: ${this.formatDate(row.credit_clearance_date)}</span>
+                    </div>
+                `,
+            },
             { key: "quotation_to_credit_clearance_days", label: "Qtn to Credit SLA", type: "number", className: "snrg-st-col-sla", width: "118px", render: (row) => this.slaCell(row.quotation_to_credit_clearance_days, row.quotation_to_credit_clearance_sla) },
             { key: "quotation_to_delivery_days", label: "Qtn to Delivery SLA", type: "number", className: "snrg-st-col-sla", width: "118px", render: (row) => this.slaCell(row.quotation_to_delivery_days, row.quotation_to_delivery_sla) },
             { key: "invoice_to_delivery_days", label: "Inv to Delivery SLA", type: "number", className: "snrg-st-col-sla", width: "118px", render: (row) => this.slaCell(row.invoice_to_delivery_days, row.invoice_to_delivery_sla) },
