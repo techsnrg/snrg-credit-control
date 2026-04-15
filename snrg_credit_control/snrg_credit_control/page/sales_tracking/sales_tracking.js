@@ -710,9 +710,6 @@ class SnrgSalesTrackingPage {
                     </div>
                 `,
             },
-            { key: "zone", label: "Zone", type: "text", render: (row) => this.escapeCell(row.zone) },
-            { key: "city", label: "City", type: "text", render: (row) => this.escapeCell(row.city) },
-            { key: "state", label: "State", type: "text", render: (row) => this.escapeCell(row.state) },
             { key: "salesperson_summary", label: "Salesperson", type: "text", render: (row) => row.salespeople?.length ? `<a class="snrg-st-link snrg-st-open-salespeople">${frappe.utils.escape_html(row.salesperson_summary || "")}</a>` : this.emptyCell() },
             { key: "order_value", label: "Order Value", type: "number", render: (row) => this.money(row.order_value, row.currency) },
             { key: "basic_value", label: "Basic Value", type: "number", render: (row) => this.money(row.basic_value, row.currency) },
@@ -1116,6 +1113,8 @@ class SnrgSalesTrackingPage {
                     <table class="table table-bordered" style="margin:0;">
                         <tbody>
                             <tr><th>Customer</th><td>${this.escapeText(row.channel_partner_name)}</td><th>Order Value</th><td>${this.money(row.order_value, row.currency)}</td></tr>
+                            <tr><th>Zone</th><td>${this.escapeText(row.zone || "-")}</td><th>City</th><td>${this.escapeText(row.city || "-")}</td></tr>
+                            <tr><th>State</th><td>${this.escapeText(row.state || "-")}</td><th>Salesperson</th><td>${this.escapeText(row.salesperson_summary || "-")}</td></tr>
                             <tr><th>Original ESD</th><td>${this.textOrDash(row.original_esd)}</td><th>Credit Clearance Date</th><td>${this.textOrDash(row.credit_clearance_date)}</td></tr>
                             <tr><th>Latest HO Remark</th><td colspan="3">${this.escapeText(row.latest_ho_remark || "-")}</td></tr>
                         </tbody>
