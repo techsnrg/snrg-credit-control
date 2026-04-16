@@ -223,6 +223,12 @@ class SnrgSalesTrackingPage {
                 .snrg-st-sla-days {
                     font-weight:600; color:#334155; white-space:nowrap; line-height:1;
                 }
+                .snrg-st-col-serial { width:48px; min-width:48px; text-align:center; }
+                .snrg-st-table th.snrg-st-col-serial,
+                .snrg-st-table td.snrg-st-col-serial {
+                    text-align:center;
+                    vertical-align:middle;
+                }
                 .snrg-st-col-sla { width:118px; min-width:118px; }
                 .snrg-st-col-sla .snrg-st-th-content { gap:5px; }
                 .snrg-st-col-sla .snrg-st-th-main { gap:4px; }
@@ -657,7 +663,7 @@ class SnrgSalesTrackingPage {
         const headerHtml = this.columns.map((column) => `<th class="${this.getColumnClass(column)}" style="${this.getColumnStyle(column)}">${this.renderHeader(column)}</th>`).join("");
         const bodyHtml = rows.map((row, index) => `
             <tr data-row-index="${index}">
-                ${this.columns.map((column) => `<td class="${this.getColumnClass(column)}" style="${this.getColumnStyle(column)}">${column.render(row)}</td>`).join("")}
+                ${this.columns.map((column) => `<td class="${this.getColumnClass(column)}" style="${this.getColumnStyle(column)}">${column.render(row, index)}</td>`).join("")}
             </tr>
         `).join("");
         const footerHtml = this.renderFooter(rows);
@@ -673,6 +679,14 @@ class SnrgSalesTrackingPage {
 
     buildColumns() {
         return [
+            {
+                key: "serial_no",
+                label: "S. No.",
+                type: "number",
+                className: "snrg-st-col-serial",
+                width: "48px",
+                render: (_row, index) => frappe.format((index || 0) + 1, { fieldtype: "Int" }),
+            },
             {
                 key: "quotation_id",
                 label: "Quotation",
@@ -798,6 +812,10 @@ class SnrgSalesTrackingPage {
         const totals = this.getFooterTotals(rows);
         const footerCells = this.columns.map((column, index) => {
             if (index === 0) {
+                return `<td class="${this.getColumnClass(column)}" style="${this.getColumnStyle(column)}"></td>`;
+            }
+
+            if (index === 1) {
                 return `<td class="${this.getColumnClass(column)}" style="${this.getColumnStyle(column)}">Total (${frappe.format(rows.length || 0, { fieldtype: "Int" })} rows)</td>`;
             }
 
