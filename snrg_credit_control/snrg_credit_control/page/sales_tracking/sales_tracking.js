@@ -334,7 +334,7 @@ class SnrgSalesTrackingPage {
             fieldname: "search",
             fieldtype: "Data",
             placeholder: "Quotation / customer",
-            change: frappe.utils.debounce(() => this.handleFilterChange(), 350),
+            change: frappe.utils.debounce(() => this.handleLocalSearchChange(), 250),
         });
 
         this.render_loading();
@@ -354,6 +354,12 @@ class SnrgSalesTrackingPage {
     handleFilterChange() {
         if (this.suppressFilterRefresh) return;
         this.refresh();
+    }
+
+    handleLocalSearchChange() {
+        if (this.suppressFilterRefresh) return;
+        this.renderSummary();
+        this.renderTable();
     }
 
     resetAllFilters() {
@@ -477,7 +483,6 @@ class SnrgSalesTrackingPage {
                 to_date: toDate,
                 territory: this.controls.territory.get_value(),
                 credit_status: this.controls.credit_status.get_value(),
-                search: this.controls.search.get_value(),
             },
         });
         this.data = response.message || { rows: [], summary: {} };
@@ -977,7 +982,7 @@ class SnrgSalesTrackingPage {
     }
 
     rowMatchesFilters(row) {
-        return this.rowMatchesKpiFilters(row) && Object.entries(this.columnFilters).every(([key, value]) => {
+        return this.rowMatchesSearch(row) && this.rowMatchesKpiFilters(row) && Object.entries(this.columnFilters).every(([key, value]) => {
             if (value === null || value === undefined || value === "") {
                 return true;
             }
@@ -994,6 +999,33 @@ class SnrgSalesTrackingPage {
 
             return String(rawValue || "").toLowerCase().includes(normalizedNeedle);
         });
+    }
+
+    rowMatchesSearch(row) {
+        const needle = String(this.controls.search?.get_value() || "").trim().toLowerCase();
+        if (!needle) return true;
+
+        const haystack = [
+            row.quotation_id,
+            row.quotation_status,
+            row.current_stage,
+            row.customer,
+            row.channel_partner_name,
+            row.salesperson_summary,
+            row.order_month,
+            row.order_date,
+            row.credit_status,
+            row.latest_ho_remark,
+            row.invoice_summary,
+            row.transport_name,
+            row.tracking_details,
+            row.delivery_status_overall,
+            row.remarks,
+        ]
+            .map((value) => String(value || "").toLowerCase())
+            .join(" ");
+
+        return haystack.includes(needle);
     }
 
     rowMatchesKpiFilters(row) {
