@@ -759,16 +759,69 @@ class SnrgSalesTrackingPage {
             { key: "original_esd", label: "Original ESD", type: "date", render: (row) => this.formatDate(row.original_esd) },
             { key: "sales_order_delivery_date", label: "SO Delivery Date", type: "date", render: (row) => row.sales_orders?.length ? `<a class="snrg-st-link snrg-st-open-sales-orders">${this.formatDate(row.sales_order_delivery_date)}</a>` : this.emptyCell() },
             { key: "latest_ho_remark", label: "Latest HO Remark", type: "text", render: (row) => row.latest_ho_remark ? `<a href="#" class="snrg-st-link snrg-st-open-comments"><span class="snrg-st-remarks">${frappe.utils.escape_html(row.latest_ho_remark)}</span></a>` : this.emptyCell() },
-            { key: "invoice_summary", label: "Invoice No", type: "text", render: (row) => row.invoice_details?.length ? `<a class="snrg-st-link snrg-st-open-invoices">${frappe.utils.escape_html(row.invoice_summary || "")}</a>` : this.emptyCell() },
+            {
+                key: "invoice_summary",
+                label: "Invoice",
+                type: "text",
+                sortKey: "invoice_summary",
+                render: (row) => row.invoice_details?.length ? `
+                    <a class="snrg-st-link snrg-st-open-invoices">
+                        <div class="snrg-st-cell-lines">
+                            <span>${frappe.utils.escape_html(row.invoice_summary || "")}</span>
+                            <span class="secondary">Date: ${this.formatDate(row.invoice_date)}</span>
+                        </div>
+                    </a>
+                ` : this.emptyCell(),
+            },
             { key: "invoice_amount", label: "Invoice Amount", type: "number", render: (row) => row.invoice_details?.length ? `<a class="snrg-st-link snrg-st-open-invoices">${this.money(row.invoice_amount, row.currency)}</a>` : this.emptyCell() },
-            { key: "invoice_date", label: "Invoice Date", type: "date", render: (row) => row.invoice_details?.length ? `<a class="snrg-st-link snrg-st-open-invoices">${this.formatDate(row.invoice_date)}</a>` : this.emptyCell() },
             { key: "shortage_amount", label: "Shortage Details", type: "number", render: (row) => Math.abs(Number(row.shortage_amount || 0)) > 0.009 ? `<a href="#" class="snrg-st-link snrg-st-open-shortage">${this.money(row.shortage_amount, row.currency)}</a>` : this.money(row.shortage_amount, row.currency) },
-            { key: "dispatch_date", label: "Dispatch Date", type: "date", render: (row) => row.invoice_details?.length ? `<a class="snrg-st-link snrg-st-open-invoices">${this.formatDate(row.dispatch_date)}</a>` : this.emptyCell() },
-            { key: "no_of_cartons", label: "No. of Cartons", type: "number", render: (row) => row.invoice_details?.length ? `<a class="snrg-st-link snrg-st-open-invoices">${frappe.format(row.no_of_cartons || 0, { fieldtype: "Int" })}</a>` : this.emptyCell() },
-            { key: "transport_name", label: "Transport Name", type: "text", render: (row) => row.invoice_details?.length ? `<a class="snrg-st-link snrg-st-open-invoices">${frappe.utils.escape_html(row.transport_name || "-")}</a>` : this.emptyCell() },
-            { key: "tracking_details", label: "Tracking Details", type: "text", render: (row) => row.invoice_details?.length ? `<a class="snrg-st-link snrg-st-open-invoices">${frappe.utils.escape_html(row.tracking_details || "-")}</a>` : this.emptyCell() },
-            { key: "delivery_status_overall", label: "Delivery Status", type: "select", render: (row) => row.invoice_details?.length ? `<a class="snrg-st-link snrg-st-open-invoices">${this.statusPill(row.delivery_status_overall)}</a>` : this.statusPill("Pending") },
-            { key: "delivery_date", label: "Delivery Date", type: "date", render: (row) => row.invoice_details?.length ? `<a class="snrg-st-link snrg-st-open-invoices">${this.formatDate(row.delivery_date)}</a>` : this.emptyCell() },
+            {
+                key: "dispatch_date",
+                label: "Dispatch",
+                type: "date",
+                sortKey: "dispatch_date",
+                render: (row) => row.invoice_details?.length ? `
+                    <a class="snrg-st-link snrg-st-open-invoices">
+                        <div class="snrg-st-cell-lines">
+                            <span>${this.formatDate(row.dispatch_date)}</span>
+                            <span class="secondary">Cartons: ${frappe.format(row.no_of_cartons || 0, { fieldtype: "Int" })}</span>
+                        </div>
+                    </a>
+                ` : this.emptyCell(),
+            },
+            {
+                key: "transport_name",
+                label: "Transport",
+                type: "text",
+                sortKey: "transport_name",
+                render: (row) => row.invoice_details?.length ? `
+                    <a class="snrg-st-link snrg-st-open-invoices">
+                        <div class="snrg-st-cell-lines">
+                            <span>${frappe.utils.escape_html(row.transport_name || "-")}</span>
+                            <span class="secondary">Track: ${frappe.utils.escape_html(row.tracking_details || "-")}</span>
+                        </div>
+                    </a>
+                ` : this.emptyCell(),
+            },
+            {
+                key: "delivery_status_overall",
+                label: "Delivery",
+                type: "select",
+                sortKey: "delivery_status_overall",
+                render: (row) => row.invoice_details?.length ? `
+                    <a class="snrg-st-link snrg-st-open-invoices">
+                        <div class="snrg-st-cell-lines">
+                            <span>${this.statusPill(row.delivery_status_overall)}</span>
+                            <span class="secondary">Date: ${this.formatDate(row.delivery_date)}</span>
+                        </div>
+                    </a>
+                ` : `
+                    <div class="snrg-st-cell-lines">
+                        <span>${this.statusPill("Pending")}</span>
+                        <span class="secondary">Date: -</span>
+                    </div>
+                `,
+            },
             { key: "pod_status", label: "POD Received", type: "select", render: (row) => row.invoice_details?.length ? `<a class="snrg-st-link snrg-st-open-invoices">${this.statusPill(row.pod_status)}</a>` : this.statusPill("Pending") },
             { key: "remarks", label: "Remarks", type: "text", render: (row) => row.remarks ? `<a class="snrg-st-link snrg-st-open-invoices"><span class="snrg-st-remarks">${frappe.utils.escape_html(row.remarks)}</span></a>` : this.emptyCell() },
         ];
@@ -835,8 +888,15 @@ class SnrgSalesTrackingPage {
             if (column.key === "shortage_amount") {
                 return `<td class="${this.getColumnClass(column)}" style="${this.getColumnStyle(column)}">${this.money(totals.shortage_amount, totals.currency)}</td>`;
             }
-            if (column.key === "no_of_cartons") {
-                return `<td class="${this.getColumnClass(column)}" style="${this.getColumnStyle(column)}">${frappe.format(totals.no_of_cartons || 0, { fieldtype: "Int" })}</td>`;
+            if (column.key === "dispatch_date") {
+                return `
+                    <td class="${this.getColumnClass(column)}" style="${this.getColumnStyle(column)}">
+                        <div class="snrg-st-cell-lines">
+                            <span></span>
+                            <span class="secondary">Cartons: ${frappe.format(totals.no_of_cartons || 0, { fieldtype: "Int" })}</span>
+                        </div>
+                    </td>
+                `;
             }
             if (column.key === "credit_status") {
                 return `<td class="${this.getColumnClass(column)}" style="${this.getColumnStyle(column)}">${frappe.format(totals.credit_hold_count || 0, { fieldtype: "Int" })} hold</td>`;
