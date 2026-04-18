@@ -19,6 +19,8 @@ class SnrgSalesTrackingPage {
         this.kpiFilters = {};
         this.columns = [];
         this.suppressFilterRefresh = false;
+        this.refreshSequence = 0;
+        this.isRefreshing = false;
 
         this.setup();
     }
@@ -358,6 +360,16 @@ class SnrgSalesTrackingPage {
         this.renderTable();
     }
 
+    setRefreshing(isRefreshing) {
+        this.isRefreshing = isRefreshing;
+        const $primary = this.page.btn_primary;
+        if ($primary && $primary.length) {
+            $primary.prop("disabled", isRefreshing);
+            $primary.toggleClass("disabled", isRefreshing);
+            $primary.find(".alt-vertical-align").text(isRefreshing ? "Refreshing..." : "Refresh");
+        }
+    }
+
     resetAllFilters() {
         this.suppressFilterRefresh = true;
         try {
@@ -456,21 +468,34 @@ class SnrgSalesTrackingPage {
     }
 
     async refresh() {
+        const refreshId = ++this.refreshSequence;
+        this.setRefreshing(true);
         this.render_loading();
         const dateRange = this.controls.date_range.get_value() || [];
         const [fromDate, toDate] = Array.isArray(dateRange) ? dateRange : [null, null];
-        const response = await frappe.call({
-            method: "snrg_credit_control.snrg_credit_control.page.sales_tracking.sales_tracking.get_tracker_data",
-            args: {
-                company: this.controls.company.get_value(),
-                order_month: this.controls.order_month.get_value(),
-                from_date: fromDate,
-                to_date: toDate,
-                territory: this.controls.territory.get_value(),
-            },
-        });
-        this.data = response.message || { rows: [], summary: {} };
-        this.render();
+        try {
+            const response = await frappe.call({
+                method: "snrg_credit_control.snrg_credit_control.page.sales_tracking.sales_tracking.get_tracker_data",
+                args: {
+                    company: this.controls.company.get_value(),
+                    order_month: this.controls.order_month.get_value(),
+                    from_date: fromDate,
+                    to_date: toDate,
+                    territory: this.controls.territory.get_value(),
+                },
+            });
+
+            if (refreshId !== this.refreshSequence) {
+                return;
+            }
+
+            this.data = response.message || { rows: [], summary: {} };
+            this.render();
+        } finally {
+            if (refreshId === this.refreshSequence) {
+                this.setRefreshing(false);
+            }
+        }
     }
 
     render_loading() {
