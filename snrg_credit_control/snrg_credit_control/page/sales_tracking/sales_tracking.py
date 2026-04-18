@@ -532,6 +532,7 @@ def _build_tracker_row(quotation, salespeople, sales_orders, invoices, sla_setti
         "order_month": getdate(quotation.transaction_date).strftime("%b %Y") if quotation.transaction_date else "",
         "order_month_value": getdate(quotation.transaction_date).strftime("%Y-%m") if quotation.transaction_date else "",
         "order_date": _serialize_date(quotation.transaction_date),
+        "customer": quotation.customer or "",
         "channel_partner_name": quotation.customer_name or quotation.customer,
         "zone": quotation.territory or "",
         "city": quotation.custom_city or "",
