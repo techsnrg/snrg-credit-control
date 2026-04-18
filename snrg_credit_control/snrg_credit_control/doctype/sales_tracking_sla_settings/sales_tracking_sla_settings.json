@@ -1,0 +1,99 @@
+{
+ "actions": [],
+ "creation": "2026-04-15 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "quotation_to_credit_clearance_days",
+  "quotation_to_delivery_days",
+  "invoice_to_delivery_days",
+  "delivery_to_pod_days",
+  "credit_hold_age_days",
+  "esd_delay_days",
+  "no_invoice_after_so_days"
+ ],
+ "fields": [
+  {
+   "default": "3",
+   "fieldname": "quotation_to_credit_clearance_days",
+   "fieldtype": "Int",
+   "label": "Quotation to Credit Clearance SLA (Days)",
+   "reqd": 1
+  },
+  {
+   "default": "10",
+   "fieldname": "quotation_to_delivery_days",
+   "fieldtype": "Int",
+   "label": "Quotation to Delivery SLA (Days)",
+   "reqd": 1
+  },
+  {
+   "default": "4",
+   "fieldname": "invoice_to_delivery_days",
+   "fieldtype": "Int",
+   "label": "Invoice to Delivery SLA (Days)",
+   "reqd": 1
+  },
+  {
+   "default": "2",
+   "fieldname": "delivery_to_pod_days",
+   "fieldtype": "Int",
+   "label": "Delivery to POD SLA (Days)",
+   "reqd": 1
+  },
+  {
+   "default": "2",
+   "fieldname": "credit_hold_age_days",
+   "fieldtype": "Int",
+   "label": "Credit Hold Age SLA (Days)",
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "esd_delay_days",
+   "fieldtype": "Int",
+   "label": "ESD Delay SLA (Days)",
+   "reqd": 1
+  },
+  {
+   "default": "3",
+   "fieldname": "no_invoice_after_so_days",
+   "fieldtype": "Int",
+   "label": "No Invoice After SO SLA (Days)",
+   "reqd": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-04-15 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Snrg Credit Control",
+ "name": "Sales Tracking SLA Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "read": 1,
+   "role": "System Manager",
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "Credit Approver",
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "Sales Manager",
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "Accounts Manager",
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC"
+}
+

@@ -177,6 +177,26 @@ def stamp_credit_fields(doc, snapshot):
     doc.custom_snrg_credit_check_reason_code = snapshot["reason_code"]
 
 
+def stamp_credit_clearance_date(doc, snapshot, previous_status=None):
+    fieldname = "custom_credit_clearance_date"
+    meta = getattr(doc, "meta", None)
+    if not meta or fieldname not in meta.get_valid_columns():
+        return
+
+    current_status = snapshot.get("status")
+    if current_status != "Credit OK":
+        return
+
+    if doc.get(fieldname):
+        return
+
+    if previous_status is None and not doc.is_new():
+        previous_status = frappe.db.get_value(doc.doctype, doc.name, "custom_snrg_credit_check_status")
+
+    if doc.is_new() or previous_status != "Credit OK":
+        doc.set(fieldname, today())
+
+
 def reset_credit_fields(doc):
     doc.custom_snrg_credit_check_status = "Not Run"
     doc.custom_snrg_credit_check_reason_code = ""
