@@ -49,7 +49,7 @@ class SnrgSalesTrackingPage {
                 }
                 .snrg-st-control-strip {
                     display:grid;
-                    grid-template-columns:minmax(96px,.85fr) minmax(104px,.85fr) minmax(118px,.9fr) minmax(104px,.85fr) minmax(104px,.85fr) minmax(128px,1fr);
+                    grid-template-columns:minmax(132px, 1fr) minmax(132px, 1fr) minmax(170px, 1.15fr) minmax(132px, 1fr) minmax(170px, 1.15fr);
                     gap:5px;
                     align-items:end;
                 }
@@ -246,11 +246,16 @@ class SnrgSalesTrackingPage {
                 }
                 @keyframes snrg-st-shimmer { 0% { background-position:200% 0; } 100% { background-position:-200% 0; } }
                 @media (max-width: 1500px) {
+                    .snrg-st-control-strip { grid-template-columns:repeat(5, minmax(0, 1fr)); }
+                    .snrg-st-summary { grid-template-columns:repeat(3, minmax(0, 1fr)); }
+                }
+                @media (max-width: 1320px) {
                     .snrg-st-control-strip { grid-template-columns:repeat(3, minmax(0, 1fr)); }
                     .snrg-st-summary { grid-template-columns:repeat(3, minmax(0, 1fr)); }
                 }
                 @media (max-width: 1180px) {
-                    .snrg-st-control-strip, .snrg-st-summary { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+                    .snrg-st-summary { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+                    .snrg-st-control-strip { grid-template-columns:repeat(2, minmax(0, 1fr)); }
                     .snrg-st-table-wrap { max-height: calc(100vh - 190px); }
                 }
                 @media (max-width: 768px) {
