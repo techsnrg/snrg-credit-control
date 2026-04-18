@@ -753,6 +753,15 @@ class SnrgSalesTrackingPage {
                 `,
             },
             {
+                key: "customer_confirmation_status",
+                label: "Customer Confirmation",
+                type: "select",
+                sortKey: "customer_confirmation_status",
+                render: (row) => row.customer_confirmation_status
+                    ? this.statusPill(row.customer_confirmation_status)
+                    : this.emptyCell(),
+            },
+            {
                 key: "credit_status",
                 label: "Credit Status",
                 type: "select",
@@ -1024,6 +1033,7 @@ class SnrgSalesTrackingPage {
             row.salesperson_summary,
             row.order_month,
             row.order_date,
+            row.customer_confirmation_status,
             row.credit_status,
             row.latest_ho_remark,
             row.invoice_summary,
@@ -1184,6 +1194,7 @@ class SnrgSalesTrackingPage {
             quotation_value_summary: `GT: ${row.order_value || 0} | NT: ${row.basic_value || 0}`,
             order_value: row.order_value,
             basic_value: row.basic_value,
+            customer_confirmation_status: row.customer_confirmation_status,
             credit_status: row.credit_status,
             credit_clearance_date: row.credit_clearance_date,
             quotation_to_credit_clearance_days: this.slaExport(row.quotation_to_credit_clearance_days, row.quotation_to_credit_clearance_sla),
