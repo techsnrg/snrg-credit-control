@@ -1598,6 +1598,8 @@ class SnrgSalesTrackingPage {
             "Submitted": "blue",
             "Cancelled": "red",
             "Pending": "amber",
+            "Confirmed": "green",
+            "Request Changes": "red",
             "Partially Delivered": "amber",
             "Partial": "amber",
             "Delivered": "green",
