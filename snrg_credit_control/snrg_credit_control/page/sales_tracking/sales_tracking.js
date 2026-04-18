@@ -265,7 +265,6 @@ class SnrgSalesTrackingPage {
                         <div class="snrg-st-filter-slot snrg-st-month-filter"></div>
                         <div class="snrg-st-filter-slot snrg-st-date-range-filter"></div>
                         <div class="snrg-st-filter-slot snrg-st-territory-filter"></div>
-                        <div class="snrg-st-filter-slot snrg-st-credit-filter"></div>
                         <div class="snrg-st-filter-slot snrg-st-search-filter"></div>
                     </div>
                 </section>
@@ -321,14 +320,6 @@ class SnrgSalesTrackingPage {
             change: () => this.handleFilterChange(),
         });
 
-        this.controls.credit_status = this.makeFilterControl(".snrg-st-credit-filter", {
-            label: "Credit Status",
-            fieldname: "credit_status",
-            fieldtype: "Select",
-            options: "\nCredit OK\nCredit Hold\nMixed\nNot Run",
-            change: () => this.handleFilterChange(),
-        });
-
         this.controls.search = this.makeFilterControl(".snrg-st-search-filter", {
             label: "Search",
             fieldname: "search",
@@ -369,7 +360,6 @@ class SnrgSalesTrackingPage {
             this.controls.order_month.set_value("");
             this.controls.date_range.set_value(["", ""]);
             this.controls.territory.set_value("");
-            this.controls.credit_status.set_value("");
             this.controls.search.set_value("");
             this.columnFilters = {};
             this.kpiFilters = {};
@@ -452,16 +442,6 @@ class SnrgSalesTrackingPage {
             }
         });
 
-        this.wrapper.on("click", ".snrg-st-summary-card[data-summary-action]", (event) => {
-            const action = $(event.currentTarget).data("summaryAction");
-            if (action === "credit-hold") {
-                this.controls.credit_status.set_value("Credit Hold");
-            }
-            if (action === "clear-credit-hold") {
-                this.controls.credit_status.set_value("");
-            }
-        });
-
         this.wrapper.on("click", ".snrg-st-mini-stat[data-kpi-group]", (event) => {
             const target = $(event.currentTarget);
             this.toggleKpiFilter(target.data("kpiGroup"), target.data("kpiValue"));
@@ -482,7 +462,6 @@ class SnrgSalesTrackingPage {
                 from_date: fromDate,
                 to_date: toDate,
                 territory: this.controls.territory.get_value(),
-                credit_status: this.controls.credit_status.get_value(),
             },
         });
         this.data = response.message || { rows: [], summary: {} };
@@ -601,6 +580,7 @@ class SnrgSalesTrackingPage {
                     { label: "Credit Hold", value: counts.creditStatus["Credit Hold"] || 0, group: "credit_status", key: "Credit Hold" },
                     { label: "Credit OK", value: counts.creditStatus["Credit OK"] || 0, group: "credit_status", key: "Credit OK" },
                     { label: "Mixed", value: counts.creditStatus.Mixed || 0, group: "credit_status", key: "Mixed" },
+                    { label: "Not Run", value: counts.creditStatus["Not Run"] || 0, group: "credit_status", key: "Not Run" },
                 ],
             },
             {
