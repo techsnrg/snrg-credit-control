@@ -1,15 +1,33 @@
 function patch_payment_entry_outstanding_invoice_default(frm) {
-  if (!frm || !frm.events || frm._snrg_payment_entry_invoice_patch_applied) return;
+  if (!frm || !frm.events) return;
   if (
+    typeof frm.events.get_outstanding_invoices_or_orders !== "function" ||
     typeof frm.events.get_outstanding_documents !== "function" ||
     typeof frm.events.validate_filters_data !== "function"
   ) {
     return;
   }
 
-  frm._snrg_payment_entry_invoice_patch_applied = true;
+  if (!frm._snrg_original_get_outstanding_invoices_or_orders) {
+    frm._snrg_original_get_outstanding_invoices_or_orders =
+      frm.events.get_outstanding_invoices_or_orders;
+  }
 
-  frm.events.get_outstanding_invoices = function (frm) {
+  // Reapply on refresh so later-loaded scripts cannot silently replace the override.
+  frm.events.get_outstanding_invoices_or_orders = function (
+    frm,
+    get_outstanding_invoices,
+    get_orders_to_be_billed
+  ) {
+    if (!get_outstanding_invoices || get_orders_to_be_billed) {
+      return frm._snrg_original_get_outstanding_invoices_or_orders.call(
+        this,
+        frm,
+        get_outstanding_invoices,
+        get_orders_to_be_billed
+      );
+    }
+
     const today = frappe.datetime.get_today();
 
     let fields = [
@@ -41,15 +59,15 @@ function patch_payment_entry_outstanding_invoice_default(frm) {
       const column_break_insertion_point = Math.ceil(frm.dimension_filters.length / 2);
 
       fields.push({ fieldtype: "Section Break" });
-      frm.dimension_filters.map((elem, idx) => {
+      frm.dimension_filters.forEach((elem, idx) => {
         fields.push({
           fieldtype: "Link",
-          label: elem.document_type == "Cost Center" ? "Cost Center" : elem.label,
+          label: elem.document_type === "Cost Center" ? "Cost Center" : elem.label,
           options: elem.document_type,
           fieldname: elem.fieldname || elem.document_type,
         });
 
-        if (idx + 1 == column_break_insertion_point) {
+        if (idx + 1 === column_break_insertion_point) {
           fields.push({ fieldtype: "Column Break" });
         }
       });
@@ -76,6 +94,10 @@ function patch_payment_entry_outstanding_invoice_default(frm) {
       __("Filters"),
       __("Get Outstanding Invoices")
     );
+  };
+
+  frm.events.get_outstanding_invoices = function (frm) {
+    return frm.events.get_outstanding_invoices_or_orders(frm, true, false);
   };
 }
 
