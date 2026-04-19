@@ -15,6 +15,8 @@ import frappe
 # ---------------------------------------------------------------------------
 
 def after_install():
+    from snrg_credit_control.ap_setup import ensure_ap_setup
+
     _ensure_module()
     _ensure_role()
     _ensure_customer_fields()
@@ -27,10 +29,13 @@ def after_install():
     _ensure_sales_tracking_sla_settings()
     _ensure_credit_control_workspace()
     _ensure_demand_notice_default_print_format()
+    ensure_ap_setup()
     frappe.db.commit()
 
 
 def after_migrate():
+    from snrg_credit_control.ap_setup import ensure_ap_setup
+
     _ensure_module()
     _ensure_role()
     _ensure_customer_fields()
@@ -43,6 +48,7 @@ def after_migrate():
     _ensure_sales_tracking_sla_settings()
     _ensure_credit_control_workspace()
     _ensure_demand_notice_default_print_format()
+    ensure_ap_setup()
     frappe.db.commit()
 
 
@@ -632,6 +638,9 @@ def _ensure_credit_control_workspace():
     has_md_dashboard_page = frappe.db.exists("Page", "managing-director-dashboard")
     has_sales_tracking_page = frappe.db.exists("Page", "sales-tracking")
     has_sales_tracking_sla_settings = frappe.db.exists("DocType", "Sales Tracking SLA Settings")
+    has_ap_batch = frappe.db.exists("DocType", "AP Payment Batch")
+    has_ap_settings = frappe.db.exists("DocType", "AP Payment Settings")
+    has_ap_template = frappe.db.exists("DocType", "AP Bank Export Template")
 
     content_blocks = [
         {
@@ -925,6 +934,119 @@ def _ensure_credit_control_workspace():
                 "type": "DocType",
                 "label": "Demand Notice Settings",
                 "link_to": "Demand Notice Settings",
+                "icon": "settings",
+                "color": "Grey",
+            }
+        )
+
+    if has_ap_batch or has_ap_settings or has_ap_template:
+        content_blocks.append(
+            {
+                "id": "accounts_payable_header",
+                "type": "header",
+                "data": {"text": "Accounts Payable", "col": 12},
+            }
+        )
+        links.append(
+            {
+                "label": "Accounts Payable",
+                "type": "Card Break",
+                "hidden": 0,
+                "is_query_report": 0,
+                "link_count": 0,
+                "onboard": 0,
+                "dependencies": "",
+            }
+        )
+
+    if has_ap_batch:
+        content_blocks.append(
+            {
+                "id": "ap_payment_batch_shortcut",
+                "type": "shortcut",
+                "data": {"shortcut_name": "AP Payment Batch", "col": 3},
+            }
+        )
+        links.append(
+            {
+                "label": "AP Payment Batch",
+                "type": "Link",
+                "link_type": "DocType",
+                "link_to": "AP Payment Batch",
+                "hidden": 0,
+                "is_query_report": 0,
+                "link_count": 0,
+                "onboard": 1,
+                "dependencies": "",
+            }
+        )
+        shortcuts.append(
+            {
+                "type": "DocType",
+                "label": "AP Payment Batch",
+                "link_to": "AP Payment Batch",
+                "icon": "bank",
+                "color": "Blue",
+            }
+        )
+
+    if has_ap_template:
+        content_blocks.append(
+            {
+                "id": "ap_bank_export_template_shortcut",
+                "type": "shortcut",
+                "data": {"shortcut_name": "AP Bank Export Template", "col": 3},
+            }
+        )
+        links.append(
+            {
+                "label": "AP Bank Export Template",
+                "type": "Link",
+                "link_type": "DocType",
+                "link_to": "AP Bank Export Template",
+                "hidden": 0,
+                "is_query_report": 0,
+                "link_count": 0,
+                "onboard": 0,
+                "dependencies": "",
+            }
+        )
+        shortcuts.append(
+            {
+                "type": "DocType",
+                "label": "AP Bank Export Template",
+                "link_to": "AP Bank Export Template",
+                "icon": "file",
+                "color": "Green",
+            }
+        )
+
+    if has_ap_settings:
+        content_blocks.append(
+            {
+                "id": "ap_payment_settings_shortcut",
+                "type": "shortcut",
+                "data": {"shortcut_name": "AP Payment Settings", "col": 3},
+            }
+        )
+        links.append(
+            {
+                "label": "AP Payment Settings",
+                "type": "Link",
+                "link_type": "DocType",
+                "link_to": "AP Payment Settings",
+                "hidden": 0,
+                "is_query_report": 0,
+                "link_count": 0,
+                "onboard": 0,
+                "dependencies": "",
+            }
+        )
+        shortcuts.append(
+            {
+                "type": "DocType",
+                "label": "AP Payment Settings",
+                "link_to": "AP Payment Settings",
                 "icon": "settings",
                 "color": "Grey",
             }

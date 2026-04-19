@@ -1,0 +1,194 @@
+{
+ "actions": [],
+ "creation": "2026-04-19 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "source_mode",
+  "source_doctype",
+  "source_name",
+  "party_type",
+  "party",
+  "beneficiary_bank_account",
+  "payment_mode",
+  "amount",
+  "outstanding_amount_snapshot",
+  "beneficiary_name",
+  "beneficiary_account_no",
+  "beneficiary_ifsc",
+  "debit_narration",
+  "credit_narration",
+  "mobile_number",
+  "email_id",
+  "remark",
+  "reference_no",
+  "addl_info1",
+  "addl_info2",
+  "addl_info3",
+  "addl_info4",
+  "addl_info5",
+  "linked_payment_entry"
+ ],
+ "fields": [
+  {
+   "fieldname": "source_mode",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Source Mode",
+   "options": "\nInvoice\nManual",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.source_mode=='Invoice'",
+   "fieldname": "source_doctype",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Source DocType",
+   "options": "\nPurchase Invoice\nExpense Claim\nEmployee Advance\nJournal Entry"
+  },
+  {
+   "depends_on": "eval:doc.source_mode=='Invoice'",
+   "fieldname": "source_name",
+   "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
+   "label": "Source Document",
+   "options": "source_doctype"
+  },
+  {
+   "fieldname": "party_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Party Type",
+   "options": "\nSupplier\nEmployee"
+  },
+  {
+   "fieldname": "party",
+   "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
+   "label": "Party",
+   "options": "party_type"
+  },
+  {
+   "fieldname": "beneficiary_bank_account",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Beneficiary Bank Account",
+   "options": "Bank Account",
+   "reqd": 1
+  },
+  {
+   "fieldname": "payment_mode",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Payment Mode",
+   "options": "\nFT\nNEFT\nRTGS\nIMPS",
+   "reqd": 1
+  },
+  {
+   "fieldname": "amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Amount",
+   "reqd": 1
+  },
+  {
+   "fieldname": "outstanding_amount_snapshot",
+   "fieldtype": "Currency",
+   "label": "Outstanding Snapshot",
+   "read_only": 1
+  },
+  {
+   "fieldname": "beneficiary_name",
+   "fieldtype": "Data",
+   "label": "Beneficiary Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "beneficiary_account_no",
+   "fieldtype": "Data",
+   "label": "Beneficiary Account No",
+   "read_only": 1
+  },
+  {
+   "fieldname": "beneficiary_ifsc",
+   "fieldtype": "Data",
+   "label": "Beneficiary IFSC",
+   "read_only": 1
+  },
+  {
+   "fieldname": "debit_narration",
+   "fieldtype": "Data",
+   "label": "Debit Narration"
+  },
+  {
+   "fieldname": "credit_narration",
+   "fieldtype": "Data",
+   "label": "Credit Narration"
+  },
+  {
+   "fieldname": "mobile_number",
+   "fieldtype": "Data",
+   "label": "Mobile Number"
+  },
+  {
+   "fieldname": "email_id",
+   "fieldtype": "Data",
+   "label": "Email ID"
+  },
+  {
+   "fieldname": "remark",
+   "fieldtype": "Data",
+   "label": "Remark"
+  },
+  {
+   "fieldname": "reference_no",
+   "fieldtype": "Data",
+   "label": "Reference No"
+  },
+  {
+   "fieldname": "addl_info1",
+   "fieldtype": "Small Text",
+   "label": "Additional Info 1"
+  },
+  {
+   "fieldname": "addl_info2",
+   "fieldtype": "Small Text",
+   "label": "Additional Info 2"
+  },
+  {
+   "fieldname": "addl_info3",
+   "fieldtype": "Small Text",
+   "label": "Additional Info 3"
+  },
+  {
+   "fieldname": "addl_info4",
+   "fieldtype": "Small Text",
+   "label": "Additional Info 4"
+  },
+  {
+   "fieldname": "addl_info5",
+   "fieldtype": "Small Text",
+   "label": "Additional Info 5"
+  },
+  {
+   "fieldname": "linked_payment_entry",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Linked Payment Entry",
+   "options": "Payment Entry",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-04-19 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Snrg Credit Control",
+ "name": "AP Payment Batch Item",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC"
+}

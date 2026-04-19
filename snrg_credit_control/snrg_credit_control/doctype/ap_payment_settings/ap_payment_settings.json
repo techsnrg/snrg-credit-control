@@ -1,0 +1,71 @@
+{
+ "actions": [],
+ "creation": "2026-04-19 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "approver_user",
+  "default_export_email_recipient",
+  "debit_narration_prefix",
+  "section_templates",
+  "icici_template_file"
+ ],
+ "fields": [
+  {
+   "fieldname": "approver_user",
+   "fieldtype": "Link",
+   "label": "Approver User",
+   "options": "User"
+  },
+  {
+   "fieldname": "default_export_email_recipient",
+   "fieldtype": "Data",
+   "label": "Default Export Email Recipient",
+   "options": "Email"
+  },
+  {
+   "default": "BULK",
+   "fieldname": "debit_narration_prefix",
+   "fieldtype": "Data",
+   "label": "Debit Narration Prefix",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_templates",
+   "fieldtype": "Section Break",
+   "label": "Templates"
+  },
+  {
+   "fieldname": "icici_template_file",
+   "fieldtype": "Attach",
+   "label": "ICICI Template File"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-04-19 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Snrg Credit Control",
+ "name": "AP Payment Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "read": 1,
+   "role": "System Manager",
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "Accounts Manager",
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "Managing Director",
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC"
+}

@@ -12,6 +12,8 @@ after_migrate = "snrg_credit_control.setup.after_migrate"
 doctype_js = {
     "Sales Order": "public/js/sales_order.js",
     "Quotation": "public/js/quotation.js",
+    "Payment Entry": "public/js/payment_entry.js",
+    "Bank Account": "public/js/bank_account.js",
 }
 
 doctype_list_js = {
@@ -36,5 +38,8 @@ doc_events = {
     "Payment Entry": {
         "on_submit": "snrg_credit_control.ptp.auto_allocate_payment_entry_to_ptps",
         "on_cancel": "snrg_credit_control.ptp.remove_payment_entry_ptp_allocations",
+    },
+    "Bank Account": {
+        "validate": "snrg_credit_control.bank_account.validate",
     },
 }
