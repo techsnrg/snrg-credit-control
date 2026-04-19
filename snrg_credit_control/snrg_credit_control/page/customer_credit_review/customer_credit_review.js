@@ -23,6 +23,7 @@ class SnrgCustomerCreditReview {
 
     setup() {
         this.page.set_primary_action("Refresh", () => this.refresh(), "refresh");
+        this.page.set_secondary_action("Sync Recommended Limits", () => this.syncRecommendedLimits(), "refresh");
         this.render_shell();
         this.make_filters();
         this.bind_events();
@@ -437,6 +438,36 @@ class SnrgCustomerCreditReview {
         this.data = response.message || { columns: [], rows: [], summary: [] };
         this.initializeVisibleColumns();
         this.render();
+    }
+
+    syncRecommendedLimits() {
+        const company = this.controls.company.get_value();
+        if (!company) {
+            frappe.show_alert({ message: __("Select a company first."), indicator: "orange" });
+            return;
+        }
+
+        frappe.confirm(
+            __(`This will update the read-only recommended credit limit snapshot for all active customers in ${company}. Continue?`),
+            async () => {
+                const response = await frappe.call({
+                    method: "snrg_credit_control.snrg_credit_control.page.customer_credit_review.customer_credit_review.sync_recommended_limits",
+                    args: { company },
+                    freeze: true,
+                    freeze_message: __("Syncing recommended credit limits..."),
+                });
+
+                const result = response.message || {};
+                frappe.show_alert({
+                    message: __(
+                        "{0} customers processed. Updated: {1}, Created: {2}.",
+                        [result.processed || 0, result.updated || 0, result.created || 0]
+                    ),
+                    indicator: "green",
+                });
+                this.refresh();
+            }
+        );
     }
 
     initializeVisibleColumns() {

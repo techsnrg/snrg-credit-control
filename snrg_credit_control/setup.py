@@ -20,6 +20,7 @@ def after_install():
     _ensure_module()
     _ensure_role()
     _ensure_customer_fields()
+    _ensure_customer_credit_limit_fields()
     _ensure_so_fields()
     _ensure_quotation_fields()
     _ensure_sales_invoice_fields()
@@ -39,6 +40,7 @@ def after_migrate():
     _ensure_module()
     _ensure_role()
     _ensure_customer_fields()
+    _ensure_customer_credit_limit_fields()
     _ensure_so_fields()
     _ensure_quotation_fields()
     _ensure_sales_invoice_fields()
@@ -100,10 +102,33 @@ _CUSTOMER_FIELDS = [
     },
 ]
 
+_CUSTOMER_CREDIT_LIMIT_FIELDS = [
+    {
+        "fieldname": "custom_snrg_recommended_credit_limit",
+        "fieldtype": "Currency",
+        "label": "Recommended Credit Limit",
+        "read_only": 1,
+        "in_list_view": 1,
+        "insert_after": "credit_limit",
+    },
+    {
+        "fieldname": "custom_snrg_recommended_credit_limit_updated_on",
+        "fieldtype": "Datetime",
+        "label": "Recommendation Updated On",
+        "read_only": 1,
+        "insert_after": "custom_snrg_recommended_credit_limit",
+    },
+]
+
 
 def _ensure_customer_fields():
     for fdef in _CUSTOMER_FIELDS:
         _ensure_custom_field("Customer", fdef)
+
+
+def _ensure_customer_credit_limit_fields():
+    for fdef in _CUSTOMER_CREDIT_LIMIT_FIELDS:
+        _ensure_custom_field("Customer Credit Limit", fdef)
 
 
 # ---------------------------------------------------------------------------
