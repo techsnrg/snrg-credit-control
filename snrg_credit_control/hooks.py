@@ -12,6 +12,7 @@ after_migrate = "snrg_credit_control.setup.after_migrate"
 doctype_js = {
     "Sales Order": "public/js/sales_order.js",
     "Quotation": "public/js/quotation.js",
+    "Payment Entry": "public/js/payment_entry.js",
 }
 
 doctype_list_js = {
