@@ -230,7 +230,16 @@ def sync_ptp_calendar_event(doc):
     event = frappe.get_doc(event_doc).insert(ignore_permissions=True)
     frappe.db.set_value("Event", event.name, "owner", target_user, update_modified=False)
     frappe.db.set_value("Credit PTP", doc.name, "calendar_event", event.name, update_modified=False)
-    frappe.share.add_docshare("Event", event.name, target_user, read=1, write=1, share=0, notify=0)
+    frappe.share.add_docshare(
+        "Event",
+        event.name,
+        target_user,
+        read=1,
+        write=1,
+        share=0,
+        notify=0,
+        flags={"ignore_share_permission": True},
+    )
     doc.calendar_event = event.name
 
 
