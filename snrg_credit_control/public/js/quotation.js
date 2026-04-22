@@ -329,6 +329,7 @@ async function refresh_quotation_credit_status(frm) {
     const { message } = await frappe.call({
       method: "snrg_credit_control.overrides.quotation.refresh_credit_status",
       args: {
+        quotation_name: frm.doc.name,
         customer: frm.doc.party_name,
         company: frm.doc.company,
         currency: frm.doc.currency,
@@ -347,9 +348,21 @@ async function refresh_quotation_credit_status(frm) {
     frm.doc.custom_snrg_credit_limit_at_check = message.credit_limit || 0;
     frm.doc.custom_snrg_credit_check_details = message.details || "";
     frm.doc.custom_snrg_credit_checked_on = message.checked_on || "";
+    frm.doc.custom_credit_clearance_date = message.credit_clearance_date || frm.doc.custom_credit_clearance_date || "";
 
     render_quotation_credit_chip(frm);
     render_quotation_header_status(frm);
+    frm.refresh_fields([
+      "custom_snrg_credit_check_status",
+      "custom_snrg_credit_check_reason_code",
+      "custom_snrg_overdue_count_terms",
+      "custom_snrg_overdue_amount_terms",
+      "custom_snrg_exposure_at_check",
+      "custom_snrg_credit_limit_at_check",
+      "custom_snrg_credit_check_details",
+      "custom_snrg_credit_checked_on",
+      "custom_credit_clearance_date",
+    ]);
 
     frappe.show_alert({
       message: "Credit status refreshed",
