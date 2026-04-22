@@ -11,6 +11,7 @@ after_migrate = "snrg_credit_control.setup.after_migrate"
 # Inject JS into the Sales Order form
 doctype_js = {
     "Sales Order": "public/js/sales_order.js",
+    "Sales Invoice": "public/js/sales_invoice.js",
     "Quotation": "public/js/quotation.js",
     "Payment Entry": "public/js/payment_entry.js",
 }

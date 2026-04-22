@@ -67,7 +67,7 @@ def _ensure_module():
 # ---------------------------------------------------------------------------
 
 def _ensure_role():
-    for role_name in ("Credit Approver", "Legal"):
+    for role_name in ("Credit Approver", "Legal", "Fulfillment User"):
         if frappe.db.exists("Role", role_name):
             continue
         frappe.get_doc(
@@ -444,8 +444,26 @@ _SALES_INVOICE_FIELDS = [
 
 
 def _ensure_sales_invoice_fields():
+    meta = frappe.get_meta("Sales Invoice")
+    dispatch_anchor = _pick_last_existing_field(
+        meta,
+        (
+            "gst_vehicle_type",
+            "distance",
+            "lr_date",
+            "transport_receipt_date",
+            "transporter_name",
+            "mode_of_transport",
+            "gst_transporter_id",
+            "transporter",
+        ),
+    ) or "transporter"
+
     for fdef in _SALES_INVOICE_FIELDS:
-        _ensure_custom_field("Sales Invoice", fdef)
+        resolved = dict(fdef)
+        if resolved["fieldname"] == "custom_snrg_dispatch_section":
+            resolved["insert_after"] = dispatch_anchor
+        _ensure_custom_field("Sales Invoice", resolved)
 
 
 # ---------------------------------------------------------------------------
@@ -504,6 +522,18 @@ def _ensure_custom_field(doctype, field_def):
     doc = {"doctype": "Custom Field", "dt": doctype}
     doc.update(field_def)
     frappe.get_doc(doc).insert(ignore_permissions=True)
+
+
+def _pick_last_existing_field(meta, fieldnames):
+    field_order = {
+        df.fieldname: idx
+        for idx, df in enumerate(meta.fields or [])
+        if getattr(df, "fieldname", None)
+    }
+    matches = [fieldname for fieldname in fieldnames if fieldname in field_order]
+    if not matches:
+        return None
+    return max(matches, key=lambda fieldname: field_order[fieldname])
 
 
 # ---------------------------------------------------------------------------
