@@ -108,7 +108,6 @@ function _set_ap_batch_queries(frm) {
     const filters = {
       is_company_account: 1,
       disabled: 0,
-      custom_snrg_ap_approval_status: "Approved",
     };
     if (frm.doc.company) filters.company = frm.doc.company;
     return { filters };

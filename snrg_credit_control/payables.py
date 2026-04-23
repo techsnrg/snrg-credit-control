@@ -4,7 +4,7 @@ import re
 
 import frappe
 from frappe import _
-from frappe.utils import add_days, cstr, flt, getdate, now_datetime, today
+from frappe.utils import add_days, cint, cstr, flt, getdate, now_datetime, today
 from frappe.utils.file_manager import save_file
 
 from snrg_credit_control.bank_account import APPROVAL_STATUS_FIELD
@@ -76,7 +76,7 @@ def _validate_debit_bank_account(doc):
     bank_doc = frappe.db.get_value(
         "Bank Account",
         doc.debit_bank_account,
-        ["is_company_account", "company", "disabled", APPROVAL_STATUS_FIELD, "bank_account_no"],
+        ["is_company_account", "company", "disabled", "bank_account_no"],
         as_dict=True,
     )
     if not bank_doc:
@@ -87,8 +87,6 @@ def _validate_debit_bank_account(doc):
         frappe.throw(_("Debit Bank Account {0} does not belong to company {1}.").format(doc.debit_bank_account, doc.company))
     if bank_doc.disabled:
         frappe.throw(_("Debit Bank Account {0} is disabled.").format(doc.debit_bank_account))
-    if bank_doc.get(APPROVAL_STATUS_FIELD) != "Approved":
-        frappe.throw(_("Debit Bank Account {0} must be approved before use.").format(doc.debit_bank_account))
 
 
 def _validate_export_template(doc):
@@ -379,9 +377,11 @@ def get_source_details(source_doctype, source_name, company=None):
 
 
 @frappe.whitelist()
-def get_bank_account_snapshot(bank_account, party_type=None, party=None):
+def get_bank_account_snapshot(bank_account, party_type=None, party=None, require_approved=1):
     if not bank_account:
         frappe.throw(_("Bank Account is required."))
+
+    require_approved = cint(require_approved)
 
     fields = frappe.db.get_value(
         "Bank Account",
@@ -404,7 +404,7 @@ def get_bank_account_snapshot(bank_account, party_type=None, party=None):
         frappe.throw(_("Bank Account {0} was not found.").format(bank_account))
     if fields.disabled:
         frappe.throw(_("Bank Account {0} is disabled.").format(bank_account))
-    if fields.get(APPROVAL_STATUS_FIELD) != "Approved":
+    if require_approved and fields.get(APPROVAL_STATUS_FIELD) != "Approved":
         frappe.throw(_("Bank Account {0} is not approved for AP use.").format(bank_account))
     if party_type and fields.party_type and fields.party_type != party_type:
         frappe.throw(_("Bank Account {0} does not belong to party type {1}.").format(bank_account, party_type))
@@ -434,7 +434,7 @@ def generate_batch_export_file(batch_doc):
     if template_doc.exporter_key != ICICI_EXPORTER_KEY:
         frappe.throw(_("Unsupported exporter key: {0}").format(template_doc.exporter_key))
 
-    debit_snapshot = get_bank_account_snapshot(batch_doc.debit_bank_account)
+    debit_snapshot = get_bank_account_snapshot(batch_doc.debit_bank_account, require_approved=0)
     rows = build_icici_export_rows(batch_doc, debit_snapshot)
     content = render_icici_xls(rows, template_doc)
     filename = f"{batch_doc.name}-{now_datetime().strftime('%Y%m%d%H%M%S')}.xls"
