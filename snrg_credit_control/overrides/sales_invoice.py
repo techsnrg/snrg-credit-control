@@ -67,10 +67,19 @@ def update_fulfillment_details(name, values=None):
     if not updates:
         frappe.throw(_("No fulfillment details were provided."))
 
-    for fieldname, value in updates.items():
-        doc.set(fieldname, value)
+    changes = _get_fulfillment_changes(doc, updates)
+    if not changes:
+        return {
+            "name": doc.name,
+            "message": _("No fulfillment details changed."),
+            "values": {fieldname: doc.get(fieldname) for fieldname in FULFILLMENT_FIELDS},
+        }
 
-    doc.save(ignore_permissions=True)
+    _validate_fulfillment_dates(doc, updates)
+    frappe.db.set_value("Sales Invoice", doc.name, updates, update_modified=True)
+    doc.reload()
+    doc.add_comment("Comment", _build_fulfillment_audit_comment(changes))
+    doc.notify_update()
 
     return {
         "name": doc.name,
@@ -146,6 +155,70 @@ def _validate_delivery_status(values, meta):
 
     if status and status not in allowed:
         frappe.throw(_("Invalid Delivery Status: {0}").format(frappe.bold(status)))
+
+
+def _validate_fulfillment_dates(doc, updates):
+    shipping_date = updates.get("custom_shipping_date", doc.get("custom_shipping_date"))
+    delivery_date = updates.get("custom_delivery_date", doc.get("custom_delivery_date"))
+
+    if shipping_date and delivery_date and frappe.utils.getdate(delivery_date) < frappe.utils.getdate(shipping_date):
+        frappe.throw(_("Delivery Date cannot be earlier than Shipping Date."))
+
+
+def _get_fulfillment_changes(doc, updates):
+    changes = []
+
+    for fieldname, new_value in updates.items():
+        old_value = doc.get(fieldname)
+        if _normalize_fulfillment_value(old_value) == _normalize_fulfillment_value(new_value):
+            continue
+
+        changes.append(
+            {
+                "fieldname": fieldname,
+                "label": doc.meta.get_label(fieldname) or fieldname,
+                "old_value": old_value,
+                "new_value": new_value,
+            }
+        )
+
+    return changes
+
+
+def _normalize_fulfillment_value(value):
+    if value in (None, ""):
+        return None
+    return str(value).strip() if isinstance(value, str) else value
+
+
+def _build_fulfillment_audit_comment(changes):
+    lines = [
+        _("Fulfillment details updated by {0}.").format(
+            frappe.bold(frappe.utils.escape_html(frappe.session.user))
+        ),
+        "",
+    ]
+
+    for change in changes:
+        lines.append(
+            _("{0}: {1} -> {2}").format(
+                frappe.bold(change["label"]),
+                _format_fulfillment_value(change["old_value"]),
+                _format_fulfillment_value(change["new_value"]),
+            )
+        )
+
+    return "<br>".join(lines)
+
+
+def _format_fulfillment_value(value):
+    if value in (None, ""):
+        return _("Blank")
+
+    if hasattr(value, "strftime"):
+        return frappe.bold(frappe.utils.escape_html(str(value)))
+
+    return frappe.bold(frappe.utils.escape_html(frappe.utils.cstr(value)))
 
 
 def cint_or_none(value):
