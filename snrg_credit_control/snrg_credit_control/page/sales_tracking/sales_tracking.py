@@ -6,6 +6,10 @@ from urllib.parse import quote
 
 import frappe
 from frappe.utils import cint, date_diff, flt, get_datetime, getdate, now_datetime, nowdate
+from snrg_credit_control.pending_invoice_planning import (
+    get_pending_invoice_planning_rows,
+    get_sales_order_item_quotation_link_config as get_pending_planning_so_link_config,
+)
 
 
 def get_context(context):
@@ -827,80 +831,28 @@ def _get_pod_received_dates(invoice_docs):
 
 
 def _get_shortage_rows_for_quotation(quotation_id):
-    quotation_items = frappe.get_all(
-        "Quotation Item",
-        filters={"parent": quotation_id},
-        fields=["item_code", "item_name", "qty", "amount", "idx"],
-        order_by="idx asc",
+    planning_rows = get_pending_invoice_planning_rows(
+        quotation_id=quotation_id,
+        include_cancelled=True,
+        pending_only=True,
     )
-
-    sales_orders = _get_sales_orders([quotation_id]).get(quotation_id, [])
-    sales_order_names = [row["name"] for row in sales_orders]
-    invoice_item_rows = []
-    if sales_order_names:
-        invoice_item_rows = frappe.db.sql(
-            f"""
-            SELECT
-                sii.item_code,
-                sii.item_name,
-                sii.qty,
-                sii.amount
-            FROM `tabSales Invoice Item` sii
-            INNER JOIN `tabSales Invoice` si ON si.name = sii.parent
-            WHERE sii.sales_order IN ({", ".join(["%s"] * len(sales_order_names))})
-              AND si.docstatus = 1
-              AND COALESCE(si.is_return, 0) = 0
-            """,
-            tuple(sales_order_names),
-            as_dict=True,
-        )
-
-    details_by_key = {}
-    order_keys = []
-    for row in quotation_items:
-        key = (row.item_code or "", row.item_name or "")
-        if key not in details_by_key:
-            order_keys.append(key)
-            details_by_key[key] = {
-                "item_code": row.item_code or "",
-                "item_name": row.item_name or "",
-                "quotation_qty": 0,
-                "invoiced_qty": 0,
-                "pending_qty": 0,
-                "quotation_value": 0,
-                "invoiced_value": 0,
-                "pending_value": 0,
-            }
-        details_by_key[key]["quotation_qty"] += flt(row.qty)
-        details_by_key[key]["quotation_value"] += flt(row.amount)
-
-    for row in invoice_item_rows:
-        key = (row.item_code or "", row.item_name or "")
-        if key not in details_by_key:
-            order_keys.append(key)
-            details_by_key[key] = {
-                "item_code": row.item_code or "",
-                "item_name": row.item_name or "",
-                "quotation_qty": 0,
-                "invoiced_qty": 0,
-                "pending_qty": 0,
-                "quotation_value": 0,
-                "invoiced_value": 0,
-                "pending_value": 0,
-            }
-        details_by_key[key]["invoiced_qty"] += flt(row.qty)
-        details_by_key[key]["invoiced_value"] += flt(row.amount)
-
-    rows = []
-    for key in order_keys:
-        detail = details_by_key[key]
-        detail["pending_qty"] = flt(detail["quotation_qty"]) - flt(detail["invoiced_qty"])
-        detail["pending_value"] = flt(detail["quotation_value"]) - flt(detail["invoiced_value"])
-        if abs(detail["pending_qty"]) < 0.0001 and abs(detail["pending_value"]) < 0.01:
-            continue
-        rows.append(detail)
-
-    return rows
+    return [
+        {
+            "item_code": row.get("item_code") or "",
+            "item_name": row.get("item_name") or "",
+            "quotation_qty": flt(row.get("quotation_qty")),
+            "invoiced_qty": flt(row.get("invoiced_qty")),
+            "pending_qty": flt(row.get("total_uninvoiced_qty")),
+            "quotation_value": flt(row.get("quotation_value")),
+            "invoiced_value": flt(row.get("invoiced_value")),
+            "pending_value": flt(row.get("total_uninvoiced_value")),
+            "quotation_open_qty": flt(row.get("quotation_open_qty")),
+            "draft_so_qty": flt(row.get("draft_so_qty")),
+            "submitted_so_uninvoiced_qty": flt(row.get("submitted_so_uninvoiced_qty")),
+            "planning_stage_summary": row.get("planning_stage_summary") or "",
+        }
+        for row in planning_rows
+    ]
 
 
 def _get_quotation_status_label(docstatus):
@@ -922,8 +874,5 @@ def _get_salesperson_fieldname():
 
 
 def _get_sales_order_item_quotation_link_config():
-    meta = frappe.get_meta("Sales Order Item")
-    for candidate in ("prevdoc_docname", "quotation"):
-        if meta.has_field(candidate):
-            return candidate, meta.has_field("prevdoc_doctype")
-    return None, False
+    quotation_fieldname, _, has_prevdoc_doctype = get_pending_planning_so_link_config()
+    return quotation_fieldname, has_prevdoc_doctype
