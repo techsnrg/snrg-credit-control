@@ -64,6 +64,137 @@ def get_pending_invoice_planning_rows(filters=None, quotation_id=None, include_c
     return rows
 
 
+def get_pending_invoice_planning_item_summary_rows(filters=None):
+    detail_rows = get_pending_invoice_planning_rows(filters=filters, pending_only=True)
+    grouped = {}
+
+    for row in detail_rows:
+        key = (row.get("item_code") or "", row.get("item_name") or "", row.get("currency") or "")
+        if key not in grouped:
+            grouped[key] = {
+                "item_code": row.get("item_code") or "",
+                "item_name": row.get("item_name") or "",
+                "currency": row.get("currency") or "INR",
+                "quotation_count": 0,
+                "customer_count": 0,
+                "sales_order_count": 0,
+                "latest_quotation_date": "",
+                "latest_sales_order": "",
+                "latest_sales_order_date": "",
+                "latest_invoice_date": "",
+                "quotation_qty": 0,
+                "quotation_value": 0,
+                "quotation_open_qty": 0,
+                "quotation_open_value": 0,
+                "draft_so_qty": 0,
+                "draft_so_value": 0,
+                "submitted_so_uninvoiced_qty": 0,
+                "submitted_so_uninvoiced_value": 0,
+                "invoiced_qty": 0,
+                "invoiced_value": 0,
+                "total_uninvoiced_qty": 0,
+                "total_uninvoiced_value": 0,
+                "_quotation_names": set(),
+                "_customer_names": set(),
+                "_sales_order_names": set(),
+            }
+
+        group = grouped[key]
+        _sum_planning_fields(group, row)
+        group["_quotation_names"].add(row.get("quotation") or "")
+        group["_customer_names"].add(row.get("customer") or "")
+        group["_sales_order_names"].update(row.get("sales_order_names") or [])
+        _capture_latest_reference(group, "latest_sales_order", "latest_sales_order_date", row.get("latest_sales_order"), row.get("latest_sales_order_date"))
+        _capture_latest_reference(group, None, "latest_quotation_date", row.get("quotation"), row.get("quotation_date"))
+        _capture_latest_reference(group, None, "latest_invoice_date", None, row.get("latest_invoice_date"))
+
+    rows = []
+    for group in grouped.values():
+        group["quotation_count"] = len([value for value in group.pop("_quotation_names") if value])
+        group["customer_count"] = len([value for value in group.pop("_customer_names") if value])
+        group["sales_order_count"] = len([value for value in group.pop("_sales_order_names") if value])
+        group.pop("latest_sales_order_date", None)
+        rows.append(group)
+
+    rows.sort(
+        key=lambda row: (
+            -flt(row.get("total_uninvoiced_value")),
+            row.get("item_code", ""),
+            row.get("item_name", ""),
+        )
+    )
+    return rows
+
+
+def get_pending_invoice_planning_customer_summary_rows(filters=None):
+    detail_rows = get_pending_invoice_planning_rows(filters=filters, pending_only=True)
+    grouped = {}
+
+    for row in detail_rows:
+        key = (row.get("customer") or "", row.get("customer_name") or "", row.get("currency") or "")
+        if key not in grouped:
+            grouped[key] = {
+                "customer": row.get("customer") or "",
+                "customer_name": row.get("customer_name") or "",
+                "company": row.get("company") or "",
+                "currency": row.get("currency") or "INR",
+                "quotation_count": 0,
+                "item_count": 0,
+                "sales_order_count": 0,
+                "latest_quotation_date": "",
+                "latest_sales_order": "",
+                "latest_sales_order_date": "",
+                "latest_invoice_date": "",
+                "quotation_value": 0,
+                "quotation_open_value": 0,
+                "draft_so_value": 0,
+                "submitted_so_uninvoiced_value": 0,
+                "invoiced_value": 0,
+                "total_uninvoiced_value": 0,
+                "planning_stage_summary": "",
+                "_quotation_names": set(),
+                "_item_keys": set(),
+                "_sales_order_names": set(),
+            }
+
+        group = grouped[key]
+        group["quotation_value"] += flt(row.get("quotation_value"))
+        group["quotation_open_value"] += flt(row.get("quotation_open_value"))
+        group["draft_so_value"] += flt(row.get("draft_so_value"))
+        group["submitted_so_uninvoiced_value"] += flt(row.get("submitted_so_uninvoiced_value"))
+        group["invoiced_value"] += flt(row.get("invoiced_value"))
+        group["total_uninvoiced_value"] += flt(row.get("total_uninvoiced_value"))
+        group["_quotation_names"].add(row.get("quotation") or "")
+        group["_item_keys"].add((row.get("item_code") or "", row.get("item_name") or ""))
+        group["_sales_order_names"].update(row.get("sales_order_names") or [])
+        _capture_latest_reference(group, "latest_sales_order", "latest_sales_order_date", row.get("latest_sales_order"), row.get("latest_sales_order_date"))
+        _capture_latest_reference(group, None, "latest_quotation_date", row.get("quotation"), row.get("quotation_date"))
+        _capture_latest_reference(group, None, "latest_invoice_date", None, row.get("latest_invoice_date"))
+
+    rows = []
+    for group in grouped.values():
+        group["quotation_count"] = len([value for value in group.pop("_quotation_names") if value])
+        group["item_count"] = len([value for value in group.pop("_item_keys") if any(value)])
+        group["sales_order_count"] = len([value for value in group.pop("_sales_order_names") if value])
+        group["planning_stage_summary"] = _build_value_stage_summary(
+            quotation_open_value=flt(group.get("quotation_open_value")),
+            draft_so_value=flt(group.get("draft_so_value")),
+            submitted_so_uninvoiced_value=flt(group.get("submitted_so_uninvoiced_value")),
+            invoiced_value=flt(group.get("invoiced_value")),
+        )
+        group.pop("latest_sales_order_date", None)
+        rows.append(group)
+
+    rows.sort(
+        key=lambda row: (
+            -flt(row.get("total_uninvoiced_value")),
+            row.get("customer_name", ""),
+            row.get("customer", ""),
+        )
+    )
+    return rows
+
+
 def get_sales_order_item_quotation_link_config():
     meta = frappe.get_meta("Sales Order Item")
     quotation_fieldname = None
@@ -95,6 +226,7 @@ def _get_sales_invoice_item_link_config():
 def _get_quotations(filters, quotation_id=None, include_cancelled=False):
     quotation_statuses = set(_normalize_multiselect(filters.get("quotation_status")))
     docstatus_map = {"Draft": 0, "Submitted": 1, "Cancelled": 2}
+    from_date, to_date = _extract_date_bounds(filters)
 
     report_filters = {"quotation_to": "Customer"}
     if filters.get("company"):
@@ -121,12 +253,12 @@ def _get_quotations(filters, quotation_id=None, include_cancelled=False):
     if docstatuses:
         report_filters["docstatus"] = ["in", docstatuses]
 
-    if filters.get("from_date") and filters.get("to_date"):
-        report_filters["transaction_date"] = ["between", [filters.get("from_date"), filters.get("to_date")]]
-    elif filters.get("from_date"):
-        report_filters["transaction_date"] = [">=", filters.get("from_date")]
-    elif filters.get("to_date"):
-        report_filters["transaction_date"] = ["<=", filters.get("to_date")]
+    if from_date and to_date:
+        report_filters["transaction_date"] = ["between", [from_date, to_date]]
+    elif from_date:
+        report_filters["transaction_date"] = [">=", from_date]
+    elif to_date:
+        report_filters["transaction_date"] = ["<=", to_date]
 
     rows = frappe.get_all(
         "Quotation",
@@ -494,7 +626,9 @@ def _finalize_group_rows(grouped_rows):
             "total_uninvoiced_value": total_uninvoiced_value,
             "sales_order_status": sales_order_status,
             "sales_order_count": len(group["sales_order_names"]),
+            "sales_order_names": sorted(group["sales_order_names"]),
             "latest_sales_order": group["latest_sales_order"],
+            "latest_sales_order_date": group["latest_sales_order_date"],
             "latest_invoice_date": group["latest_invoice_date"],
             "planning_stage_summary": _build_planning_stage_summary(
                 quotation_open_qty=quotation_open_qty,
@@ -541,6 +675,45 @@ def _build_planning_stage_summary(quotation_open_qty, draft_so_qty, submitted_so
     return "No Activity"
 
 
+def _build_value_stage_summary(quotation_open_value, draft_so_value, submitted_so_uninvoiced_value, invoiced_value):
+    stages = []
+    if quotation_open_value > VALUE_EPSILON:
+        stages.append("Quotation Open")
+    if draft_so_value > VALUE_EPSILON:
+        stages.append("Draft SO")
+    if submitted_so_uninvoiced_value > VALUE_EPSILON:
+        if invoiced_value > VALUE_EPSILON:
+            stages.append("Partially Invoiced SO")
+        else:
+            stages.append("Submitted SO Awaiting Invoice")
+
+    if stages:
+        return " + ".join(stages)
+
+    if invoiced_value > VALUE_EPSILON:
+        return "Fully Invoiced"
+
+    return "No Activity"
+
+
+def _sum_planning_fields(target, source):
+    for fieldname in (
+        "quotation_qty",
+        "quotation_value",
+        "quotation_open_qty",
+        "quotation_open_value",
+        "draft_so_qty",
+        "draft_so_value",
+        "submitted_so_uninvoiced_qty",
+        "submitted_so_uninvoiced_value",
+        "invoiced_qty",
+        "invoiced_value",
+        "total_uninvoiced_qty",
+        "total_uninvoiced_value",
+    ):
+        target[fieldname] += flt(source.get(fieldname))
+
+
 def _capture_latest_reference(group, name_field, date_field, docname, date_value):
     if not date_field or not date_value:
         return
@@ -555,6 +728,19 @@ def _capture_latest_reference(group, name_field, date_field, docname, date_value
     group[date_field] = _serialize_date(date_value)
     if name_field:
         group[name_field] = docname or ""
+
+
+def _extract_date_bounds(filters):
+    from_date = filters.get("from_date")
+    to_date = filters.get("to_date")
+    date_range = filters.get("date_range")
+
+    if date_range:
+        parsed_range = _normalize_date_range(date_range)
+        from_date = parsed_range.get("from_date") or from_date
+        to_date = parsed_range.get("to_date") or to_date
+
+    return from_date, to_date
 
 
 def _is_pending_row(row):
@@ -580,6 +766,36 @@ def _normalize_multiselect(value):
     if isinstance(value, (list, tuple, set)):
         return [str(entry).strip() for entry in value if str(entry).strip()]
     return [str(value).strip()]
+
+
+def _normalize_date_range(value):
+    if not value:
+        return {"from_date": "", "to_date": ""}
+
+    if isinstance(value, str):
+        raw = value.strip()
+        if not raw:
+            return {"from_date": "", "to_date": ""}
+        try:
+            value = json.loads(raw)
+        except Exception:
+            parts = [entry.strip() for entry in raw.split(",")]
+            value = parts if len(parts) >= 2 else [raw, ""]
+
+    if isinstance(value, dict):
+        return {
+            "from_date": value.get("from_date") or value.get("start") or "",
+            "to_date": value.get("to_date") or value.get("end") or "",
+        }
+
+    if isinstance(value, (list, tuple)):
+        items = list(value) + ["", ""]
+        return {
+            "from_date": items[0] or "",
+            "to_date": items[1] or "",
+        }
+
+    return {"from_date": "", "to_date": ""}
 
 
 def _get_quotation_status_label(docstatus):

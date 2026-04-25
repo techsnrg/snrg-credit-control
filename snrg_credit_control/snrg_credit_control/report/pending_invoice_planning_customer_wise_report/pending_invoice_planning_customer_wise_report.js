@@ -1,4 +1,4 @@
-frappe.query_reports["Pending Invoice Planning Report"] = {
+frappe.query_reports["Pending Invoice Planning Customer Wise Report"] = {
   filters: [
     {
       fieldname: "company",
@@ -67,24 +67,6 @@ frappe.query_reports["Pending Invoice Planning Report"] = {
       return formatted;
     }
 
-    if (column.fieldname === "quotation_status") {
-      const colors = {
-        Draft: "#d97706",
-        Submitted: "#2563eb",
-      };
-      return `<span style="color:${colors[data.quotation_status] || "#475569"};font-weight:600;">${formatted}</span>`;
-    }
-
-    if (column.fieldname === "sales_order_status") {
-      const colors = {
-        "No SO": "#64748b",
-        "Draft SO": "#d97706",
-        "Submitted SO": "#2563eb",
-        "Mixed SO": "#7c3aed",
-      };
-      return `<span style="color:${colors[data.sales_order_status] || "#475569"};font-weight:600;">${formatted}</span>`;
-    }
-
     if (column.fieldname === "planning_stage_summary") {
       const valueText = String(data.planning_stage_summary || "").toLowerCase();
       if (valueText.includes("partially invoiced")) {
@@ -105,13 +87,6 @@ frappe.query_reports["Pending Invoice Planning Report"] = {
       const amount = Number(data.total_uninvoiced_value || 0);
       if (amount > 0) {
         return `<span style="color:#b91c1c;font-weight:700;">${formatted}</span>`;
-      }
-    }
-
-    if (column.fieldname === "total_uninvoiced_qty") {
-      const qty = Number(data.total_uninvoiced_qty || 0);
-      if (qty > 0) {
-        return `<span style="font-weight:700;">${formatted}</span>`;
       }
     }
 
