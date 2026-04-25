@@ -6,7 +6,7 @@ from urllib.parse import quote
 
 import frappe
 from frappe.utils import cint, date_diff, flt, get_datetime, getdate, now_datetime, nowdate
-from snrg_credit_control.pending_invoice_planning import (
+from snrg_credit_control.snrg_credit_control.pending_invoice_planning import (
     get_pending_invoice_planning_rows,
     get_sales_order_item_quotation_link_config as get_pending_planning_so_link_config,
 )

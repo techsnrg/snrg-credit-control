@@ -1,6 +1,8 @@
 import frappe
 
-from snrg_credit_control.pending_invoice_planning import get_pending_invoice_planning_rows
+from snrg_credit_control.snrg_credit_control.pending_invoice_planning import (
+    get_pending_invoice_planning_rows,
+)
 
 
 def execute(filters=None):
