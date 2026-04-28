@@ -67,36 +67,15 @@ frappe.query_reports["Pending Invoice Planning Report"] = {
       return formatted;
     }
 
-    if (column.fieldname === "quotation_status") {
-      const colors = {
-        Draft: "#d97706",
-        Submitted: "#2563eb",
-      };
-      return `<span style="color:${colors[data.quotation_status] || "#475569"};font-weight:600;">${formatted}</span>`;
-    }
-
-    if (column.fieldname === "sales_order_status") {
-      const colors = {
-        "No SO": "#64748b",
-        "Draft SO": "#d97706",
-        "Submitted SO": "#2563eb",
-        "Mixed SO": "#7c3aed",
-      };
-      return `<span style="color:${colors[data.sales_order_status] || "#475569"};font-weight:600;">${formatted}</span>`;
-    }
-
-    if (column.fieldname === "planning_stage_summary") {
-      const valueText = String(data.planning_stage_summary || "").toLowerCase();
-      if (valueText.includes("partially invoiced")) {
-        return `<span style="color:#d97706;font-weight:600;">${formatted}</span>`;
+    if (column.fieldname === "status_summary") {
+      const valueText = String(data.status_summary || "").toLowerCase();
+      if (valueText.includes("draft") && valueText.includes("submitted")) {
+        return `<span style="color:#7c3aed;font-weight:600;">${formatted}</span>`;
       }
-      if (valueText.includes("quotation open")) {
-        return `<span style="color:#64748b;font-weight:600;">${formatted}</span>`;
-      }
-      if (valueText.includes("draft so")) {
+      if (valueText.includes("draft")) {
         return `<span style="color:#b45309;font-weight:600;">${formatted}</span>`;
       }
-      if (valueText.includes("submitted so")) {
+      if (valueText.includes("submitted")) {
         return `<span style="color:#2563eb;font-weight:600;">${formatted}</span>`;
       }
     }

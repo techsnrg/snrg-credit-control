@@ -593,6 +593,8 @@ def _finalize_group_rows(grouped_rows):
             flt(group["quotation_value"]) - flt(group["draft_so_value"]) - flt(group["submitted_so_value"]),
             0,
         )
+        order_qty = flt(group["draft_so_qty"]) + flt(group["submitted_so_qty"])
+        order_value = flt(group["draft_so_value"]) + flt(group["submitted_so_value"])
         submitted_so_uninvoiced_qty = max(flt(group["submitted_so_qty"]) - flt(group["invoiced_qty"]), 0)
         submitted_so_uninvoiced_value = max(flt(group["submitted_so_value"]) - flt(group["invoiced_value"]), 0)
         total_uninvoiced_qty = quotation_open_qty + flt(group["draft_so_qty"]) + submitted_so_uninvoiced_qty
@@ -612,6 +614,8 @@ def _finalize_group_rows(grouped_rows):
             "item_name": group["item_name"],
             "quotation_qty": flt(group["quotation_qty"]),
             "quotation_value": flt(group["quotation_value"]),
+            "order_qty": order_qty,
+            "order_value": order_value,
             "quotation_open_qty": quotation_open_qty,
             "quotation_open_value": quotation_open_value,
             "draft_so_qty": flt(group["draft_so_qty"]),
@@ -630,6 +634,10 @@ def _finalize_group_rows(grouped_rows):
             "latest_sales_order": group["latest_sales_order"],
             "latest_sales_order_date": group["latest_sales_order_date"],
             "latest_invoice_date": group["latest_invoice_date"],
+            "status_summary": _build_status_summary(
+                quotation_status=group["quotation_status"],
+                sales_order_status=sales_order_status,
+            ),
             "planning_stage_summary": _build_planning_stage_summary(
                 quotation_open_qty=quotation_open_qty,
                 draft_so_qty=flt(group["draft_so_qty"]),
@@ -694,6 +702,12 @@ def _build_value_stage_summary(quotation_open_value, draft_so_value, submitted_s
         return "Fully Invoiced"
 
     return "No Activity"
+
+
+def _build_status_summary(quotation_status, sales_order_status):
+    quote_label = quotation_status or "Unknown Quote"
+    order_label = sales_order_status or "Unknown SO"
+    return f"{quote_label} / {order_label}"
 
 
 def _sum_planning_fields(target, source):
