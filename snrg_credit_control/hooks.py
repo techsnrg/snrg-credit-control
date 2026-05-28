@@ -22,6 +22,7 @@ doctype_list_js = {
 }
 
 override_doctype_class = {
+    "Journal Entry": "snrg_credit_control.overrides.journal_entry.CustomJournalEntry",
     "Sales Invoice": "snrg_credit_control.overrides.sales_invoice.CustomSalesInvoice",
 }
 
