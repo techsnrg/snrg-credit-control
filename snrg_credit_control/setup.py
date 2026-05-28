@@ -69,7 +69,7 @@ def _ensure_module():
 # ---------------------------------------------------------------------------
 
 def _ensure_role():
-    for role_name in ("Credit Approver", "Legal", "Fulfillment User"):
+    for role_name in ("Credit Approver", "Legal", "Fulfillment User", "Price Request User", "Pricing Approver"):
         if frappe.db.exists("Role", role_name):
             continue
         frappe.get_doc(

@@ -235,6 +235,7 @@ frappe.ui.form.on("Quotation", {
     render_quotation_credit_chip(frm);
     render_quotation_header_status(frm);
     add_quotation_credit_button(frm);
+    add_item_price_request_button(frm);
   },
   party_name(frm) {
     clear_quotation_credit_preview(frm);
@@ -296,6 +297,206 @@ function add_quotation_credit_button(frm) {
 
   frm.add_custom_button("Refresh Credit Status", () => refresh_quotation_credit_status(frm), "Credit Control");
   frm.add_custom_button("Current Credit Details", () => open_quotation_credit_details(frm), "Credit Control");
+}
+
+function add_item_price_request_button(frm) {
+  if (frm.is_new() || !Array.isArray(frm.doc.items) || !frm.doc.items.length) {
+    return;
+  }
+
+  const canRequest = frappe.user_roles.includes("Price Request User")
+    || frappe.user_roles.includes("Pricing Approver")
+    || frappe.user_roles.includes("System Manager");
+  if (!canRequest) return;
+
+  frm.add_custom_button("Request Item Price", () => open_item_price_request_dialog(frm), "Pricing");
+}
+
+function get_quotation_item_options(frm) {
+  return (frm.doc.items || [])
+    .filter(row => row.item_code)
+    .map(row => ({
+      label: `${row.idx} - ${row.item_code}${row.item_name ? ` - ${row.item_name}` : ""}`,
+      value: String(row.idx),
+    }));
+}
+
+function get_quotation_row_by_idx(frm, idx) {
+  const rowIdx = Number(idx || 0);
+  return (frm.doc.items || []).find(row => Number(row.idx) === rowIdx);
+}
+
+function open_item_price_request_dialog(frm) {
+  const itemOptions = get_quotation_item_options(frm);
+  if (!itemOptions.length) {
+    frappe.msgprint({
+      title: "No Items",
+      message: "Add at least one item row before requesting an item price.",
+      indicator: "orange",
+    });
+    return;
+  }
+
+  const dialog = new frappe.ui.Dialog({
+    title: "Request Item Price",
+    fields: [
+      {
+        fieldname: "quotation_item_row",
+        fieldtype: "Select",
+        label: "Quotation Item Row",
+        options: itemOptions.map(option => option.label).join("\n"),
+        reqd: 1,
+      },
+      {
+        fieldname: "item_preview",
+        fieldtype: "HTML",
+      },
+      {
+        fieldname: "price_list",
+        fieldtype: "Link",
+        label: "Price List",
+        options: "Price List",
+        reqd: 1,
+        default: frm.doc.selling_price_list || "",
+        get_query() {
+          return {
+            filters: {
+              enabled: 1,
+              selling: 1,
+            },
+          };
+        },
+      },
+      {
+        fieldname: "requested_rate",
+        fieldtype: "Currency",
+        label: "Requested Rate",
+        reqd: 1,
+      },
+      {
+        fieldname: "uom",
+        fieldtype: "Link",
+        label: "UOM",
+        options: "UOM",
+        reqd: 1,
+      },
+      {
+        fieldname: "currency",
+        fieldtype: "Link",
+        label: "Currency",
+        options: "Currency",
+        reqd: 1,
+        default: frm.doc.currency || "",
+      },
+      {
+        fieldname: "valid_from",
+        fieldtype: "Date",
+        label: "Valid From",
+        default: frappe.datetime.get_today(),
+      },
+      {
+        fieldname: "valid_upto",
+        fieldtype: "Date",
+        label: "Valid Upto",
+      },
+      {
+        fieldname: "rate_communication_attachment",
+        fieldtype: "Attach",
+        label: "Rate Communication Attachment",
+        description: "Attach WhatsApp/email screenshot or any communication proof for the quoted rate.",
+      },
+      {
+        fieldname: "reason",
+        fieldtype: "Small Text",
+        label: "Reason / Notes",
+      },
+    ],
+    primary_action_label: "Create Request",
+    primary_action: async () => {
+      const values = dialog.get_values();
+      if (!values) return;
+
+      const row = get_quotation_row_by_dialog_value(frm, values.quotation_item_row);
+      if (!row) {
+        frappe.msgprint({
+          title: "Invalid Row",
+          message: "Select a valid quotation item row.",
+          indicator: "red",
+        });
+        return;
+      }
+
+      try {
+        const { message } = await frappe.call({
+          method: "snrg_credit_control.snrg_credit_control.doctype.item_price_request.item_price_request.create_from_quotation",
+          args: {
+            quotation: frm.doc.name,
+            quotation_item_row: row.idx,
+            price_list: values.price_list,
+            requested_rate: values.requested_rate,
+            uom: values.uom,
+            currency: values.currency,
+            valid_from: values.valid_from,
+            valid_upto: values.valid_upto,
+            reason: values.reason,
+            rate_communication_attachment: values.rate_communication_attachment,
+          },
+          freeze: true,
+          freeze_message: "Creating item price request...",
+        });
+
+        dialog.hide();
+        frappe.show_alert({
+          message: (message && message.message) || "Item Price Request created.",
+          indicator: "green",
+        });
+        if (message && message.name) {
+          frappe.set_route("Form", "Item Price Request", message.name);
+        }
+      } catch (error) {
+        frappe.msgprint({
+          title: "Request failed",
+          message: (error && error.message) || String(error),
+          indicator: "red",
+        });
+      }
+    },
+  });
+
+  dialog.show();
+  dialog.set_value("quotation_item_row", itemOptions[0].label);
+  sync_item_price_request_dialog(frm, dialog);
+
+  dialog.fields_dict.quotation_item_row.df.onchange = () => {
+    sync_item_price_request_dialog(frm, dialog);
+  };
+}
+
+function get_quotation_row_by_dialog_value(frm, value) {
+  const idx = String(value || "").split(" - ")[0];
+  return get_quotation_row_by_idx(frm, idx);
+}
+
+function sync_item_price_request_dialog(frm, dialog) {
+  const row = get_quotation_row_by_dialog_value(frm, dialog.get_value("quotation_item_row"));
+  if (!row) return;
+
+  dialog.set_value("uom", row.uom || row.stock_uom || "");
+  if (!dialog.get_value("requested_rate") && row.rate) {
+    dialog.set_value("requested_rate", row.rate);
+  }
+  if (!dialog.get_value("currency") && frm.doc.currency) {
+    dialog.set_value("currency", frm.doc.currency);
+  }
+
+  const html = `
+    <div style="padding:10px 12px;border:1px solid #e5e7eb;border-radius:6px;background:#f8fafc;margin-bottom:4px;">
+      <div style="font-weight:700;margin-bottom:4px;">${frappe.utils.escape_html(row.item_code || "")}</div>
+      <div style="font-size:12px;color:#64748b;">${frappe.utils.escape_html(row.item_name || "")}</div>
+      <div style="font-size:12px;color:#64748b;margin-top:4px;">Quotation row ${frappe.utils.escape_html(String(row.idx || ""))}</div>
+    </div>
+  `;
+  dialog.fields_dict.item_preview.$wrapper.html(html);
 }
 
 async function open_quotation_credit_details(frm) {
