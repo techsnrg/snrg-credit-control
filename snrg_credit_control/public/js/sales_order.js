@@ -2,6 +2,20 @@
 // SNRG Credit Control — Sales Order client script
 // =============================================================================
 
+function snrg_show_minimum_rate_check() {
+  if (!frappe.dom || !frappe.dom.freeze) return;
+  frappe.dom.freeze("Checking minimum selling rates...");
+  clearTimeout(window.snrg_minimum_rate_check_timeout);
+  window.snrg_minimum_rate_check_timeout = setTimeout(snrg_hide_minimum_rate_check, 15000);
+}
+
+function snrg_hide_minimum_rate_check() {
+  clearTimeout(window.snrg_minimum_rate_check_timeout);
+  if (frappe.dom && frappe.dom.unfreeze) {
+    frappe.dom.unfreeze();
+  }
+}
+
 function get_sales_order_credit_view_model(frm) {
   const status = frm.doc.custom_snrg_credit_check_status;
   return {
@@ -285,6 +299,18 @@ frappe.ui.form.on("Sales Order", {
   },
   rounded_total(frm) {
     render_sales_order_credit_chip(frm);
+  },
+  before_save() {
+    snrg_show_minimum_rate_check();
+  },
+  after_save() {
+    snrg_hide_minimum_rate_check();
+  },
+  before_submit() {
+    snrg_show_minimum_rate_check();
+  },
+  on_submit() {
+    snrg_hide_minimum_rate_check();
   },
 });
 

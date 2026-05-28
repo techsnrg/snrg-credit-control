@@ -3,6 +3,7 @@ import json
 import frappe
 from frappe import _
 from erpnext.accounts.doctype.sales_invoice.sales_invoice import SalesInvoice
+from snrg_credit_control.pricing_guard import validate_minimum_selling_rates
 
 FULFILLMENT_ROLE = "Fulfillment User"
 FULFILLMENT_FIELDS = (
@@ -17,6 +18,10 @@ FULFILLMENT_FIELDS = (
 
 
 class CustomSalesInvoice(SalesInvoice):
+    def validate(self):
+        super().validate()
+        validate_minimum_selling_rates(self)
+
     def check_credit_limit(self):
         if self._is_backed_by_approved_sales_orders():
             return

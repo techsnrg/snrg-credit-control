@@ -7,9 +7,12 @@ from snrg_credit_control.credit_status import (
     stamp_credit_clearance_date,
     stamp_credit_fields,
 )
+from snrg_credit_control.pricing_guard import validate_minimum_selling_rates
 
 
 def validate(doc, method=None):
+    validate_minimum_selling_rates(doc)
+
     if not (doc.get("party_name") and doc.get("company")):
         reset_credit_fields(doc)
         return

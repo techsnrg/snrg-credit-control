@@ -11,6 +11,20 @@ const SNRG_FULFILLMENT_FIELDS = [
 const SNRG_FULFILLMENT_ROLE = "Fulfillment User";
 const SNRG_SYSTEM_MANAGER_ROLE = "System Manager";
 
+function snrg_show_minimum_rate_check() {
+  if (!frappe.dom || !frappe.dom.freeze) return;
+  frappe.dom.freeze("Checking minimum selling rates...");
+  clearTimeout(window.snrg_minimum_rate_check_timeout);
+  window.snrg_minimum_rate_check_timeout = setTimeout(snrg_hide_minimum_rate_check, 15000);
+}
+
+function snrg_hide_minimum_rate_check() {
+  clearTimeout(window.snrg_minimum_rate_check_timeout);
+  if (frappe.dom && frappe.dom.unfreeze) {
+    frappe.dom.unfreeze();
+  }
+}
+
 frappe.ui.form.on("Sales Invoice", {
   refresh(frm) {
     toggle_fulfillment_fields_read_only(frm);
@@ -20,6 +34,18 @@ frappe.ui.form.on("Sales Invoice", {
     frm.add_custom_button("Update Fulfillment Details", () => {
       open_fulfillment_update_dialog(frm);
     });
+  },
+  before_save() {
+    snrg_show_minimum_rate_check();
+  },
+  after_save() {
+    snrg_hide_minimum_rate_check();
+  },
+  before_submit() {
+    snrg_show_minimum_rate_check();
+  },
+  on_submit() {
+    snrg_hide_minimum_rate_check();
   },
 });
 

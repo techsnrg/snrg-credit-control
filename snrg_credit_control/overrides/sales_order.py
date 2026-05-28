@@ -26,6 +26,7 @@ from snrg_credit_control.ptp import (
     get_ptp_references_for_sales_order,
     get_sales_order_ptp_docs,
 )
+from snrg_credit_control.pricing_guard import validate_minimum_selling_rates
 
 
 # ---------------------------------------------------------------------------
@@ -62,6 +63,8 @@ def _esc(val):
 # ---------------------------------------------------------------------------
 
 def validate(doc, method=None):
+    validate_minimum_selling_rates(doc)
+
     if not (doc.get("customer") and doc.get("company")):
         return
 

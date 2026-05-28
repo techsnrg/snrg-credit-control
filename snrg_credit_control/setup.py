@@ -21,6 +21,7 @@ def after_install():
     _ensure_so_fields()
     _ensure_quotation_fields()
     _ensure_sales_invoice_fields()
+    _ensure_item_price_fields()
     _ensure_report()
     _ensure_employee_signatory_fields()
     _ensure_demand_notice_settings()
@@ -37,6 +38,7 @@ def after_migrate():
     _ensure_so_fields()
     _ensure_quotation_fields()
     _ensure_sales_invoice_fields()
+    _ensure_item_price_fields()
     _ensure_report()
     _ensure_employee_signatory_fields()
     _ensure_demand_notice_settings()
@@ -464,6 +466,26 @@ def _ensure_sales_invoice_fields():
         if resolved["fieldname"] == "custom_snrg_dispatch_section":
             resolved["insert_after"] = dispatch_anchor
         _ensure_custom_field("Sales Invoice", resolved)
+
+
+# ---------------------------------------------------------------------------
+# Custom Fields — Item Price
+# ---------------------------------------------------------------------------
+
+_ITEM_PRICE_FIELDS = [
+    {
+        "fieldname": "minimum_selling_rate",
+        "fieldtype": "Currency",
+        "label": "Minimum Selling Rate",
+        "insert_after": "price_list_rate",
+        "description": "Minimum allowed selling rate used by SNRG sales document validation.",
+    },
+]
+
+
+def _ensure_item_price_fields():
+    for fdef in _ITEM_PRICE_FIELDS:
+        _ensure_custom_field("Item Price", fdef)
 
 
 # ---------------------------------------------------------------------------
