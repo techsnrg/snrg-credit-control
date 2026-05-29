@@ -480,6 +480,10 @@ def _ensure_report():
             "report_name": "PTP Dashboard",
             "ref_doctype": "Credit PTP",
         },
+        {
+            "report_name": "Minimum Selling Rate Invoice Check",
+            "ref_doctype": "Sales Invoice",
+        },
     ]
 
     for report_def in report_defs:
