@@ -109,7 +109,7 @@ def _get_minimum_price_map(item_codes, doc):
         fields=[
             "item_code",
             "uom",
-            "minimum_selling_rate",
+            "price_list_rate",
             "valid_from",
             "valid_upto",
         ],
@@ -124,7 +124,7 @@ def _get_minimum_price_map(item_codes, doc):
 
         key = (row.item_code, row.uom or "")
         current_rate = price_map.get(key)
-        row_rate = flt(row.minimum_selling_rate)
+        row_rate = flt(row.price_list_rate)
         if row_rate <= 0:
             invalid_price_keys.add(key)
             continue
