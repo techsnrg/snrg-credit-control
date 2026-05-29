@@ -1,15 +1,12 @@
 function snrg_show_minimum_rate_check() {
-  if (!frappe.dom || !frappe.dom.freeze) return;
-  frappe.dom.freeze("Checking minimum selling rates...");
-  clearTimeout(window.snrg_minimum_rate_check_timeout);
-  window.snrg_minimum_rate_check_timeout = setTimeout(snrg_hide_minimum_rate_check, 15000);
+  frappe.show_alert({
+    message: "Checking minimum selling rates...",
+    indicator: "blue",
+  }, 8);
 }
 
 function snrg_hide_minimum_rate_check() {
-  clearTimeout(window.snrg_minimum_rate_check_timeout);
-  if (frappe.dom && frappe.dom.unfreeze) {
-    frappe.dom.unfreeze();
-  }
+  // Non-blocking alert auto-dismisses.
 }
 
 function get_quotation_credit_view_model(frm) {
