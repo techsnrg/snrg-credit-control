@@ -297,10 +297,6 @@ function add_quotation_credit_button(frm) {
 }
 
 function add_item_price_request_button(frm) {
-  if (frm.is_new() || !Array.isArray(frm.doc.items) || !frm.doc.items.length) {
-    return;
-  }
-
   const canRequest = frappe.user_roles.includes("Price Request User")
     || frappe.user_roles.includes("Pricing Approver")
     || frappe.user_roles.includes("System Manager");
@@ -427,8 +423,12 @@ function open_item_price_request_dialog(frm) {
         const { message } = await frappe.call({
           method: "snrg_credit_control.snrg_credit_control.doctype.item_price_request.item_price_request.create_from_quotation",
           args: {
-            quotation: frm.doc.name,
+            quotation: frm.is_new() ? null : frm.doc.name,
             quotation_item_row: row.idx,
+            item_code: row.item_code,
+            item_name: row.item_name,
+            customer: frm.doc.quotation_to === "Customer" ? frm.doc.party_name : null,
+            company: frm.doc.company,
             price_list: values.price_list,
             requested_rate: values.requested_rate,
             uom: values.uom,
@@ -447,7 +447,14 @@ function open_item_price_request_dialog(frm) {
           message: (message && message.message) || "Item Price Request created.",
           indicator: "green",
         });
-        if (message && message.name) {
+        if (message && message.name && frm.is_new()) {
+          const requestLink = `/app/item-price-request/${encodeURIComponent(message.name)}`;
+          frappe.msgprint({
+            title: "Item Price Request Created",
+            message: `Request <a href="${requestLink}">${frappe.utils.escape_html(message.name)}</a> has been sent for approval. This quotation is still not saved.`,
+            indicator: "green",
+          });
+        } else if (message && message.name) {
           frappe.set_route("Form", "Item Price Request", message.name);
         }
       } catch (error) {

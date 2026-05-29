@@ -106,10 +106,14 @@ class ItemPriceRequest(Document):
 
 @frappe.whitelist()
 def create_from_quotation(
-    quotation,
     quotation_item_row,
     price_list,
     requested_rate,
+    quotation=None,
+    item_code=None,
+    item_name=None,
+    customer=None,
+    company=None,
     uom=None,
     currency=None,
     valid_from=None,
@@ -118,26 +122,38 @@ def create_from_quotation(
     rate_communication_attachment=None,
 ):
     _require_requester()
-    if not quotation:
-        frappe.throw(_("Quotation is required."))
 
-    quotation_doc = frappe.get_doc("Quotation", quotation)
-    if not quotation_doc.has_permission("read"):
-        frappe.throw(_("Not permitted."), frappe.PermissionError)
+    quotation_doc = None
+    item_row = None
+    if quotation and frappe.db.exists("Quotation", quotation):
+        quotation_doc = frappe.get_doc("Quotation", quotation)
+        if not quotation_doc.has_permission("read"):
+            frappe.throw(_("Not permitted."), frappe.PermissionError)
+        item_row = _get_quotation_item(quotation_doc, quotation_item_row)
+        item_code = item_row.item_code
+        item_name = item_row.item_name
+        customer = quotation_doc.party_name if quotation_doc.quotation_to == "Customer" else customer
+        company = quotation_doc.company or company
+        uom = uom or item_row.uom
+        currency = currency or quotation_doc.currency
 
-    item_row = _get_quotation_item(quotation_doc, quotation_item_row)
+    if not item_code:
+        frappe.throw(_("Item is required."))
+    if not frappe.db.exists("Item", item_code):
+        frappe.throw(_("Item {0} does not exist.").format(frappe.bold(item_code)))
+
     doc = frappe.get_doc(
         {
             "doctype": "Item Price Request",
-            "quotation": quotation_doc.name,
-            "quotation_item_row": item_row.idx,
-            "customer": quotation_doc.party_name if quotation_doc.quotation_to == "Customer" else None,
-            "company": quotation_doc.company,
-            "item_code": item_row.item_code,
-            "item_name": item_row.item_name,
+            "quotation": quotation_doc.name if quotation_doc else None,
+            "quotation_item_row": int(quotation_item_row or 0),
+            "customer": customer,
+            "company": company,
+            "item_code": item_code,
+            "item_name": item_name or frappe.db.get_value("Item", item_code, "item_name"),
             "price_list": price_list,
-            "uom": uom or item_row.uom,
-            "currency": currency or quotation_doc.currency,
+            "uom": uom,
+            "currency": currency,
             "requested_rate": requested_rate,
             "valid_from": valid_from or today(),
             "valid_upto": valid_upto,
@@ -345,11 +361,15 @@ def _notify_requester(doc, approved):
 
 def _build_request_email(doc, heading):
     request_link = get_url_to_form("Item Price Request", doc.name)
-    quotation_link = get_url_to_form("Quotation", doc.quotation) if doc.quotation else ""
     item_price_link = get_url_to_form("Item Price", doc.created_item_price) if doc.created_item_price else ""
     attachment_html = _build_attachment_html(doc.rate_communication_attachment)
     rate = fmt_money(flt(doc.requested_rate), currency=doc.currency)
     requester = frappe.db.get_value("User", doc.requested_by, "full_name") or doc.requested_by
+    quotation_html = (
+        f'<a href="{get_url_to_form("Quotation", doc.quotation)}">{frappe.utils.escape_html(doc.quotation)}</a>'
+        if doc.quotation
+        else "Unsaved Quotation"
+    )
 
     item_price_row = ""
     if item_price_link:
@@ -374,7 +394,7 @@ def _build_request_email(doc, heading):
     <tr><td style="padding:6px 8px;font-weight:600;background:#f5f5f5;">Request</td>
         <td style="padding:6px 8px;"><a href="{request_link}">{frappe.utils.escape_html(doc.name)}</a></td></tr>
     <tr><td style="padding:6px 8px;font-weight:600;background:#f5f5f5;">Quotation</td>
-        <td style="padding:6px 8px;"><a href="{quotation_link}">{frappe.utils.escape_html(doc.quotation or '')}</a> / Row {frappe.utils.escape_html(str(doc.quotation_item_row or ''))}</td></tr>
+        <td style="padding:6px 8px;">{quotation_html} / Row {frappe.utils.escape_html(str(doc.quotation_item_row or ''))}</td></tr>
     <tr><td style="padding:6px 8px;font-weight:600;background:#f5f5f5;">Customer</td>
         <td style="padding:6px 8px;">{frappe.utils.escape_html(doc.customer or '-')}</td></tr>
     <tr><td style="padding:6px 8px;font-weight:600;background:#f5f5f5;">Item</td>
