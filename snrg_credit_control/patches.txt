@@ -1,1 +1,2 @@
 snrg_credit_control.patches.ensure_credit_control_workspace
+snrg_credit_control.patches.remove_item_price_minimum_selling_rate_field
