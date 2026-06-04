@@ -484,6 +484,10 @@ def _ensure_report():
             "report_name": "Minimum Selling Rate Invoice Check",
             "ref_doctype": "Sales Invoice",
         },
+        {
+            "report_name": "Sales Person Sales and Collection Summary",
+            "ref_doctype": "Sales Invoice",
+        },
     ]
 
     for report_def in report_defs:
@@ -683,6 +687,11 @@ def _ensure_credit_control_workspace():
             "type": "shortcut",
             "data": {"shortcut_name": "Credit Control Report", "col": 3},
         },
+        {
+            "id": "sales_person_sales_collection_summary_shortcut",
+            "type": "shortcut",
+            "data": {"shortcut_name": "Sales Person Sales and Collection Summary", "col": 3},
+        },
     ]
 
     if has_ptp_dashboard_page:
@@ -746,6 +755,17 @@ def _ensure_credit_control_workspace():
             "type": "Link",
             "link_type": "Report",
             "link_to": "Credit Control Report",
+            "hidden": 0,
+            "is_query_report": 0,
+            "link_count": 0,
+            "onboard": 1,
+            "dependencies": "",
+        },
+        {
+            "label": "Sales Person Sales and Collection Summary",
+            "type": "Link",
+            "link_type": "Report",
+            "link_to": "Sales Person Sales and Collection Summary",
             "hidden": 0,
             "is_query_report": 0,
             "link_count": 0,
@@ -824,6 +844,14 @@ def _ensure_credit_control_workspace():
             "icon": "list",
             "doc_view": "",
             "color": "Green",
+        },
+        {
+            "type": "Report",
+            "label": "Sales Person Sales and Collection Summary",
+            "link_to": "Sales Person Sales and Collection Summary",
+            "icon": "chart",
+            "doc_view": "",
+            "color": "Blue",
         },
     ]
 
