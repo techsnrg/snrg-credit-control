@@ -6,6 +6,7 @@ from frappe.utils import flt, formatdate
 
 
 UNASSIGNED_KEY = "__unassigned__"
+UNASSIGNED_CUSTOMER_KEY = "__unassigned_customer__"
 
 
 def execute(filters=None):
@@ -13,7 +14,7 @@ def execute(filters=None):
     validate_filters(filters)
 
     employees = get_sales_employees(filters)
-    totals = defaultdict(lambda: {"sales": 0.0, "collection": 0.0})
+    totals = defaultdict(make_total_bucket)
 
     add_sales_totals(totals, filters)
     add_collection_totals(totals, filters)
@@ -73,6 +74,8 @@ def add_sales_totals(totals, filters):
         """
         SELECT
             si.name AS sales_invoice,
+            si.customer,
+            si.customer_name,
             si.base_net_total,
             sp.employee,
             st.allocated_percentage
@@ -97,6 +100,8 @@ def add_sales_totals(totals, filters):
 
     for allocations in invoice_rows.values():
         invoice_total = flt(allocations[0].base_net_total)
+        customer = allocations[0].customer
+        customer_name = allocations[0].customer_name
         for allocation in allocations:
             if allocation.employee:
                 key = allocation.employee
@@ -104,7 +109,9 @@ def add_sales_totals(totals, filters):
             else:
                 key = UNASSIGNED_KEY
                 percentage = 100 if len(allocations) == 1 else flt(allocation.allocated_percentage)
-            totals[key]["sales"] += invoice_total * percentage / 100
+            sales_amount = invoice_total * percentage / 100
+            totals[key]["sales"] += sales_amount
+            add_customer_amount(totals[key], customer, customer_name, sales=sales_amount)
 
 
 def add_collection_totals(totals, filters):
@@ -112,21 +119,27 @@ def add_collection_totals(totals, filters):
         """
         SELECT
             IFNULL(pe.custom_incentive_sales_person_name, '') AS employee,
+            IFNULL(pe.party, '') AS customer,
+            MAX(COALESCE(c.customer_name, pe.party, '')) AS customer_name,
             COALESCE(SUM(pe.base_paid_amount), 0) AS collection
         FROM `tabPayment Entry` pe
+        LEFT JOIN `tabCustomer` c ON c.name = pe.party
         WHERE pe.docstatus = 1
           AND pe.payment_type = 'Receive'
           AND pe.party_type = 'Customer'
           AND pe.company = %(company)s
           AND pe.posting_date BETWEEN %(from_date)s AND %(to_date)s
-        GROUP BY pe.custom_incentive_sales_person_name
+        GROUP BY pe.custom_incentive_sales_person_name, pe.party
         """,
         get_query_values(filters),
         as_dict=True,
     )
 
     for row in rows:
-        totals[row.employee or UNASSIGNED_KEY]["collection"] += flt(row.collection)
+        collection_amount = flt(row.collection)
+        key = row.employee or UNASSIGNED_KEY
+        totals[key]["collection"] += collection_amount
+        add_customer_amount(totals[key], row.customer, row.customer_name, collection=collection_amount)
 
 
 def build_rows(employees, totals, filters):
@@ -169,6 +182,32 @@ def build_rows(employees, totals, filters):
     return rows
 
 
+def make_total_bucket():
+    return {
+        "sales": 0.0,
+        "collection": 0.0,
+        "customers": defaultdict(make_customer_bucket),
+    }
+
+
+def make_customer_bucket():
+    return {
+        "customer": "",
+        "customer_name": "",
+        "sales": 0.0,
+        "collection": 0.0,
+    }
+
+
+def add_customer_amount(bucket, customer, customer_name, sales=0.0, collection=0.0):
+    customer_key = customer or UNASSIGNED_CUSTOMER_KEY
+    customer_bucket = bucket["customers"][customer_key]
+    customer_bucket["customer"] = customer or ""
+    customer_bucket["customer_name"] = customer_name or customer or _("Unassigned Customer")
+    customer_bucket["sales"] += flt(sales)
+    customer_bucket["collection"] += flt(collection)
+
+
 def make_row(key, employee, totals, date_label):
     sales = flt(totals["sales"], 2)
     collection = flt(totals["collection"], 2)
@@ -190,7 +229,51 @@ def make_row(key, employee, totals, date_label):
                 _("Collection: {0}").format(format_indian_currency(collection)),
             ]
         ),
+        "detailed_whatsapp_message": build_detailed_message(
+            employee_name,
+            headquarter,
+            date_label,
+            sales,
+            collection,
+            totals["customers"],
+        ),
     }
+
+
+def build_detailed_message(employee_name, headquarter, date_label, sales, collection, customers):
+    lines = [
+        _("Name: {0}").format(employee_name),
+        _("Headquarter: {0}").format(headquarter),
+        _("Period: {0}").format(date_label),
+        _("Sales: {0}").format(format_indian_currency(sales)),
+        _("Collection: {0}").format(format_indian_currency(collection)),
+        "",
+        _("Customer Wise:"),
+    ]
+
+    customer_rows = [
+        row
+        for row in customers.values()
+        if flt(row["sales"]) or flt(row["collection"])
+    ]
+    customer_rows.sort(
+        key=lambda row: (
+            -(abs(flt(row["sales"])) + abs(flt(row["collection"]))),
+            (row["customer_name"] or row["customer"] or "").lower(),
+        )
+    )
+
+    if not customer_rows:
+        lines.append(_("No customer-wise sales or collection."))
+        return "\n".join(lines)
+
+    for row in customer_rows:
+        lines.append(row["customer_name"] or row["customer"] or _("Unassigned Customer"))
+        lines.append(_("Sales: {0}").format(format_indian_currency(row["sales"])))
+        lines.append(_("Collection: {0}").format(format_indian_currency(row["collection"])))
+        lines.append("")
+
+    return "\n".join(lines).rstrip()
 
 
 def format_indian_currency(value):
@@ -230,4 +313,10 @@ def get_columns():
         {"label": _("Sales"), "fieldname": "sales", "fieldtype": "Currency", "width": 140},
         {"label": _("Collection"), "fieldname": "collection", "fieldtype": "Currency", "width": 140},
         {"label": _("WhatsApp"), "fieldname": "copy_message", "fieldtype": "Data", "width": 120},
+        {
+            "label": _("Detailed WhatsApp"),
+            "fieldname": "copy_detailed_message",
+            "fieldtype": "Data",
+            "width": 150,
+        },
     ]

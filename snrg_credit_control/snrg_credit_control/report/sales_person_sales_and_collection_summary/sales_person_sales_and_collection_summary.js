@@ -30,6 +30,13 @@ frappe.query_reports["Sales Person Sales and Collection Summary"] = {
         .filter(Boolean);
       copyReportText(messages.join("\n\n"));
     });
+
+    report.page.add_action_item(__("Copy All Detailed Messages"), () => {
+      const messages = (report.data || [])
+        .map((row) => row.detailed_whatsapp_message)
+        .filter(Boolean);
+      copyReportText(messages.join("\n\n"));
+    });
   },
 
   formatter(value, row, column, data, default_formatter) {
@@ -37,6 +44,12 @@ frappe.query_reports["Sales Person Sales and Collection Summary"] = {
       const encoded = encodeURIComponent(data.whatsapp_message).replace(/'/g, "%27");
       return `<button class="btn btn-xs btn-default" onclick="window.copySalesCollectionMessage('${encoded}')">${__(
         "Copy Message"
+      )}</button>`;
+    }
+    if (column.fieldname === "copy_detailed_message" && data && data.detailed_whatsapp_message) {
+      const encoded = encodeURIComponent(data.detailed_whatsapp_message).replace(/'/g, "%27");
+      return `<button class="btn btn-xs btn-default" onclick="window.copySalesCollectionMessage('${encoded}')">${__(
+        "Copy Detailed"
       )}</button>`;
     }
     return default_formatter(value, row, column, data);
