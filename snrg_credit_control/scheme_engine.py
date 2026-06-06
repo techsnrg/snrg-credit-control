@@ -186,6 +186,8 @@ def evaluate_customer_amount_scheme(
             {
                 "sales_invoice": row.get("sales_invoice"),
                 "posting_date": str(row.get("posting_date") or ""),
+                "invoice_grand_total": flt(row.get("invoice_grand_total")),
+                "invoice_outstanding_amount": flt(row.get("invoice_outstanding_amount")),
                 "item_code": row.get("item_code"),
                 "item_name": row.get("item_name") or item.get("item_name"),
                 "uom": row.get("uom"),
@@ -211,6 +213,7 @@ def evaluate_customer_amount_scheme(
         "eligible_rows": eligible_rows,
         "top_items": _summarize_eligible_items(eligible_rows),
         "invoice_details": _summarize_eligible_invoices(eligible_rows),
+        "payment_summary": _summarize_scheme_payments(eligible_rows),
         "achieved_slabs": achieved_slabs,
         "achieved_slab": achieved_slab,
         "next_slab": next_slab,
@@ -448,6 +451,8 @@ def _get_customer_invoice_item_rows(customer, company, from_date, upto_date):
             si.posting_date,
             si.customer,
             si.customer_name,
+            si.grand_total as invoice_grand_total,
+            si.outstanding_amount as invoice_outstanding_amount,
             sii.idx,
             sii.item_code,
             sii.item_name,
@@ -497,6 +502,8 @@ def _get_scheme_invoice_item_rows(company, from_date, upto_date):
             si.posting_date,
             si.customer,
             si.customer_name,
+            si.grand_total as invoice_grand_total,
+            si.outstanding_amount as invoice_outstanding_amount,
             sii.idx,
             sii.item_code,
             sii.item_name,
@@ -762,28 +769,89 @@ def _summarize_eligible_invoices(eligible_rows):
                 "posting_date": row.get("posting_date"),
                 "qty": 0,
                 "amount": 0,
+                "invoice_grand_total": 0,
+                "invoice_outstanding_amount": 0,
                 "item_count": set(),
             },
         )
         current["qty"] += flt(row.get("qty"))
         current["amount"] += flt(row.get("amount"))
+        current["invoice_grand_total"] = flt(row.get("invoice_grand_total"))
+        current["invoice_outstanding_amount"] = flt(row.get("invoice_outstanding_amount"))
         if row.get("item_code"):
             current["item_count"].add(row.get("item_code"))
 
     rows = []
     for row in summary.values():
+        payment = _get_invoice_payment_allocation(
+            row["amount"],
+            row["invoice_grand_total"],
+            row["invoice_outstanding_amount"],
+        )
         rows.append(
             {
                 "sales_invoice": row["sales_invoice"],
                 "posting_date": row["posting_date"],
                 "qty": row["qty"],
                 "amount": row["amount"],
+                "paid_amount": payment["paid_amount"],
+                "outstanding_amount": payment["outstanding_amount"],
+                "payment_status": payment["payment_status"],
                 "item_count": len(row["item_count"]),
             }
         )
 
     rows.sort(key=lambda row: (row.get("posting_date") or "", flt(row.get("amount"))), reverse=True)
     return rows
+
+
+def _summarize_scheme_payments(eligible_rows):
+    invoice_rows = _summarize_eligible_invoices(eligible_rows)
+    paid_amount = sum(flt(row.get("paid_amount")) for row in invoice_rows)
+    outstanding_amount = sum(flt(row.get("outstanding_amount")) for row in invoice_rows)
+    eligible_amount = sum(flt(row.get("amount")) for row in invoice_rows)
+
+    if not invoice_rows:
+        payment_status = "No Invoices"
+    elif outstanding_amount <= 0.01:
+        payment_status = "Paid"
+    elif paid_amount > 0:
+        payment_status = "Partly Paid"
+    else:
+        payment_status = "Unpaid"
+
+    return {
+        "paid_amount": paid_amount,
+        "outstanding_amount": outstanding_amount,
+        "eligible_amount": eligible_amount,
+        "payment_status": payment_status,
+    }
+
+
+def _get_invoice_payment_allocation(eligible_amount, invoice_grand_total, invoice_outstanding_amount):
+    eligible_amount = flt(eligible_amount)
+    invoice_grand_total = flt(invoice_grand_total)
+    invoice_outstanding_amount = max(flt(invoice_outstanding_amount), 0)
+
+    if invoice_grand_total <= 0:
+        scheme_outstanding = min(invoice_outstanding_amount, eligible_amount)
+    else:
+        ratio = min(eligible_amount / invoice_grand_total, 1)
+        scheme_outstanding = min(invoice_outstanding_amount * ratio, eligible_amount)
+
+    paid_amount = max(eligible_amount - scheme_outstanding, 0)
+    if scheme_outstanding <= 0.01:
+        payment_status = "Paid"
+    elif paid_amount > 0:
+        payment_status = "Partly Paid"
+    else:
+        payment_status = "Unpaid"
+
+    return {
+        "paid_amount": paid_amount,
+        "outstanding_amount": scheme_outstanding,
+        "payment_status": payment_status,
+    }
 
 
 def _get_scheme_notes(scheme):

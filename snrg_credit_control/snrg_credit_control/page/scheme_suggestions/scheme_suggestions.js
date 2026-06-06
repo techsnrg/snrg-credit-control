@@ -103,7 +103,7 @@ class SnrgSchemeSuggestions {
         .snrg-scheme-table-wrap { padding: 0 16px 16px; overflow: auto; }
         .snrg-scheme-table {
           width: 100%;
-          min-width: 980px;
+          min-width: 1460px;
           border-collapse: collapse;
           border: 1px solid #edf1f7;
           border-radius: 8px;
@@ -158,7 +158,7 @@ class SnrgSchemeSuggestions {
         }
         .snrg-scheme-detail-grid {
           display: grid;
-          grid-template-columns: minmax(420px, 1fr) minmax(520px, 1.2fr);
+          grid-template-columns: minmax(620px, 1.2fr) minmax(520px, 1fr);
           gap: 18px;
           align-items: start;
         }
@@ -359,6 +359,9 @@ class SnrgSchemeSuggestions {
             ${this.render_sort_header(tableKey, "next_slab", "Next Achievable Slab")}
             ${this.render_sort_header(tableKey, "shortfall_amount", "Shortfall", true)}
             ${this.render_sort_header(tableKey, "eligible_invoice_count", "Invoices", true)}
+            ${this.render_sort_header(tableKey, "paid_amount", "Paid", true)}
+            ${this.render_sort_header(tableKey, "outstanding_amount", "Outstanding", true)}
+            ${this.render_sort_header(tableKey, "payment_status", "Payment Status")}
             <th></th>
           </tr>
           <tr>
@@ -368,6 +371,9 @@ class SnrgSchemeSuggestions {
             ${this.render_filter_cell(tableKey, "next_slab", "Search next slab")}
             ${this.render_filter_cell(tableKey, "shortfall_amount", "Search shortfall", true)}
             ${this.render_filter_cell(tableKey, "eligible_invoice_count", "Search invoices", true)}
+            ${this.render_filter_cell(tableKey, "paid_amount", "Search paid", true)}
+            ${this.render_filter_cell(tableKey, "outstanding_amount", "Search outstanding", true)}
+            ${this.render_filter_cell(tableKey, "payment_status", "Search status")}
             <th></th>
           </tr>
         </thead>
@@ -417,7 +423,7 @@ class SnrgSchemeSuggestions {
   render_customer_rows(scheme, tableKey) {
     const rows = this.get_visible_customer_rows(scheme, tableKey);
     if (!rows.length) {
-      return `<tr><td colspan="7" class="snrg-scheme-empty">No rows match the current search.</td></tr>`;
+      return `<tr><td colspan="10" class="snrg-scheme-empty">No rows match the current search.</td></tr>`;
     }
 
     return rows.map((row, index) => this.render_customer_row(scheme, row, index)).join("");
@@ -462,11 +468,19 @@ class SnrgSchemeSuggestions {
     if (field === "next_slab") {
       return this.format_slab(row.next_slab, "Highest slab achieved");
     }
-    if (field === "eligible_amount" || field === "shortfall_amount") {
-      return `${format_currency(row[field] || 0)} ${row[field] || 0}`;
+    if (field === "eligible_amount" || field === "shortfall_amount" || field === "paid_amount" || field === "outstanding_amount") {
+      const value = field === "paid_amount"
+        ? row.payment_summary?.paid_amount
+        : field === "outstanding_amount"
+          ? row.payment_summary?.outstanding_amount
+          : row[field];
+      return `${format_currency(value || 0)} ${value || 0}`;
     }
     if (field === "eligible_invoice_count") {
       return `${format_number(row.eligible_invoice_count || 0)} ${row.eligible_invoice_count || 0}`;
+    }
+    if (field === "payment_status") {
+      return row.payment_summary?.payment_status || "";
     }
     return String(row[field] || "");
   }
@@ -475,6 +489,9 @@ class SnrgSchemeSuggestions {
     if (field === "customer_name") return row.customer_name || row.customer || "";
     if (field === "achieved_slab") return row.achieved_slab ? row.achieved_slab.amount || 0 : 0;
     if (field === "next_slab") return row.next_slab ? row.next_slab.amount || 0 : Infinity;
+    if (field === "paid_amount") return Number(row.payment_summary?.paid_amount || 0);
+    if (field === "outstanding_amount") return Number(row.payment_summary?.outstanding_amount || 0);
+    if (field === "payment_status") return row.payment_summary?.payment_status || "";
     if (field === "eligible_amount" || field === "shortfall_amount" || field === "eligible_invoice_count") {
       return Number(row[field] || 0);
     }
@@ -496,6 +513,9 @@ class SnrgSchemeSuggestions {
         <td>${frappe.utils.escape_html(this.format_slab(row.next_slab, "Highest slab achieved"))}</td>
         <td class="snrg-scheme-right">${row.next_slab ? format_currency(row.shortfall_amount || 0) : "0"}</td>
         <td class="snrg-scheme-right">${format_number(row.eligible_invoice_count || 0)}</td>
+        <td class="snrg-scheme-right">${format_currency(row.payment_summary?.paid_amount || 0)}</td>
+        <td class="snrg-scheme-right">${format_currency(row.payment_summary?.outstanding_amount || 0)}</td>
+        <td>${frappe.utils.escape_html(row.payment_summary?.payment_status || "")}</td>
         <td class="snrg-scheme-right">
           <button class="snrg-scheme-detail-btn" data-show-details="${frappe.utils.escape_html(key)}">Details</button>
         </td>
@@ -520,7 +540,9 @@ class SnrgSchemeSuggestions {
         <p>
           Eligible Value: <strong>${format_currency(row.eligible_amount || 0)}</strong><br>
           Slab Achieved Till Now: <strong>${frappe.utils.escape_html(this.format_slab(row.achieved_slab, "None"))}</strong><br>
-          Next Achievable Slab: <strong>${frappe.utils.escape_html(this.format_slab(row.next_slab, "Highest slab achieved"))}</strong>
+          Next Achievable Slab: <strong>${frappe.utils.escape_html(this.format_slab(row.next_slab, "Highest slab achieved"))}</strong><br>
+          Paid Against Scheme Invoices: <strong>${format_currency(row.payment_summary?.paid_amount || 0)}</strong><br>
+          Outstanding Against Scheme Invoices: <strong>${format_currency(row.payment_summary?.outstanding_amount || 0)}</strong>
         </p>
         <div class="snrg-scheme-detail-grid">
           <div>
@@ -548,6 +570,9 @@ class SnrgSchemeSuggestions {
             <th>Date</th>
             <th class="snrg-scheme-right">Items</th>
             <th class="snrg-scheme-right">Value</th>
+            <th class="snrg-scheme-right">Paid</th>
+            <th class="snrg-scheme-right">Outstanding</th>
+            <th>Status</th>
           </tr>
         </thead>
         <tbody>
@@ -557,6 +582,9 @@ class SnrgSchemeSuggestions {
               <td>${frappe.utils.escape_html(row.posting_date || "")}</td>
               <td class="snrg-scheme-right">${format_number(row.item_count || 0)}</td>
               <td class="snrg-scheme-right">${format_currency(row.amount || 0)}</td>
+              <td class="snrg-scheme-right">${format_currency(row.paid_amount || 0)}</td>
+              <td class="snrg-scheme-right">${format_currency(row.outstanding_amount || 0)}</td>
+              <td>${frappe.utils.escape_html(row.payment_status || "")}</td>
             </tr>
           `).join("")}
         </tbody>
