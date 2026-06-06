@@ -1,0 +1,194 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:scheme_name",
+ "creation": "2026-06-06 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "scheme_section",
+  "scheme_name",
+  "disabled",
+  "company",
+  "scheme_column_break",
+  "scheme_type",
+  "calculation_basis",
+  "valid_from",
+  "valid_upto",
+  "item_filter_section",
+  "eligible_items",
+  "eligible_items_column_break",
+  "eligible_item_groups",
+  "excluded_items_section",
+  "excluded_items",
+  "slab_section",
+  "slabs",
+  "notes_section",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "scheme_section",
+   "fieldtype": "Section Break",
+   "label": "Scheme"
+  },
+  {
+   "fieldname": "scheme_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Scheme Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "disabled",
+   "fieldtype": "Check",
+   "in_standard_filter": 1,
+   "label": "Disabled"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "scheme_column_break",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Period Cumulative Amount Slab",
+   "fieldname": "scheme_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Scheme Type",
+   "options": "Invoice Amount Slab\nPeriod Cumulative Amount Slab",
+   "reqd": 1
+  },
+  {
+   "default": "Excluded",
+   "fieldname": "calculation_basis",
+   "fieldtype": "Select",
+   "label": "GST Treatment",
+   "options": "Excluded\nIncluded",
+   "reqd": 1
+  },
+  {
+   "fieldname": "valid_from",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Valid From",
+   "reqd": 1
+  },
+  {
+   "fieldname": "valid_upto",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Valid Upto",
+   "reqd": 1
+  },
+  {
+   "fieldname": "item_filter_section",
+   "fieldtype": "Section Break",
+   "label": "Eligible Items"
+  },
+  {
+   "fieldname": "eligible_items",
+   "fieldtype": "Table",
+   "label": "Eligible Item Codes",
+   "options": "SNRG Scheme Item"
+  },
+  {
+   "fieldname": "eligible_items_column_break",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "eligible_item_groups",
+   "fieldtype": "Table",
+   "label": "Eligible Item Groups",
+   "options": "SNRG Scheme Item Group"
+  },
+  {
+   "fieldname": "excluded_items_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "excluded_items",
+   "fieldtype": "Table",
+   "label": "Excluded Item Codes",
+   "options": "SNRG Scheme Excluded Item"
+  },
+  {
+   "fieldname": "slab_section",
+   "fieldtype": "Section Break",
+   "label": "Slabs"
+  },
+  {
+   "fieldname": "slabs",
+   "fieldtype": "Table",
+   "label": "Slabs",
+   "options": "SNRG Scheme Slab",
+   "reqd": 1
+  },
+  {
+   "fieldname": "notes_section",
+   "fieldtype": "Section Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Text Editor",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-06-06 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Snrg Credit Control",
+ "name": "SNRG Scheme",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales User",
+   "share": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}
