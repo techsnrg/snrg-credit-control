@@ -25,7 +25,9 @@ def after_install():
     _ensure_employee_signatory_fields()
     _ensure_demand_notice_settings()
     _ensure_sales_tracking_sla_settings()
+    _ensure_summer_bonanza_scheme()
     _ensure_credit_control_workspace()
+    _ensure_scheme_management_workspace()
     _ensure_demand_notice_default_print_format()
     frappe.db.commit()
 
@@ -41,7 +43,9 @@ def after_migrate():
     _ensure_employee_signatory_fields()
     _ensure_demand_notice_settings()
     _ensure_sales_tracking_sla_settings()
+    _ensure_summer_bonanza_scheme()
     _ensure_credit_control_workspace()
+    _ensure_scheme_management_workspace()
     _ensure_demand_notice_default_print_format()
     frappe.db.commit()
 
@@ -517,6 +521,48 @@ def _ensure_report():
 
 
 # ---------------------------------------------------------------------------
+# SNRG Scheme — starter records
+# ---------------------------------------------------------------------------
+
+def _ensure_summer_bonanza_scheme():
+    if not frappe.db.exists("DocType", "SNRG Scheme"):
+        return
+
+    scheme_name = "Summer Bonanza Plates Scheme"
+    if frappe.db.exists("SNRG Scheme", scheme_name):
+        frappe.db.set_value(
+            "SNRG Scheme",
+            scheme_name,
+            {
+                "scheme_type": "Period Cumulative Amount Slab",
+                "calculation_basis": "Excluded",
+            },
+            update_modified=False,
+        )
+        return
+
+    frappe.get_doc(
+        {
+            "doctype": "SNRG Scheme",
+            "scheme_name": scheme_name,
+            "scheme_type": "Period Cumulative Amount Slab",
+            "calculation_basis": "Excluded",
+            "valid_from": "2026-05-28",
+            "valid_upto": "2026-06-30",
+            "slabs": [
+                {"slab_amount": 50000, "reward": "1 Cooler (95 Ltrs.)"},
+                {"slab_amount": 100000, "reward": "1.5 Ton AC"},
+                {"slab_amount": 200000, "reward": "iPhone 16e"},
+            ],
+            "notes": (
+                "Configure eligible plate item codes or item groups in this scheme. "
+                "Use Excluded Item Codes for SKUs that should not qualify even if their item group qualifies."
+            ),
+        }
+    ).insert(ignore_permissions=True)
+
+
+# ---------------------------------------------------------------------------
 # Helper
 # ---------------------------------------------------------------------------
 
@@ -898,6 +944,7 @@ def _ensure_credit_control_workspace():
                 "color": "Grey",
             }
         )
+
     if has_demand_notice or has_demand_notice_settings:
         content_blocks.append(
             {
@@ -1019,6 +1066,135 @@ def _ensure_credit_control_workspace():
 
     if frappe.db.exists("Workspace", "Credit Control"):
         workspace = frappe.get_doc("Workspace", "Credit Control")
+        workspace.update(workspace_values)
+        workspace.save(ignore_permissions=True)
+        return
+
+    frappe.get_doc(workspace_values).insert(ignore_permissions=True)
+
+
+# ---------------------------------------------------------------------------
+# Scheme Management Workspace
+# ---------------------------------------------------------------------------
+
+def _ensure_scheme_management_workspace():
+    has_snrg_scheme = frappe.db.exists("DocType", "SNRG Scheme")
+    has_scheme_planning_page = frappe.db.exists("Page", "scheme-planning")
+
+    if not has_snrg_scheme and not has_scheme_planning_page:
+        return
+
+    content_blocks = [
+        {
+            "id": "scheme_management_header",
+            "type": "header",
+            "data": {"text": "Scheme Management", "col": 12},
+        },
+    ]
+
+    links = [
+        {
+            "label": "Scheme Management",
+            "type": "Card Break",
+            "hidden": 0,
+            "is_query_report": 0,
+            "link_count": 0,
+            "onboard": 0,
+            "dependencies": "",
+        }
+    ]
+
+    shortcuts = []
+
+    if has_scheme_planning_page:
+        content_blocks.append(
+            {
+                "id": "scheme_planning_shortcut",
+                "type": "shortcut",
+                "data": {"shortcut_name": "Scheme Planning", "col": 3},
+            }
+        )
+        links.append(
+            {
+                "label": "Scheme Planning",
+                "type": "Link",
+                "link_type": "Page",
+                "link_to": "scheme-planning",
+                "hidden": 0,
+                "is_query_report": 0,
+                "link_count": 0,
+                "onboard": 1,
+                "dependencies": "",
+            }
+        )
+        shortcuts.append(
+            {
+                "type": "Page",
+                "label": "Scheme Planning",
+                "link_to": "scheme-planning",
+                "icon": "search",
+                "color": "Blue",
+            }
+        )
+
+    if has_snrg_scheme:
+        content_blocks.append(
+            {
+                "id": "snrg_scheme_shortcut",
+                "type": "shortcut",
+                "data": {"shortcut_name": "SNRG Scheme", "col": 3},
+            }
+        )
+        links.append(
+            {
+                "label": "SNRG Scheme",
+                "type": "Link",
+                "link_type": "DocType",
+                "link_to": "SNRG Scheme",
+                "hidden": 0,
+                "is_query_report": 0,
+                "link_count": 0,
+                "onboard": 1,
+                "dependencies": "",
+            }
+        )
+        shortcuts.append(
+            {
+                "type": "DocType",
+                "label": "SNRG Scheme",
+                "link_to": "SNRG Scheme",
+                "icon": "gift",
+                "color": "Purple",
+            }
+        )
+
+    workspace_values = {
+        "doctype": "Workspace",
+        "name": "Scheme Management",
+        "title": "Scheme Management",
+        "label": "Scheme Management",
+        "module": "Snrg Credit Control",
+        "category": "Modules",
+        "public": 1,
+        "icon": "gift",
+        "developer_mode_only": 0,
+        "disable_user_customization": 0,
+        "hide_custom": 0,
+        "is_default": 0,
+        "is_hidden": 0,
+        "extends": "",
+        "extends_another_page": 0,
+        "parent_page": "",
+        "for_user": "",
+        "restrict_to_domain": "",
+        "content": json.dumps(content_blocks, separators=(",", ":")),
+        "links": links,
+        "roles": [],
+        "shortcuts": shortcuts,
+    }
+
+    if frappe.db.exists("Workspace", "Scheme Management"):
+        workspace = frappe.get_doc("Workspace", "Scheme Management")
         workspace.update(workspace_values)
         workspace.save(ignore_permissions=True)
         return
