@@ -108,6 +108,7 @@ def get_scheme_customer_progress(
             upto_date=period_upto,
             docstatuses=quotation_docstatuses,
         )
+        quotation_rows = _exclude_invoiced_quotation_rows(quotation_rows)
         item_map = _get_item_map(
             [row.item_code for row in rows if row.item_code]
             + [row.item_code for row in quotation_rows if row.item_code]
@@ -643,6 +644,7 @@ def _get_scheme_quotation_item_rows(company, from_date, upto_date, docstatuses):
     return frappe.db.sql(
         """
         select
+            qi.name as quotation_item,
             qi.parent as quotation,
             q.transaction_date,
             q.docstatus as quotation_docstatus,
@@ -674,6 +676,107 @@ def _get_scheme_quotation_item_rows(company, from_date, upto_date, docstatuses):
         values,
         as_dict=True,
     )
+
+
+def _exclude_invoiced_quotation_rows(rows):
+    quotation_names = sorted({row.get("quotation") for row in rows if row.get("quotation")})
+    if not quotation_names:
+        return rows
+
+    invoiced_links = _get_invoiced_quotation_links(quotation_names)
+    if not invoiced_links["items"] and not invoiced_links["item_codes"]:
+        return rows
+
+    filtered_rows = []
+    for row in rows:
+        quotation = row.get("quotation")
+        quotation_item = row.get("quotation_item")
+        item_code = row.get("item_code")
+
+        if quotation_item and (quotation, quotation_item) in invoiced_links["items"]:
+            continue
+        if (quotation, item_code) in invoiced_links["item_codes"]:
+            continue
+
+        filtered_rows.append(row)
+
+    return filtered_rows
+
+
+def _get_invoiced_quotation_links(quotation_names):
+    quotation_fieldname, detail_fieldname, has_prevdoc_doctype = _get_sales_order_item_quotation_link_config()
+    invoice_item_link_fieldname = _get_sales_invoice_item_link_config()
+    if not quotation_fieldname or not quotation_names:
+        return {"items": set(), "item_codes": set()}
+
+    detail_select = f"soi.{detail_fieldname} as quotation_item" if detail_fieldname else "NULL as quotation_item"
+    prevdoc_condition = "and soi.prevdoc_doctype = 'Quotation'" if has_prevdoc_doctype else ""
+    invoice_join_condition = (
+        f"sii.{invoice_item_link_fieldname} = soi.name"
+        if invoice_item_link_fieldname
+        else "sii.sales_order = soi.parent and sii.item_code = soi.item_code"
+    )
+
+    rows = frappe.db.sql(
+        f"""
+        select distinct
+            soi.{quotation_fieldname} as quotation,
+            soi.item_code,
+            {detail_select}
+        from `tabSales Order Item` soi
+        inner join `tabSales Order` so on so.name = soi.parent
+        inner join `tabSales Invoice Item` sii on {invoice_join_condition}
+        inner join `tabSales Invoice` si on si.name = sii.parent
+        where soi.{quotation_fieldname} in %(quotation_names)s
+          {prevdoc_condition}
+          and so.docstatus = 1
+          and si.docstatus = 1
+          and coalesce(si.is_return, 0) = 0
+        """,
+        {"quotation_names": tuple(quotation_names)},
+        as_dict=True,
+    )
+
+    return {
+        "items": {
+            (row.get("quotation"), row.get("quotation_item"))
+            for row in rows
+            if row.get("quotation") and row.get("quotation_item")
+        },
+        "item_codes": {
+            (row.get("quotation"), row.get("item_code"))
+            for row in rows
+            if row.get("quotation") and row.get("item_code")
+        },
+    }
+
+
+def _get_sales_order_item_quotation_link_config():
+    meta = frappe.get_meta("Sales Order Item")
+    quotation_fieldname = None
+    for candidate in ("prevdoc_docname", "quotation"):
+        if meta.has_field(candidate):
+            quotation_fieldname = candidate
+            break
+
+    if not quotation_fieldname:
+        return None, None, False
+
+    detail_fieldname = None
+    for candidate in ("prevdoc_detail_docname", "quotation_item"):
+        if meta.has_field(candidate):
+            detail_fieldname = candidate
+            break
+
+    return quotation_fieldname, detail_fieldname, meta.has_field("prevdoc_doctype")
+
+
+def _get_sales_invoice_item_link_config():
+    meta = frappe.get_meta("Sales Invoice Item")
+    for candidate in ("so_detail", "sales_order_item"):
+        if meta.has_field(candidate):
+            return candidate
+    return None
 
 
 def _get_item_group_bounds(schemes, item_map):
