@@ -95,10 +95,7 @@ class SnrgSchemeSuggestions {
           color: #101828;
           font-weight: 800;
         }
-        .snrg-scheme-body {
-          display: grid;
-          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-          gap: 16px;
+        .snrg-scheme-history {
           padding: 0 16px 16px;
         }
         .snrg-scheme-section-title {
@@ -127,14 +124,13 @@ class SnrgSchemeSuggestions {
         .snrg-scheme-right { text-align: right; }
         @media (max-width: 900px) {
           .snrg-scheme-filter-row,
-          .snrg-scheme-metrics,
-          .snrg-scheme-body { grid-template-columns: 1fr; }
+          .snrg-scheme-metrics { grid-template-columns: 1fr; }
         }
       </style>
       <div class="snrg-scheme-page">
         <div class="snrg-scheme-filter-row" data-filter-row></div>
         <div data-results>
-          <div class="snrg-scheme-empty">Select a customer to see scheme progress and sales suggestions.</div>
+          <div class="snrg-scheme-empty">Select a customer to see scheme progress.</div>
         </div>
       </div>
     `);
@@ -202,7 +198,7 @@ class SnrgSchemeSuggestions {
   async refresh() {
     const values = this.get_values();
     if (!values.customer) {
-      this.render_empty("Select a customer to see scheme progress and sales suggestions.");
+      this.render_empty("Select a customer to see scheme progress.");
       return;
     }
 
@@ -264,15 +260,9 @@ class SnrgSchemeSuggestions {
           ${this.render_metric("Shortfall", shortfall)}
           ${this.render_metric("Invoices", format_number(scheme.eligible_invoice_count || 0))}
         </div>
-        <div class="snrg-scheme-body">
-          <div>
-            <h4 class="snrg-scheme-section-title">Suggested Additions</h4>
-            ${this.render_suggestions_table(scheme.suggestions || [])}
-          </div>
-          <div>
-            <h4 class="snrg-scheme-section-title">Eligible Item History</h4>
-            ${this.render_history_table(scheme.top_items || [])}
-          </div>
+        <div class="snrg-scheme-history">
+          <h4 class="snrg-scheme-section-title">Eligible Item History</h4>
+          ${this.render_history_table(scheme.top_items || [])}
         </div>
       </div>
     `;
@@ -284,36 +274,6 @@ class SnrgSchemeSuggestions {
         <div class="snrg-scheme-label">${frappe.utils.escape_html(label)}</div>
         <div class="snrg-scheme-value">${frappe.utils.escape_html(String(value || ""))}</div>
       </div>
-    `;
-  }
-
-  render_suggestions_table(rows) {
-    if (!rows.length) {
-      return `<div class="snrg-scheme-empty">No next-slab suggestion available.</div>`;
-    }
-
-    return `
-      <table class="snrg-scheme-table">
-        <thead>
-          <tr>
-            <th>Item</th>
-            <th class="snrg-scheme-right">Add Qty</th>
-            <th class="snrg-scheme-right">Approx Value</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows.map((row) => `
-            <tr>
-              <td>
-                ${frappe.utils.escape_html(row.item_code || "")}
-                <div class="snrg-scheme-subtitle">${frappe.utils.escape_html(row.item_name || "")}</div>
-              </td>
-              <td class="snrg-scheme-right">${format_number(row.extra_qty || 0)} ${frappe.utils.escape_html(row.uom || "")}</td>
-              <td class="snrg-scheme-right">${format_currency(row.extra_amount || 0)}</td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
     `;
   }
 
