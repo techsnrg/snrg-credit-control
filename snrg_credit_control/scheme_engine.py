@@ -431,6 +431,7 @@ def _get_slab_progress(slabs, eligible_amount):
 def _get_customer_invoice_item_rows(customer, company, from_date, upto_date):
     conditions = [
         "si.docstatus = 1",
+        "coalesce(si.is_return, 0) = 0",
         "si.customer = %(customer)s",
         "si.posting_date between %(from_date)s and %(upto_date)s",
     ]
@@ -484,6 +485,7 @@ def _get_customer_invoice_item_rows(customer, company, from_date, upto_date):
 def _get_scheme_invoice_item_rows(company, from_date, upto_date):
     conditions = [
         "si.docstatus = 1",
+        "coalesce(si.is_return, 0) = 0",
         "si.posting_date between %(from_date)s and %(upto_date)s",
     ]
     values = {

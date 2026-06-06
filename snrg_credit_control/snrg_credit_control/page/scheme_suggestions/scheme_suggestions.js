@@ -31,7 +31,14 @@ class SnrgSchemeSuggestions {
   render_shell() {
     this.wrapper.find(".layout-main-section").html(`
       <style>
-        .snrg-scheme-page { display: grid; gap: 16px; color: #172033; }
+        .snrg-scheme-page {
+          display: grid;
+          gap: 16px;
+          color: #172033;
+          font-family: Inter, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+          font-size: 13px;
+          line-height: 1.45;
+        }
         .snrg-scheme-filter-row {
           display: grid;
           grid-template-columns: minmax(220px, 1fr) minmax(260px, 1.2fr) minmax(160px, .7fr);
@@ -112,9 +119,10 @@ class SnrgSchemeSuggestions {
         }
         .snrg-scheme-table th,
         .snrg-scheme-table td {
-          padding: 9px 10px;
+          padding: 10px 12px;
           border-bottom: 1px solid #edf1f7;
-          font-size: 12px;
+          font-size: 13px;
+          line-height: 1.45;
           vertical-align: top;
         }
         .snrg-scheme-table th { background: #f8fafc; color: #667085; font-weight: 800; }
@@ -153,7 +161,7 @@ class SnrgSchemeSuggestions {
           background: #fff;
           color: #344054;
           padding: 5px 9px;
-          font-size: 12px;
+          font-size: 13px;
           font-weight: 700;
         }
         .snrg-scheme-detail-grid {
@@ -166,6 +174,11 @@ class SnrgSchemeSuggestions {
           width: min(1280px, calc(100vw - 64px));
           max-width: min(1280px, calc(100vw - 64px));
         }
+        .snrg-scheme-detail-modal .modal-content {
+          font-family: Inter, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+          font-size: 13px;
+          line-height: 1.45;
+        }
         .snrg-scheme-detail-modal .modal-body { overflow-x: auto; }
         .snrg-scheme-dialog-table {
           width: 100%;
@@ -174,9 +187,10 @@ class SnrgSchemeSuggestions {
         }
         .snrg-scheme-dialog-table th,
         .snrg-scheme-dialog-table td {
-          padding: 8px 9px;
+          padding: 9px 11px;
           border-bottom: 1px solid #edf1f7;
-          font-size: 12px;
+          font-size: 13px;
+          line-height: 1.45;
         }
         .snrg-scheme-dialog-table th { background: #f8fafc; color: #667085; }
         @media (max-width: 900px) {
