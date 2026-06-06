@@ -128,9 +128,15 @@ class SnrgSchemeSuggestions {
         }
         .snrg-scheme-detail-grid {
           display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 14px;
+          grid-template-columns: minmax(420px, 1fr) minmax(520px, 1.2fr);
+          gap: 18px;
+          align-items: start;
         }
+        .snrg-scheme-detail-modal .modal-dialog {
+          width: min(1280px, calc(100vw - 64px));
+          max-width: min(1280px, calc(100vw - 64px));
+        }
+        .snrg-scheme-detail-modal .modal-body { overflow-x: auto; }
         .snrg-scheme-dialog-table {
           width: 100%;
           border-collapse: collapse;
@@ -343,7 +349,7 @@ class SnrgSchemeSuggestions {
     if (!entry) return;
 
     const { scheme, row } = entry;
-    frappe.msgprint({
+    const dialog = frappe.msgprint({
       title: `${row.customer_name || row.customer} - ${scheme.scheme_name}`,
       wide: true,
       message: `
@@ -364,6 +370,7 @@ class SnrgSchemeSuggestions {
         </div>
       `,
     });
+    dialog.$wrapper.addClass("snrg-scheme-detail-modal");
   }
 
   render_invoice_details(rows) {
