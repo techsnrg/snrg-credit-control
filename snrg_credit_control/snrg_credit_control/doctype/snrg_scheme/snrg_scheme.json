@@ -10,13 +10,16 @@
   "scheme_name",
   "disabled",
   "company",
+  "scheme_column_break",
   "scheme_type",
   "calculation_basis",
   "valid_from",
   "valid_upto",
   "item_filter_section",
   "eligible_items",
+  "eligible_items_column_break",
   "eligible_item_groups",
+  "excluded_items_section",
   "excluded_items",
   "slab_section",
   "slabs",
@@ -51,6 +54,10 @@
    "in_standard_filter": 1,
    "label": "Company",
    "options": "Company"
+  },
+  {
+   "fieldname": "scheme_column_break",
+   "fieldtype": "Column Break"
   },
   {
    "default": "Single Invoice Amount Slab",
@@ -98,10 +105,18 @@
    "options": "SNRG Scheme Item"
   },
   {
+   "fieldname": "eligible_items_column_break",
+   "fieldtype": "Column Break"
+  },
+  {
    "fieldname": "eligible_item_groups",
    "fieldtype": "Table",
    "label": "Eligible Item Groups",
    "options": "SNRG Scheme Item Group"
+  },
+  {
+   "fieldname": "excluded_items_section",
+   "fieldtype": "Section Break"
   },
   {
    "fieldname": "excluded_items",
