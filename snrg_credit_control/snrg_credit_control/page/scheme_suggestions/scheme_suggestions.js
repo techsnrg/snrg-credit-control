@@ -41,10 +41,11 @@ class SnrgSchemeSuggestions {
         }
         .snrg-scheme-filter-row {
           display: grid;
-          grid-template-columns: minmax(220px, 1fr) minmax(260px, 1.2fr) minmax(160px, .7fr);
+          grid-template-columns: minmax(220px, 1fr) minmax(260px, 1.2fr) minmax(160px, .7fr) minmax(140px, .45fr) minmax(170px, .55fr);
           gap: 12px;
           align-items: end;
         }
+        .snrg-scheme-check-filter { padding-bottom: 7px; }
         .snrg-scheme-empty {
           padding: 28px;
           border: 1px solid #dfe5ef;
@@ -83,7 +84,7 @@ class SnrgSchemeSuggestions {
         }
         .snrg-scheme-metrics {
           display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
+          grid-template-columns: repeat(4, minmax(0, 1fr));
           gap: 10px;
           padding: 16px;
         }
@@ -110,7 +111,7 @@ class SnrgSchemeSuggestions {
         .snrg-scheme-table-wrap { padding: 0 16px 16px; overflow: auto; }
         .snrg-scheme-table {
           width: 100%;
-          min-width: 1320px;
+          min-width: 1780px;
           border-collapse: collapse;
           border: 1px solid #edf1f7;
           border-radius: 8px;
@@ -166,7 +167,7 @@ class SnrgSchemeSuggestions {
         }
         .snrg-scheme-detail-grid {
           display: grid;
-          grid-template-columns: minmax(620px, 1.2fr) minmax(520px, 1fr);
+          grid-template-columns: minmax(620px, 1fr) minmax(420px, .8fr) minmax(520px, .9fr);
           gap: 18px;
           align-items: start;
         }
@@ -243,6 +244,30 @@ class SnrgSchemeSuggestions {
       },
       render_input: true,
     });
+
+    const draftWrapper = $(`<div class="snrg-scheme-check-filter"></div>`).appendTo(filterRow);
+    this.controls.include_draft_quotations = frappe.ui.form.make_control({
+      parent: draftWrapper,
+      df: {
+        fieldtype: "Check",
+        fieldname: "include_draft_quotations",
+        label: "Draft Quotations",
+        default: 0,
+      },
+      render_input: true,
+    });
+
+    const submittedWrapper = $(`<div class="snrg-scheme-check-filter"></div>`).appendTo(filterRow);
+    this.controls.include_submitted_quotations = frappe.ui.form.make_control({
+      parent: submittedWrapper,
+      df: {
+        fieldtype: "Check",
+        fieldname: "include_submitted_quotations",
+        label: "Submitted Quotations",
+        default: 1,
+      },
+      render_input: true,
+    });
   }
 
   bind_events() {
@@ -274,6 +299,8 @@ class SnrgSchemeSuggestions {
       company: this.controls.company.get_value(),
       scheme: this.controls.scheme.get_value(),
       as_on_date: this.controls.as_on_date.get_value(),
+      include_draft_quotations: this.controls.include_draft_quotations.get_value(),
+      include_submitted_quotations: this.controls.include_submitted_quotations.get_value(),
     };
   }
 
@@ -337,9 +364,10 @@ class SnrgSchemeSuggestions {
           <div class="snrg-scheme-pill">${format_number(scheme.customer_count || 0)} Customers</div>
         </div>
         <div class="snrg-scheme-metrics">
-          ${this.render_metric("Total Eligible Value", format_currency(scheme.eligible_amount))}
+          ${this.render_metric("Invoice Eligible Value", format_currency(scheme.eligible_amount))}
+          ${this.render_metric("Quotation Eligible Value", format_currency(scheme.quotation_amount || 0))}
+          ${this.render_metric("Projected Eligible Value", format_currency(scheme.projected_amount || scheme.eligible_amount || 0))}
           ${this.render_metric("Customers", format_number(scheme.customer_count || 0))}
-          ${this.render_metric("As On", this.data.as_on_date || "")}
         </div>
         <div class="snrg-scheme-table-wrap">
           ${this.render_customer_table(scheme, tableKey)}
@@ -368,8 +396,11 @@ class SnrgSchemeSuggestions {
         <thead>
           <tr>
             ${this.render_sort_header(tableKey, "customer_name", "Customer")}
-            ${this.render_sort_header(tableKey, "eligible_amount", "Eligible Value", true)}
+            ${this.render_sort_header(tableKey, "eligible_amount", "Invoice Eligible", true)}
+            ${this.render_sort_header(tableKey, "quotation_amount", "Quotation Eligible", true)}
+            ${this.render_sort_header(tableKey, "projected_amount", "Projected Eligible", true)}
             ${this.render_sort_header(tableKey, "achieved_slab", "Slab Achieved Till Now")}
+            ${this.render_sort_header(tableKey, "projected_slab", "Projected Slab")}
             ${this.render_sort_header(tableKey, "next_slab", "Next Achievable Slab")}
             ${this.render_sort_header(tableKey, "shortfall_amount", "Shortfall", true)}
             ${this.render_sort_header(tableKey, "paid_amount", "Paid", true)}
@@ -379,8 +410,11 @@ class SnrgSchemeSuggestions {
           </tr>
           <tr>
             ${this.render_filter_cell(tableKey, "customer", "Search customer")}
-            ${this.render_filter_cell(tableKey, "eligible_amount", "Search value", true)}
+            ${this.render_filter_cell(tableKey, "eligible_amount", "Search invoice", true)}
+            ${this.render_filter_cell(tableKey, "quotation_amount", "Search quotation", true)}
+            ${this.render_filter_cell(tableKey, "projected_amount", "Search projected", true)}
             ${this.render_filter_cell(tableKey, "achieved_slab", "Search slab")}
+            ${this.render_filter_cell(tableKey, "projected_slab", "Search projected slab")}
             ${this.render_filter_cell(tableKey, "next_slab", "Search next slab")}
             ${this.render_filter_cell(tableKey, "shortfall_amount", "Search shortfall", true)}
             ${this.render_filter_cell(tableKey, "paid_amount", "Search paid", true)}
@@ -435,7 +469,7 @@ class SnrgSchemeSuggestions {
   render_customer_rows(scheme, tableKey) {
     const rows = this.get_visible_customer_rows(scheme, tableKey);
     if (!rows.length) {
-      return `<tr><td colspan="9" class="snrg-scheme-empty">No rows match the current search.</td></tr>`;
+      return `<tr><td colspan="12" class="snrg-scheme-empty">No rows match the current search.</td></tr>`;
     }
 
     return rows.map((row, index) => this.render_customer_row(scheme, row, index)).join("");
@@ -477,10 +511,20 @@ class SnrgSchemeSuggestions {
     if (field === "achieved_slab") {
       return this.format_slab(row.achieved_slab, "None");
     }
+    if (field === "projected_slab") {
+      return this.format_slab(row.projected_slab, "None");
+    }
     if (field === "next_slab") {
       return this.format_slab(row.next_slab, "Highest slab achieved");
     }
-    if (field === "eligible_amount" || field === "shortfall_amount" || field === "paid_amount" || field === "outstanding_amount") {
+    if (
+      field === "eligible_amount"
+      || field === "quotation_amount"
+      || field === "projected_amount"
+      || field === "shortfall_amount"
+      || field === "paid_amount"
+      || field === "outstanding_amount"
+    ) {
       const value = field === "paid_amount"
         ? row.payment_summary?.paid_amount
         : field === "outstanding_amount"
@@ -497,11 +541,12 @@ class SnrgSchemeSuggestions {
   get_sort_value(row, field) {
     if (field === "customer_name") return row.customer_name || row.customer || "";
     if (field === "achieved_slab") return row.achieved_slab ? row.achieved_slab.amount || 0 : 0;
+    if (field === "projected_slab") return row.projected_slab ? row.projected_slab.amount || 0 : 0;
     if (field === "next_slab") return row.next_slab ? row.next_slab.amount || 0 : Infinity;
     if (field === "paid_amount") return Number(row.payment_summary?.paid_amount || 0);
     if (field === "outstanding_amount") return Number(row.payment_summary?.outstanding_amount || 0);
     if (field === "payment_status") return row.payment_summary?.payment_status || "";
-    if (field === "eligible_amount" || field === "shortfall_amount") {
+    if (field === "eligible_amount" || field === "quotation_amount" || field === "projected_amount" || field === "shortfall_amount") {
       return Number(row[field] || 0);
     }
     return row[field] || "";
@@ -518,7 +563,10 @@ class SnrgSchemeSuggestions {
           <div class="snrg-scheme-subtitle">${frappe.utils.escape_html(row.customer || "")}</div>
         </td>
         <td class="snrg-scheme-right">${format_currency(row.eligible_amount || 0)}</td>
+        <td class="snrg-scheme-right">${format_currency(row.quotation_amount || 0)}</td>
+        <td class="snrg-scheme-right">${format_currency(row.projected_amount || row.eligible_amount || 0)}</td>
         <td>${frappe.utils.escape_html(this.format_slab(row.achieved_slab, "None"))}</td>
+        <td>${frappe.utils.escape_html(this.format_slab(row.projected_slab, "None"))}</td>
         <td>${frappe.utils.escape_html(this.format_slab(row.next_slab, "Highest slab achieved"))}</td>
         <td class="snrg-scheme-right">${row.next_slab ? format_currency(row.shortfall_amount || 0) : "0"}</td>
         <td class="snrg-scheme-right">${format_currency(row.payment_summary?.paid_amount || 0)}</td>
@@ -546,10 +594,14 @@ class SnrgSchemeSuggestions {
       wide: true,
       message: `
         <p>
-          Eligible Value: <strong>${format_currency(row.eligible_amount || 0)}</strong><br>
+          Invoice Eligible Value: <strong>${format_currency(row.eligible_amount || 0)}</strong><br>
+          Quotation Eligible Value: <strong>${format_currency(row.quotation_amount || 0)}</strong><br>
+          Projected Eligible Value: <strong>${format_currency(row.projected_amount || row.eligible_amount || 0)}</strong><br>
           Slab Achieved Till Now: <strong>${frappe.utils.escape_html(this.format_slab(row.achieved_slab, "None"))}</strong><br>
+          Projected Slab With Quotations: <strong>${frappe.utils.escape_html(this.format_slab(row.projected_slab, "None"))}</strong><br>
           Next Achievable Slab: <strong>${frappe.utils.escape_html(this.format_slab(row.next_slab, "Highest slab achieved"))}</strong><br>
           Invoices: <strong>${format_number(row.eligible_invoice_count || 0)}</strong><br>
+          Quotations: <strong>${format_number(row.eligible_quotation_count || 0)}</strong><br>
           Paid Against Scheme Invoices: <strong>${format_currency(row.payment_summary?.paid_amount || 0)}</strong><br>
           Outstanding Against Scheme Invoices: <strong>${format_currency(row.payment_summary?.outstanding_amount || 0)}</strong>
         </p>
@@ -559,8 +611,12 @@ class SnrgSchemeSuggestions {
             ${this.render_invoice_details(row.invoice_details || [])}
           </div>
           <div>
-            <h5>Item-wise Sales</h5>
-            ${this.render_item_details(row.top_items || [])}
+            <h5>Quotation-wise Pipeline</h5>
+            ${this.render_quotation_details(row.quotation_details || [])}
+          </div>
+          <div>
+            <h5>Projected Item-wise Sales</h5>
+            ${this.render_item_details(row.projected_top_items || row.top_items || [])}
           </div>
         </div>
       `,
@@ -594,6 +650,35 @@ class SnrgSchemeSuggestions {
               <td class="snrg-scheme-right">${format_currency(row.paid_amount || 0)}</td>
               <td class="snrg-scheme-right">${format_currency(row.outstanding_amount || 0)}</td>
               <td>${frappe.utils.escape_html(row.payment_status || "")}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    `;
+  }
+
+  render_quotation_details(rows) {
+    if (!rows.length) return `<div class="snrg-scheme-empty">No quotation details available.</div>`;
+
+    return `
+      <table class="snrg-scheme-dialog-table">
+        <thead>
+          <tr>
+            <th>Quotation</th>
+            <th>Date</th>
+            <th>Status</th>
+            <th class="snrg-scheme-right">Items</th>
+            <th class="snrg-scheme-right">Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map((row) => `
+            <tr>
+              <td>${frappe.utils.escape_html(row.quotation || "")}</td>
+              <td>${frappe.utils.escape_html(row.transaction_date || "")}</td>
+              <td>${frappe.utils.escape_html(row.quotation_status || "")}</td>
+              <td class="snrg-scheme-right">${format_number(row.item_count || 0)}</td>
+              <td class="snrg-scheme-right">${format_currency(row.amount || 0)}</td>
             </tr>
           `).join("")}
         </tbody>
