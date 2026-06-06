@@ -5,6 +5,14 @@ from frappe import _
 from frappe.utils import flt, getdate
 
 
+INVOICE_AMOUNT_SLAB = "Invoice Amount Slab"
+PERIOD_CUMULATIVE_AMOUNT_SLAB = "Period Cumulative Amount Slab"
+LEGACY_SINGLE_INVOICE_AMOUNT_SLAB = "Single Invoice Amount Slab"
+GST_EXCLUDED = "Excluded"
+GST_INCLUDED = "Included"
+LEGACY_BEFORE_GST = "Eligible Item Value Before GST"
+
+
 @frappe.whitelist()
 def evaluate_sales_invoice_schemes(doc):
     invoice = _parse_doc(doc)
@@ -21,6 +29,7 @@ def get_customer_scheme_suggestions(customer, company=None, scheme=None, as_on_d
         {"company": company},
         as_on_date,
         scheme_name=scheme,
+        scheme_types=(PERIOD_CUMULATIVE_AMOUNT_SLAB,),
     )
     suggestions = []
 
@@ -71,6 +80,7 @@ def get_scheme_customer_progress(company=None, scheme=None, as_on_date=None):
         {"company": company},
         as_on_date,
         scheme_name=scheme,
+        scheme_types=(PERIOD_CUMULATIVE_AMOUNT_SLAB,),
     )
     scheme_results = []
 
@@ -169,7 +179,7 @@ def evaluate_customer_amount_scheme(
         if not _is_eligible_scheme_row(row, item, scheme, group_bounds):
             continue
 
-        amount = _get_pre_gst_amount(row)
+        amount = _get_scheme_amount(row, scheme.gst_treatment)
         eligible_amount += amount
         invoice_names.add(row.get("sales_invoice"))
         eligible_rows.append(
@@ -194,7 +204,7 @@ def evaluate_customer_amount_scheme(
         "valid_upto": str(scheme.valid_upto),
         "period_from": str(period_from),
         "period_upto": str(period_upto),
-        "basis": scheme.calculation_basis,
+        "gst_treatment": scheme.gst_treatment,
         "posting_date": str(as_on_date),
         "eligible_amount": eligible_amount,
         "eligible_invoice_count": len(invoice_names),
@@ -270,7 +280,7 @@ def evaluate_single_invoice_amount_scheme(scheme, invoice, item_map, group_bound
         if not _is_eligible_scheme_row(row, item, scheme, group_bounds):
             continue
 
-        amount = _get_pre_gst_amount(row)
+        amount = _get_scheme_amount(row, scheme.gst_treatment)
         eligible_amount += amount
         eligible_rows.append(
             {
@@ -290,7 +300,7 @@ def evaluate_single_invoice_amount_scheme(scheme, invoice, item_map, group_bound
         "scheme_name": scheme.scheme_name,
         "valid_from": str(scheme.valid_from),
         "valid_upto": str(scheme.valid_upto),
-        "basis": scheme.calculation_basis,
+        "gst_treatment": scheme.gst_treatment,
         "is_in_period": True,
         "posting_date": str(posting_date),
         "eligible_amount": eligible_amount,
@@ -317,11 +327,12 @@ def _get_invoice_date(invoice):
     return getdate(invoice.get("posting_date") or invoice.get("transaction_date") or getdate())
 
 
-def _get_active_schemes_for_context(invoice, posting_date, scheme_name=None):
+def _get_active_schemes_for_context(invoice, posting_date, scheme_name=None, scheme_types=None):
     if not frappe.db.exists("DocType", "SNRG Scheme"):
         return []
 
-    filters = {"disabled": 0, "scheme_type": "Single Invoice Amount Slab"}
+    scheme_types = tuple(scheme_types or (INVOICE_AMOUNT_SLAB, LEGACY_SINGLE_INVOICE_AMOUNT_SLAB))
+    filters = {"disabled": 0, "scheme_type": ["in", scheme_types]}
     if scheme_name:
         filters["name"] = scheme_name
 
@@ -346,8 +357,13 @@ def _get_active_schemes_for_context(invoice, posting_date, scheme_name=None):
     return [_get_scheme_config(name) for name in active_scheme_names]
 
 
-def _get_active_schemes(invoice, posting_date, scheme_name=None):
-    return _get_active_schemes_for_context(invoice, posting_date, scheme_name=scheme_name)
+def _get_active_schemes(invoice, posting_date, scheme_name=None, scheme_types=None):
+    return _get_active_schemes_for_context(
+        invoice,
+        posting_date,
+        scheme_name=scheme_name,
+        scheme_types=scheme_types,
+    )
 
 
 def _get_scheme_config(name):
@@ -365,7 +381,7 @@ def _get_scheme_config(name):
         scheme_name=doc.scheme_name,
         valid_from=doc.valid_from,
         valid_upto=doc.valid_upto,
-        calculation_basis=doc.calculation_basis,
+        gst_treatment=_normalize_gst_treatment(doc.calculation_basis),
         notes=doc.notes,
         eligible_items=[
             frappe._dict(item_code=row.item_code, uom=row.uom)
@@ -442,6 +458,7 @@ def _get_customer_invoice_item_rows(customer, company, from_date, upto_date):
             sii.net_rate,
             sii.base_rate,
             sii.rate,
+            {gross_amount_fields}
             sii.base_net_amount,
             sii.net_amount,
             sii.base_amount,
@@ -450,7 +467,10 @@ def _get_customer_invoice_item_rows(customer, company, from_date, upto_date):
         inner join `tabSales Invoice` si on si.name = sii.parent
         where {conditions}
         order by si.posting_date desc, sii.idx asc
-        """.format(conditions=" and ".join(conditions)),
+        """.format(
+            conditions=" and ".join(conditions),
+            gross_amount_fields=_get_optional_item_gross_amount_fields(),
+        ),
         values,
         as_dict=True,
     )
@@ -487,6 +507,7 @@ def _get_scheme_invoice_item_rows(company, from_date, upto_date):
             sii.net_rate,
             sii.base_rate,
             sii.rate,
+            {gross_amount_fields}
             sii.base_net_amount,
             sii.net_amount,
             sii.base_amount,
@@ -495,7 +516,10 @@ def _get_scheme_invoice_item_rows(company, from_date, upto_date):
         inner join `tabSales Invoice` si on si.name = sii.parent
         where {conditions}
         order by si.customer_name asc, si.posting_date desc, sii.idx asc
-        """.format(conditions=" and ".join(conditions)),
+        """.format(
+            conditions=" and ".join(conditions),
+            gross_amount_fields=_get_optional_item_gross_amount_fields(),
+        ),
         values,
         as_dict=True,
     )
@@ -574,11 +598,39 @@ def _get_pre_gst_amount(row):
     return flt(row.get("qty")) * _get_pre_gst_rate(row)
 
 
+def _get_scheme_amount(row, gst_treatment):
+    if gst_treatment == GST_INCLUDED:
+        for fieldname in ("base_gross_amount", "gross_amount", "base_amount", "amount"):
+            if row.get(fieldname) is not None:
+                return flt(row.get(fieldname))
+
+    return _get_pre_gst_amount(row)
+
+
+def _get_optional_item_gross_amount_fields():
+    fields = []
+    if frappe.db.has_column("Sales Invoice Item", "base_gross_amount"):
+        fields.append("sii.base_gross_amount")
+    if frappe.db.has_column("Sales Invoice Item", "gross_amount"):
+        fields.append("sii.gross_amount")
+    if not fields:
+        return ""
+    return ",\n            ".join(fields) + ",\n            "
+
+
 def _get_pre_gst_rate(row):
     for fieldname in ("base_net_rate", "net_rate", "base_rate", "rate"):
         if row.get(fieldname) is not None:
             return flt(row.get(fieldname))
     return 0
+
+
+def _normalize_gst_treatment(value):
+    if value == LEGACY_BEFORE_GST:
+        return GST_EXCLUDED
+    if value in (GST_EXCLUDED, GST_INCLUDED):
+        return value
+    return GST_EXCLUDED
 
 
 def _build_quantity_suggestions(eligible_rows, next_slab, eligible_amount):
@@ -737,8 +789,11 @@ def _summarize_eligible_invoices(eligible_rows):
 def _get_scheme_notes(scheme):
     notes = [
         _("Eligibility is controlled by this SNRG Scheme master: included item codes, included item groups, and excluded item codes."),
-        _("All scheme values are calculated before GST."),
     ]
+    if scheme.gst_treatment == GST_INCLUDED:
+        notes.append(_("Scheme values include GST where item-level gross amounts are available."))
+    else:
+        notes.append(_("Scheme values are calculated with GST excluded."))
     if scheme.notes:
         notes.append(frappe.utils.strip_html(scheme.notes))
     return notes

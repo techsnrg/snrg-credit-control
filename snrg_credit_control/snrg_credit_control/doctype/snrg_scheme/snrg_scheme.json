@@ -60,21 +60,21 @@
    "fieldtype": "Column Break"
   },
   {
-   "default": "Single Invoice Amount Slab",
+   "default": "Period Cumulative Amount Slab",
    "fieldname": "scheme_type",
    "fieldtype": "Select",
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Scheme Type",
-   "options": "Single Invoice Amount Slab",
+   "options": "Invoice Amount Slab\nPeriod Cumulative Amount Slab",
    "reqd": 1
   },
   {
-   "default": "Eligible Item Value Before GST",
+   "default": "Excluded",
    "fieldname": "calculation_basis",
    "fieldtype": "Select",
-   "label": "Calculation Basis",
-   "options": "Eligible Item Value Before GST",
+   "label": "GST Treatment",
+   "options": "Excluded\nIncluded",
    "reqd": 1
   },
   {

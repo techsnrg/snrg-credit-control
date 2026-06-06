@@ -6,9 +6,26 @@ from frappe.utils import flt, getdate
 
 class SNRGScheme(Document):
     def validate(self):
+        self._normalize_legacy_values()
+        self._validate_scheme_type()
+        self._validate_gst_treatment()
         self._validate_dates()
         self._validate_item_filters()
         self._validate_slabs()
+
+    def _normalize_legacy_values(self):
+        if self.scheme_type == "Single Invoice Amount Slab":
+            self.scheme_type = "Invoice Amount Slab"
+        if self.calculation_basis == "Eligible Item Value Before GST":
+            self.calculation_basis = "Excluded"
+
+    def _validate_scheme_type(self):
+        if self.scheme_type not in ("Invoice Amount Slab", "Period Cumulative Amount Slab"):
+            frappe.throw(_("Invalid Scheme Type."))
+
+    def _validate_gst_treatment(self):
+        if self.calculation_basis not in ("Excluded", "Included"):
+            frappe.throw(_("Invalid GST Treatment."))
 
     def _validate_dates(self):
         if self.valid_from and self.valid_upto and getdate(self.valid_upto) < getdate(self.valid_from):

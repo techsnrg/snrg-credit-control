@@ -530,14 +530,23 @@ def _ensure_summer_bonanza_scheme():
 
     scheme_name = "Summer Bonanza Plates Scheme"
     if frappe.db.exists("SNRG Scheme", scheme_name):
+        frappe.db.set_value(
+            "SNRG Scheme",
+            scheme_name,
+            {
+                "scheme_type": "Period Cumulative Amount Slab",
+                "calculation_basis": "Excluded",
+            },
+            update_modified=False,
+        )
         return
 
     frappe.get_doc(
         {
             "doctype": "SNRG Scheme",
             "scheme_name": scheme_name,
-            "scheme_type": "Single Invoice Amount Slab",
-            "calculation_basis": "Eligible Item Value Before GST",
+            "scheme_type": "Period Cumulative Amount Slab",
+            "calculation_basis": "Excluded",
             "valid_from": "2026-05-28",
             "valid_upto": "2026-06-30",
             "slabs": [
