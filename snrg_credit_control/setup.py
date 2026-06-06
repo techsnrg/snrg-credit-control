@@ -25,6 +25,7 @@ def after_install():
     _ensure_employee_signatory_fields()
     _ensure_demand_notice_settings()
     _ensure_sales_tracking_sla_settings()
+    _ensure_summer_bonanza_scheme()
     _ensure_credit_control_workspace()
     _ensure_demand_notice_default_print_format()
     frappe.db.commit()
@@ -41,6 +42,7 @@ def after_migrate():
     _ensure_employee_signatory_fields()
     _ensure_demand_notice_settings()
     _ensure_sales_tracking_sla_settings()
+    _ensure_summer_bonanza_scheme()
     _ensure_credit_control_workspace()
     _ensure_demand_notice_default_print_format()
     frappe.db.commit()
@@ -517,6 +519,39 @@ def _ensure_report():
 
 
 # ---------------------------------------------------------------------------
+# SNRG Scheme — starter records
+# ---------------------------------------------------------------------------
+
+def _ensure_summer_bonanza_scheme():
+    if not frappe.db.exists("DocType", "SNRG Scheme"):
+        return
+
+    scheme_name = "Summer Bonanza Plates Scheme"
+    if frappe.db.exists("SNRG Scheme", scheme_name):
+        return
+
+    frappe.get_doc(
+        {
+            "doctype": "SNRG Scheme",
+            "scheme_name": scheme_name,
+            "scheme_type": "Single Invoice Amount Slab",
+            "calculation_basis": "Eligible Item Value Before GST",
+            "valid_from": "2026-05-28",
+            "valid_upto": "2026-06-30",
+            "slabs": [
+                {"slab_amount": 50000, "reward": "1 Cooler (95 Ltrs.)"},
+                {"slab_amount": 100000, "reward": "1.5 Ton AC"},
+                {"slab_amount": 200000, "reward": "iPhone 16e"},
+            ],
+            "notes": (
+                "Configure eligible plate item codes or item groups in this scheme. "
+                "Use Excluded Item Codes for SKUs that should not qualify even if their item group qualifies."
+            ),
+        }
+    ).insert(ignore_permissions=True)
+
+
+# ---------------------------------------------------------------------------
 # Helper
 # ---------------------------------------------------------------------------
 
@@ -670,6 +705,7 @@ def _ensure_credit_control_workspace():
     has_md_dashboard_page = frappe.db.exists("Page", "managing-director-dashboard")
     has_sales_tracking_page = frappe.db.exists("Page", "sales-tracking")
     has_sales_tracking_sla_settings = frappe.db.exists("DocType", "Sales Tracking SLA Settings")
+    has_snrg_scheme = frappe.db.exists("DocType", "SNRG Scheme")
 
     content_blocks = [
         {
@@ -898,6 +934,56 @@ def _ensure_credit_control_workspace():
                 "color": "Grey",
             }
         )
+
+    if has_snrg_scheme:
+        content_blocks.extend(
+            [
+                {
+                    "id": "schemes_header",
+                    "type": "header",
+                    "data": {"text": "Schemes", "col": 12},
+                },
+                {
+                    "id": "snrg_scheme_shortcut",
+                    "type": "shortcut",
+                    "data": {"shortcut_name": "SNRG Scheme", "col": 3},
+                },
+            ]
+        )
+        links.extend(
+            [
+                {
+                    "label": "Schemes",
+                    "type": "Card Break",
+                    "hidden": 0,
+                    "is_query_report": 0,
+                    "link_count": 0,
+                    "onboard": 0,
+                    "dependencies": "",
+                },
+                {
+                    "label": "SNRG Scheme",
+                    "type": "Link",
+                    "link_type": "DocType",
+                    "link_to": "SNRG Scheme",
+                    "hidden": 0,
+                    "is_query_report": 0,
+                    "link_count": 0,
+                    "onboard": 1,
+                    "dependencies": "",
+                },
+            ]
+        )
+        shortcuts.append(
+            {
+                "type": "DocType",
+                "label": "SNRG Scheme",
+                "link_to": "SNRG Scheme",
+                "icon": "gift",
+                "color": "Purple",
+            }
+        )
+
     if has_demand_notice or has_demand_notice_settings:
         content_blocks.append(
             {
