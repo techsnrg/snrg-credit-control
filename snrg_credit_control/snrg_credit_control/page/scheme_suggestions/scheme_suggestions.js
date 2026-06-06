@@ -15,6 +15,9 @@ class SnrgSchemeSuggestions {
     this.controls = {};
     this.data = null;
     this.customerIndex = {};
+    this.schemeTableIndex = {};
+    this.tableFilters = {};
+    this.tableSort = {};
     this.setup();
   }
 
@@ -116,6 +119,33 @@ class SnrgSchemeSuggestions {
         }
         .snrg-scheme-table th { background: #f8fafc; color: #667085; font-weight: 800; }
         .snrg-scheme-table tr:last-child td { border-bottom: 0; }
+        .snrg-scheme-sort-btn {
+          border: 0;
+          background: transparent;
+          color: inherit;
+          font: inherit;
+          font-weight: 800;
+          padding: 0;
+          text-align: inherit;
+          width: 100%;
+          cursor: pointer;
+        }
+        .snrg-scheme-sort-btn span { color: #98a2b3; margin-left: 4px; }
+        .snrg-scheme-filter-input {
+          width: 100%;
+          min-width: 0;
+          border: 0;
+          border-radius: 8px;
+          background: #f2f4f7;
+          padding: 7px 9px;
+          color: #344054;
+          font-size: 12px;
+          outline: none;
+        }
+        .snrg-scheme-filter-input:focus {
+          background: #fff;
+          box-shadow: inset 0 0 0 1px #98a2b3;
+        }
         .snrg-scheme-right { text-align: right; }
         .snrg-scheme-detail-btn {
           border: 1px solid #d0d5dd;
@@ -206,6 +236,23 @@ class SnrgSchemeSuggestions {
       const key = $(event.currentTarget).attr("data-show-details");
       this.open_customer_details(key);
     });
+    this.wrapper.on("input", "[data-table-filter]", (event) => {
+      const input = $(event.currentTarget);
+      const tableKey = input.attr("data-table-filter");
+      const field = input.attr("data-filter-field");
+      this.tableFilters[tableKey] = this.tableFilters[tableKey] || {};
+      this.tableFilters[tableKey][field] = input.val();
+      this.render_customer_table_body(tableKey);
+    });
+    this.wrapper.on("click", "[data-sort-table]", (event) => {
+      const button = $(event.currentTarget);
+      const tableKey = button.attr("data-sort-table");
+      const field = button.attr("data-sort-field");
+      const current = this.tableSort[tableKey] || {};
+      const direction = current.field === field && current.direction === "asc" ? "desc" : "asc";
+      this.tableSort[tableKey] = { field, direction };
+      this.render_results();
+    });
   }
 
   get_values() {
@@ -244,7 +291,9 @@ class SnrgSchemeSuggestions {
   render_results() {
     const schemes = this.data.schemes || [];
     this.customerIndex = {};
+    this.schemeTableIndex = {};
     this.detailKeyCounter = 0;
+    this.tableKeyCounter = 0;
 
     if (!schemes.length) {
       this.render_empty("No customers have eligible sales in the selected scheme period.");
@@ -259,6 +308,9 @@ class SnrgSchemeSuggestions {
   }
 
   render_scheme_card(scheme) {
+    const tableKey = `scheme-table-${this.tableKeyCounter++}`;
+    this.schemeTableIndex[tableKey] = scheme;
+
     return `
       <div class="snrg-scheme-card">
         <div class="snrg-scheme-card-head">
@@ -276,7 +328,7 @@ class SnrgSchemeSuggestions {
           ${this.render_metric("As On", this.data.as_on_date || "")}
         </div>
         <div class="snrg-scheme-table-wrap">
-          ${this.render_customer_table(scheme)}
+          ${this.render_customer_table(scheme, tableKey)}
         </div>
       </div>
     `;
@@ -291,7 +343,7 @@ class SnrgSchemeSuggestions {
     `;
   }
 
-  render_customer_table(scheme) {
+  render_customer_table(scheme, tableKey) {
     const rows = scheme.customers || [];
     if (!rows.length) {
       return `<div class="snrg-scheme-empty">No eligible customer sales found.</div>`;
@@ -301,20 +353,132 @@ class SnrgSchemeSuggestions {
       <table class="snrg-scheme-table">
         <thead>
           <tr>
-            <th>Customer</th>
-            <th class="snrg-scheme-right">Eligible Value</th>
-            <th>Slab Achieved Till Now</th>
-            <th>Next Achievable Slab</th>
-            <th class="snrg-scheme-right">Shortfall</th>
-            <th class="snrg-scheme-right">Invoices</th>
+            ${this.render_sort_header(tableKey, "customer_name", "Customer")}
+            ${this.render_sort_header(tableKey, "eligible_amount", "Eligible Value", true)}
+            ${this.render_sort_header(tableKey, "achieved_slab", "Slab Achieved Till Now")}
+            ${this.render_sort_header(tableKey, "next_slab", "Next Achievable Slab")}
+            ${this.render_sort_header(tableKey, "shortfall_amount", "Shortfall", true)}
+            ${this.render_sort_header(tableKey, "eligible_invoice_count", "Invoices", true)}
+            <th></th>
+          </tr>
+          <tr>
+            ${this.render_filter_cell(tableKey, "customer", "Search customer")}
+            ${this.render_filter_cell(tableKey, "eligible_amount", "Search value", true)}
+            ${this.render_filter_cell(tableKey, "achieved_slab", "Search slab")}
+            ${this.render_filter_cell(tableKey, "next_slab", "Search next slab")}
+            ${this.render_filter_cell(tableKey, "shortfall_amount", "Search shortfall", true)}
+            ${this.render_filter_cell(tableKey, "eligible_invoice_count", "Search invoices", true)}
             <th></th>
           </tr>
         </thead>
-        <tbody>
-          ${rows.map((row, index) => this.render_customer_row(scheme, row, index)).join("")}
+        <tbody data-customer-body="${frappe.utils.escape_html(tableKey)}">
+          ${this.render_customer_rows(scheme, tableKey)}
         </tbody>
       </table>
     `;
+  }
+
+  render_sort_header(tableKey, field, label, right = false) {
+    const sort = this.tableSort[tableKey] || {};
+    const marker = sort.field === field ? (sort.direction === "asc" ? "▲" : "▼") : "↕";
+    return `
+      <th class="${right ? "snrg-scheme-right" : ""}">
+        <button class="snrg-scheme-sort-btn" data-sort-table="${frappe.utils.escape_html(tableKey)}" data-sort-field="${frappe.utils.escape_html(field)}">
+          ${frappe.utils.escape_html(label)}<span>${marker}</span>
+        </button>
+      </th>
+    `;
+  }
+
+  render_filter_cell(tableKey, field, placeholder, right = false) {
+    const value = ((this.tableFilters[tableKey] || {})[field]) || "";
+    return `
+      <th class="${right ? "snrg-scheme-right" : ""}">
+        <input
+          class="snrg-scheme-filter-input ${right ? "snrg-scheme-right" : ""}"
+          data-table-filter="${frappe.utils.escape_html(tableKey)}"
+          data-filter-field="${frappe.utils.escape_html(field)}"
+          placeholder="${frappe.utils.escape_html(placeholder)}"
+          value="${frappe.utils.escape_html(value)}"
+        >
+      </th>
+    `;
+  }
+
+  render_customer_table_body(tableKey) {
+    const scheme = this.schemeTableIndex[tableKey];
+    if (!scheme) return;
+
+    this.wrapper
+      .find(`[data-customer-body="${tableKey}"]`)
+      .html(this.render_customer_rows(scheme, tableKey));
+  }
+
+  render_customer_rows(scheme, tableKey) {
+    const rows = this.get_visible_customer_rows(scheme, tableKey);
+    if (!rows.length) {
+      return `<tr><td colspan="7" class="snrg-scheme-empty">No rows match the current search.</td></tr>`;
+    }
+
+    return rows.map((row, index) => this.render_customer_row(scheme, row, index)).join("");
+  }
+
+  get_visible_customer_rows(scheme, tableKey) {
+    const filters = this.tableFilters[tableKey] || {};
+    const sort = this.tableSort[tableKey] || {};
+    let rows = [...(scheme.customers || [])];
+
+    rows = rows.filter((row) => {
+      return Object.keys(filters).every((field) => {
+        const term = String(filters[field] || "").trim().toLowerCase();
+        if (!term) return true;
+        return this.get_filter_value(row, field).toLowerCase().includes(term);
+      });
+    });
+
+    if (sort.field) {
+      rows.sort((a, b) => {
+        const aValue = this.get_sort_value(a, sort.field);
+        const bValue = this.get_sort_value(b, sort.field);
+        if (typeof aValue === "number" && typeof bValue === "number") {
+          return sort.direction === "asc" ? aValue - bValue : bValue - aValue;
+        }
+        return sort.direction === "asc"
+          ? String(aValue).localeCompare(String(bValue))
+          : String(bValue).localeCompare(String(aValue));
+      });
+    }
+
+    return rows;
+  }
+
+  get_filter_value(row, field) {
+    if (field === "customer") {
+      return `${row.customer_name || ""} ${row.customer || ""}`;
+    }
+    if (field === "achieved_slab") {
+      return this.format_slab(row.achieved_slab, "None");
+    }
+    if (field === "next_slab") {
+      return this.format_slab(row.next_slab, "Highest slab achieved");
+    }
+    if (field === "eligible_amount" || field === "shortfall_amount") {
+      return `${format_currency(row[field] || 0)} ${row[field] || 0}`;
+    }
+    if (field === "eligible_invoice_count") {
+      return `${format_number(row.eligible_invoice_count || 0)} ${row.eligible_invoice_count || 0}`;
+    }
+    return String(row[field] || "");
+  }
+
+  get_sort_value(row, field) {
+    if (field === "customer_name") return row.customer_name || row.customer || "";
+    if (field === "achieved_slab") return row.achieved_slab ? row.achieved_slab.amount || 0 : 0;
+    if (field === "next_slab") return row.next_slab ? row.next_slab.amount || 0 : Infinity;
+    if (field === "eligible_amount" || field === "shortfall_amount" || field === "eligible_invoice_count") {
+      return Number(row[field] || 0);
+    }
+    return row[field] || "";
   }
 
   render_customer_row(scheme, row, index) {
