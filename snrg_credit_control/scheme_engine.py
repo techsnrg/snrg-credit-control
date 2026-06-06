@@ -64,6 +64,61 @@ def get_customer_scheme_suggestions(customer, company=None, scheme=None, as_on_d
     }
 
 
+@frappe.whitelist()
+def get_scheme_customer_progress(company=None, scheme=None, as_on_date=None):
+    as_on_date = getdate(as_on_date or getdate())
+    schemes = _get_active_schemes(
+        {"company": company},
+        as_on_date,
+        scheme_name=scheme,
+    )
+    scheme_results = []
+
+    for scheme_config in schemes:
+        period_from = getdate(scheme_config.valid_from)
+        period_upto = min(getdate(scheme_config.valid_upto), as_on_date)
+        rows = _get_scheme_invoice_item_rows(
+            company=company or scheme_config.company,
+            from_date=period_from,
+            upto_date=period_upto,
+        )
+        item_map = _get_item_map([row.item_code for row in rows if row.item_code])
+        group_bounds = _get_item_group_bounds([scheme_config], item_map)
+        customer_rows = _evaluate_scheme_customers(
+            scheme_config,
+            rows,
+            item_map,
+            group_bounds,
+            as_on_date,
+            period_from,
+            period_upto,
+        )
+
+        if not customer_rows:
+            continue
+
+        scheme_results.append(
+            {
+                "scheme_code": scheme_config.name,
+                "scheme_name": scheme_config.scheme_name,
+                "valid_from": str(scheme_config.valid_from),
+                "valid_upto": str(scheme_config.valid_upto),
+                "period_from": str(period_from),
+                "period_upto": str(period_upto),
+                "customer_count": len(customer_rows),
+                "eligible_amount": sum(flt(row.get("eligible_amount")) for row in customer_rows),
+                "customers": customer_rows,
+            }
+        )
+
+    return {
+        "company": company,
+        "scheme": scheme,
+        "as_on_date": str(as_on_date),
+        "schemes": scheme_results,
+    }
+
+
 def get_best_sales_invoice_scheme_suggestion(invoice):
     posting_date = _get_invoice_date(invoice)
     schemes = _get_active_schemes(invoice, posting_date)
@@ -145,6 +200,7 @@ def evaluate_customer_amount_scheme(
         "eligible_invoice_count": len(invoice_names),
         "eligible_rows": eligible_rows,
         "top_items": _summarize_eligible_items(eligible_rows),
+        "invoice_details": _summarize_eligible_invoices(eligible_rows),
         "achieved_slabs": achieved_slabs,
         "achieved_slab": achieved_slab,
         "next_slab": next_slab,
@@ -152,6 +208,57 @@ def evaluate_customer_amount_scheme(
         "suggestions": _build_customer_quantity_suggestions(eligible_rows, next_slab, eligible_amount),
         "notes": _get_scheme_notes(scheme),
     }
+
+
+def _evaluate_scheme_customers(
+    scheme,
+    rows,
+    item_map,
+    group_bounds,
+    as_on_date,
+    period_from,
+    period_upto,
+):
+    customer_rows = {}
+
+    for row in rows:
+        item = item_map.get(row.get("item_code")) or {}
+        if not _is_eligible_scheme_row(row, item, scheme, group_bounds):
+            continue
+
+        customer = row.get("customer")
+        if not customer:
+            continue
+
+        customer_rows.setdefault(
+            customer,
+            {
+                "customer": customer,
+                "customer_name": row.get("customer_name"),
+                "rows": [],
+            },
+        )["rows"].append(row)
+
+    results = []
+    for customer, data in customer_rows.items():
+        result = evaluate_customer_amount_scheme(
+            scheme,
+            data["rows"],
+            item_map,
+            group_bounds,
+            as_on_date,
+            period_from,
+            period_upto,
+        )
+        if flt(result.get("eligible_amount")) <= 0:
+            continue
+
+        result["customer"] = customer
+        result["customer_name"] = data.get("customer_name")
+        results.append(result)
+
+    results.sort(key=lambda row: flt(row.get("eligible_amount")), reverse=True)
+    return results
 
 
 def evaluate_single_invoice_amount_scheme(scheme, invoice, item_map, group_bounds, posting_date):
@@ -323,6 +430,8 @@ def _get_customer_invoice_item_rows(customer, company, from_date, upto_date):
         select
             sii.parent as sales_invoice,
             si.posting_date,
+            si.customer,
+            si.customer_name,
             sii.idx,
             sii.item_code,
             sii.item_name,
@@ -341,6 +450,51 @@ def _get_customer_invoice_item_rows(customer, company, from_date, upto_date):
         inner join `tabSales Invoice` si on si.name = sii.parent
         where {conditions}
         order by si.posting_date desc, sii.idx asc
+        """.format(conditions=" and ".join(conditions)),
+        values,
+        as_dict=True,
+    )
+
+
+def _get_scheme_invoice_item_rows(company, from_date, upto_date):
+    conditions = [
+        "si.docstatus = 1",
+        "si.posting_date between %(from_date)s and %(upto_date)s",
+    ]
+    values = {
+        "company": company,
+        "from_date": from_date,
+        "upto_date": upto_date,
+    }
+
+    if company:
+        conditions.append("si.company = %(company)s")
+
+    return frappe.db.sql(
+        """
+        select
+            sii.parent as sales_invoice,
+            si.posting_date,
+            si.customer,
+            si.customer_name,
+            sii.idx,
+            sii.item_code,
+            sii.item_name,
+            sii.description,
+            sii.uom,
+            sii.qty,
+            sii.base_net_rate,
+            sii.net_rate,
+            sii.base_rate,
+            sii.rate,
+            sii.base_net_amount,
+            sii.net_amount,
+            sii.base_amount,
+            sii.amount
+        from `tabSales Invoice Item` sii
+        inner join `tabSales Invoice` si on si.name = sii.parent
+        where {conditions}
+        order by si.customer_name asc, si.posting_date desc, sii.idx asc
         """.format(conditions=" and ".join(conditions)),
         values,
         as_dict=True,
@@ -539,6 +693,45 @@ def _summarize_eligible_items(eligible_rows):
 
     rows.sort(key=lambda row: flt(row.get("amount")), reverse=True)
     return rows[:10]
+
+
+def _summarize_eligible_invoices(eligible_rows):
+    summary = {}
+
+    for row in eligible_rows:
+        invoice = row.get("sales_invoice")
+        if not invoice:
+            continue
+
+        current = summary.setdefault(
+            invoice,
+            {
+                "sales_invoice": invoice,
+                "posting_date": row.get("posting_date"),
+                "qty": 0,
+                "amount": 0,
+                "item_count": set(),
+            },
+        )
+        current["qty"] += flt(row.get("qty"))
+        current["amount"] += flt(row.get("amount"))
+        if row.get("item_code"):
+            current["item_count"].add(row.get("item_code"))
+
+    rows = []
+    for row in summary.values():
+        rows.append(
+            {
+                "sales_invoice": row["sales_invoice"],
+                "posting_date": row["posting_date"],
+                "qty": row["qty"],
+                "amount": row["amount"],
+                "item_count": len(row["item_count"]),
+            }
+        )
+
+    rows.sort(key=lambda row: (row.get("posting_date") or "", flt(row.get("amount"))), reverse=True)
+    return rows
 
 
 def _get_scheme_notes(scheme):

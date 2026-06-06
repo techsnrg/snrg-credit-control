@@ -14,6 +14,7 @@ class SnrgSchemeSuggestions {
     this.wrapper = $(wrapper);
     this.controls = {};
     this.data = null;
+    this.customerIndex = {};
     this.setup();
   }
 
@@ -21,6 +22,7 @@ class SnrgSchemeSuggestions {
     this.page.set_primary_action("Get Suggestions", () => this.refresh(), "search");
     this.render_shell();
     this.make_filters();
+    this.bind_events();
   }
 
   render_shell() {
@@ -29,7 +31,7 @@ class SnrgSchemeSuggestions {
         .snrg-scheme-page { display: grid; gap: 16px; color: #172033; }
         .snrg-scheme-filter-row {
           display: grid;
-          grid-template-columns: minmax(240px, 1.2fr) minmax(200px, .9fr) minmax(220px, 1fr) minmax(150px, .6fr);
+          grid-template-columns: minmax(220px, 1fr) minmax(260px, 1.2fr) minmax(160px, .7fr);
           gap: 12px;
           align-items: end;
         }
@@ -71,7 +73,7 @@ class SnrgSchemeSuggestions {
         }
         .snrg-scheme-metrics {
           display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
+          grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 10px;
           padding: 16px;
         }
@@ -95,17 +97,10 @@ class SnrgSchemeSuggestions {
           color: #101828;
           font-weight: 800;
         }
-        .snrg-scheme-history {
-          padding: 0 16px 16px;
-        }
-        .snrg-scheme-section-title {
-          font-size: 13px;
-          font-weight: 800;
-          color: #344054;
-          margin: 0 0 8px;
-        }
+        .snrg-scheme-table-wrap { padding: 0 16px 16px; overflow: auto; }
         .snrg-scheme-table {
           width: 100%;
+          min-width: 980px;
           border-collapse: collapse;
           border: 1px solid #edf1f7;
           border-radius: 8px;
@@ -122,15 +117,42 @@ class SnrgSchemeSuggestions {
         .snrg-scheme-table th { background: #f8fafc; color: #667085; font-weight: 800; }
         .snrg-scheme-table tr:last-child td { border-bottom: 0; }
         .snrg-scheme-right { text-align: right; }
+        .snrg-scheme-detail-btn {
+          border: 1px solid #d0d5dd;
+          border-radius: 6px;
+          background: #fff;
+          color: #344054;
+          padding: 5px 9px;
+          font-size: 12px;
+          font-weight: 700;
+        }
+        .snrg-scheme-detail-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 14px;
+        }
+        .snrg-scheme-dialog-table {
+          width: 100%;
+          border-collapse: collapse;
+          border: 1px solid #edf1f7;
+        }
+        .snrg-scheme-dialog-table th,
+        .snrg-scheme-dialog-table td {
+          padding: 8px 9px;
+          border-bottom: 1px solid #edf1f7;
+          font-size: 12px;
+        }
+        .snrg-scheme-dialog-table th { background: #f8fafc; color: #667085; }
         @media (max-width: 900px) {
           .snrg-scheme-filter-row,
-          .snrg-scheme-metrics { grid-template-columns: 1fr; }
+          .snrg-scheme-metrics,
+          .snrg-scheme-detail-grid { grid-template-columns: 1fr; }
         }
       </style>
       <div class="snrg-scheme-page">
         <div class="snrg-scheme-filter-row" data-filter-row></div>
         <div data-results>
-          <div class="snrg-scheme-empty">Select a customer to see scheme progress.</div>
+          <div class="snrg-scheme-empty">Choose a scheme or date, then fetch customer progress.</div>
         </div>
       </div>
     `);
@@ -138,19 +160,6 @@ class SnrgSchemeSuggestions {
 
   make_filters() {
     const filterRow = this.wrapper.find("[data-filter-row]");
-
-    this.controls.customer = frappe.ui.form.make_control({
-      parent: filterRow,
-      df: {
-        fieldtype: "Link",
-        fieldname: "customer",
-        label: "Customer",
-        options: "Customer",
-        reqd: 1,
-        change: () => this.refresh(),
-      },
-      render_input: true,
-    });
 
     this.controls.company = frappe.ui.form.make_control({
       parent: filterRow,
@@ -186,9 +195,15 @@ class SnrgSchemeSuggestions {
     });
   }
 
+  bind_events() {
+    this.wrapper.on("click", "[data-show-details]", (event) => {
+      const key = $(event.currentTarget).attr("data-show-details");
+      this.open_customer_details(key);
+    });
+  }
+
   get_values() {
     return {
-      customer: this.controls.customer.get_value(),
       company: this.controls.company.get_value(),
       scheme: this.controls.scheme.get_value(),
       as_on_date: this.controls.as_on_date.get_value(),
@@ -197,14 +212,10 @@ class SnrgSchemeSuggestions {
 
   async refresh() {
     const values = this.get_values();
-    if (!values.customer) {
-      this.render_empty("Select a customer to see scheme progress.");
-      return;
-    }
 
     try {
       const response = await frappe.call({
-        method: "snrg_credit_control.scheme_engine.get_customer_scheme_suggestions",
+        method: "snrg_credit_control.scheme_engine.get_scheme_customer_progress",
         args: values,
         freeze: true,
         freeze_message: "Checking scheme progress...",
@@ -213,7 +224,7 @@ class SnrgSchemeSuggestions {
       this.render_results();
     } catch (error) {
       frappe.msgprint({
-        title: "Scheme Suggestions Failed",
+        title: "Scheme Progress Failed",
         message: (error && error.message) || String(error),
         indicator: "red",
       });
@@ -225,29 +236,23 @@ class SnrgSchemeSuggestions {
   }
 
   render_results() {
-    const suggestions = this.data.suggestions || [];
-    if (!suggestions.length) {
-      this.render_empty("No active SNRG Scheme progress found for this customer.");
+    const schemes = this.data.schemes || [];
+    this.customerIndex = {};
+    this.detailKeyCounter = 0;
+
+    if (!schemes.length) {
+      this.render_empty("No customers have eligible sales in the selected scheme period.");
       return;
     }
 
     this.wrapper.find("[data-results]").html(`
       <div class="snrg-scheme-grid">
-        ${suggestions.map((scheme) => this.render_scheme_card(scheme)).join("")}
+        ${schemes.map((scheme) => this.render_scheme_card(scheme)).join("")}
       </div>
     `);
   }
 
   render_scheme_card(scheme) {
-    const achievedSlab = scheme.achieved_slab;
-    const achieved = achievedSlab
-      ? `${format_currency(achievedSlab.amount)} - ${achievedSlab.reward}`
-      : "None";
-    const nextReward = scheme.next_slab
-      ? `${format_currency(scheme.next_slab.amount)} - ${scheme.next_slab.reward}`
-      : "Highest slab achieved";
-    const shortfall = scheme.next_slab ? format_currency(scheme.shortfall_amount) : "0";
-
     return `
       <div class="snrg-scheme-card">
         <div class="snrg-scheme-card-head">
@@ -257,17 +262,15 @@ class SnrgSchemeSuggestions {
               ${frappe.utils.escape_html(scheme.period_from || "")} to ${frappe.utils.escape_html(scheme.period_upto || "")}
             </div>
           </div>
-          <div class="snrg-scheme-pill">${frappe.utils.escape_html(nextReward)}</div>
+          <div class="snrg-scheme-pill">${format_number(scheme.customer_count || 0)} Customers</div>
         </div>
         <div class="snrg-scheme-metrics">
-          ${this.render_metric("Eligible Value", format_currency(scheme.eligible_amount))}
-          ${this.render_metric("Slab Achieved Till Now", achieved)}
-          ${this.render_metric("Next Achievable Slab", nextReward)}
-          ${this.render_metric("Shortfall", shortfall)}
+          ${this.render_metric("Total Eligible Value", format_currency(scheme.eligible_amount))}
+          ${this.render_metric("Customers", format_number(scheme.customer_count || 0))}
+          ${this.render_metric("As On", this.data.as_on_date || "")}
         </div>
-        <div class="snrg-scheme-history">
-          <h4 class="snrg-scheme-section-title">Eligible Item History</h4>
-          ${this.render_history_table(scheme.top_items || [])}
+        <div class="snrg-scheme-table-wrap">
+          ${this.render_customer_table(scheme)}
         </div>
       </div>
     `;
@@ -282,13 +285,119 @@ class SnrgSchemeSuggestions {
     `;
   }
 
-  render_history_table(rows) {
+  render_customer_table(scheme) {
+    const rows = scheme.customers || [];
     if (!rows.length) {
-      return `<div class="snrg-scheme-empty">No eligible item history in this scheme period.</div>`;
+      return `<div class="snrg-scheme-empty">No eligible customer sales found.</div>`;
     }
 
     return `
       <table class="snrg-scheme-table">
+        <thead>
+          <tr>
+            <th>Customer</th>
+            <th class="snrg-scheme-right">Eligible Value</th>
+            <th>Slab Achieved Till Now</th>
+            <th>Next Achievable Slab</th>
+            <th class="snrg-scheme-right">Shortfall</th>
+            <th class="snrg-scheme-right">Invoices</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map((row, index) => this.render_customer_row(scheme, row, index)).join("")}
+        </tbody>
+      </table>
+    `;
+  }
+
+  render_customer_row(scheme, row, index) {
+    const key = `row-${this.detailKeyCounter++}`;
+    this.customerIndex[key] = { scheme, row };
+
+    return `
+      <tr>
+        <td>
+          ${frappe.utils.escape_html(row.customer_name || row.customer || "")}
+          <div class="snrg-scheme-subtitle">${frappe.utils.escape_html(row.customer || "")}</div>
+        </td>
+        <td class="snrg-scheme-right">${format_currency(row.eligible_amount || 0)}</td>
+        <td>${frappe.utils.escape_html(this.format_slab(row.achieved_slab, "None"))}</td>
+        <td>${frappe.utils.escape_html(this.format_slab(row.next_slab, "Highest slab achieved"))}</td>
+        <td class="snrg-scheme-right">${row.next_slab ? format_currency(row.shortfall_amount || 0) : "0"}</td>
+        <td class="snrg-scheme-right">${format_number(row.eligible_invoice_count || 0)}</td>
+        <td class="snrg-scheme-right">
+          <button class="snrg-scheme-detail-btn" data-show-details="${frappe.utils.escape_html(key)}">Details</button>
+        </td>
+      </tr>
+    `;
+  }
+
+  format_slab(slab, fallback) {
+    if (!slab) return fallback;
+    return `${format_currency(slab.amount || 0)} - ${slab.reward || ""}`;
+  }
+
+  open_customer_details(key) {
+    const entry = this.customerIndex[key];
+    if (!entry) return;
+
+    const { scheme, row } = entry;
+    frappe.msgprint({
+      title: `${row.customer_name || row.customer} - ${scheme.scheme_name}`,
+      wide: true,
+      message: `
+        <p>
+          Eligible Value: <strong>${format_currency(row.eligible_amount || 0)}</strong><br>
+          Slab Achieved Till Now: <strong>${frappe.utils.escape_html(this.format_slab(row.achieved_slab, "None"))}</strong><br>
+          Next Achievable Slab: <strong>${frappe.utils.escape_html(this.format_slab(row.next_slab, "Highest slab achieved"))}</strong>
+        </p>
+        <div class="snrg-scheme-detail-grid">
+          <div>
+            <h5>Invoice-wise Sales</h5>
+            ${this.render_invoice_details(row.invoice_details || [])}
+          </div>
+          <div>
+            <h5>Item-wise Sales</h5>
+            ${this.render_item_details(row.top_items || [])}
+          </div>
+        </div>
+      `,
+    });
+  }
+
+  render_invoice_details(rows) {
+    if (!rows.length) return `<div class="snrg-scheme-empty">No invoice details available.</div>`;
+
+    return `
+      <table class="snrg-scheme-dialog-table">
+        <thead>
+          <tr>
+            <th>Invoice</th>
+            <th>Date</th>
+            <th class="snrg-scheme-right">Items</th>
+            <th class="snrg-scheme-right">Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map((row) => `
+            <tr>
+              <td>${frappe.utils.escape_html(row.sales_invoice || "")}</td>
+              <td>${frappe.utils.escape_html(row.posting_date || "")}</td>
+              <td class="snrg-scheme-right">${format_number(row.item_count || 0)}</td>
+              <td class="snrg-scheme-right">${format_currency(row.amount || 0)}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    `;
+  }
+
+  render_item_details(rows) {
+    if (!rows.length) return `<div class="snrg-scheme-empty">No item details available.</div>`;
+
+    return `
+      <table class="snrg-scheme-dialog-table">
         <thead>
           <tr>
             <th>Item</th>
