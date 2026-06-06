@@ -27,6 +27,7 @@ def after_install():
     _ensure_sales_tracking_sla_settings()
     _ensure_summer_bonanza_scheme()
     _ensure_credit_control_workspace()
+    _ensure_scheme_management_workspace()
     _ensure_demand_notice_default_print_format()
     frappe.db.commit()
 
@@ -44,6 +45,7 @@ def after_migrate():
     _ensure_sales_tracking_sla_settings()
     _ensure_summer_bonanza_scheme()
     _ensure_credit_control_workspace()
+    _ensure_scheme_management_workspace()
     _ensure_demand_notice_default_print_format()
     frappe.db.commit()
 
@@ -705,8 +707,6 @@ def _ensure_credit_control_workspace():
     has_md_dashboard_page = frappe.db.exists("Page", "managing-director-dashboard")
     has_sales_tracking_page = frappe.db.exists("Page", "sales-tracking")
     has_sales_tracking_sla_settings = frappe.db.exists("DocType", "Sales Tracking SLA Settings")
-    has_snrg_scheme = frappe.db.exists("DocType", "SNRG Scheme")
-    has_scheme_suggestions_page = frappe.db.exists("Page", "scheme-suggestions")
 
     content_blocks = [
         {
@@ -936,91 +936,6 @@ def _ensure_credit_control_workspace():
             }
         )
 
-    if has_snrg_scheme or has_scheme_suggestions_page:
-        content_blocks.extend(
-            [
-                {
-                    "id": "schemes_header",
-                    "type": "header",
-                    "data": {"text": "Schemes", "col": 12},
-                },
-            ]
-        )
-
-        links.append(
-            {
-                "label": "Schemes",
-                "type": "Card Break",
-                "hidden": 0,
-                "is_query_report": 0,
-                "link_count": 0,
-                "onboard": 0,
-                "dependencies": "",
-            }
-        )
-
-    if has_scheme_suggestions_page:
-        content_blocks.append(
-            {
-                "id": "scheme_suggestions_shortcut",
-                "type": "shortcut",
-                "data": {"shortcut_name": "Scheme Suggestions", "col": 3},
-            }
-        )
-        links.append(
-            {
-                "label": "Scheme Suggestions",
-                "type": "Link",
-                "link_type": "Page",
-                "link_to": "scheme-suggestions",
-                "hidden": 0,
-                "is_query_report": 0,
-                "link_count": 0,
-                "onboard": 1,
-                "dependencies": "",
-            }
-        )
-        shortcuts.append(
-            {
-                "type": "Page",
-                "label": "Scheme Suggestions",
-                "link_to": "scheme-suggestions",
-                "icon": "search",
-                "color": "Blue",
-            }
-        )
-
-    if has_snrg_scheme:
-        content_blocks.append(
-            {
-                "id": "snrg_scheme_shortcut",
-                "type": "shortcut",
-                "data": {"shortcut_name": "SNRG Scheme", "col": 3},
-            }
-        )
-        links.append(
-            {
-                "label": "SNRG Scheme",
-                "type": "Link",
-                "link_type": "DocType",
-                "link_to": "SNRG Scheme",
-                "hidden": 0,
-                "is_query_report": 0,
-                "link_count": 0,
-                "onboard": 1,
-                "dependencies": "",
-            }
-        )
-        shortcuts.append(
-            {
-                "type": "DocType",
-                "label": "SNRG Scheme",
-                "link_to": "SNRG Scheme",
-                "icon": "gift",
-                "color": "Purple",
-            }
-        )
-
     if has_demand_notice or has_demand_notice_settings:
         content_blocks.append(
             {
@@ -1142,6 +1057,135 @@ def _ensure_credit_control_workspace():
 
     if frappe.db.exists("Workspace", "Credit Control"):
         workspace = frappe.get_doc("Workspace", "Credit Control")
+        workspace.update(workspace_values)
+        workspace.save(ignore_permissions=True)
+        return
+
+    frappe.get_doc(workspace_values).insert(ignore_permissions=True)
+
+
+# ---------------------------------------------------------------------------
+# Scheme Management Workspace
+# ---------------------------------------------------------------------------
+
+def _ensure_scheme_management_workspace():
+    has_snrg_scheme = frappe.db.exists("DocType", "SNRG Scheme")
+    has_scheme_suggestions_page = frappe.db.exists("Page", "scheme-suggestions")
+
+    if not has_snrg_scheme and not has_scheme_suggestions_page:
+        return
+
+    content_blocks = [
+        {
+            "id": "scheme_management_header",
+            "type": "header",
+            "data": {"text": "Scheme Management", "col": 12},
+        },
+    ]
+
+    links = [
+        {
+            "label": "Scheme Management",
+            "type": "Card Break",
+            "hidden": 0,
+            "is_query_report": 0,
+            "link_count": 0,
+            "onboard": 0,
+            "dependencies": "",
+        }
+    ]
+
+    shortcuts = []
+
+    if has_scheme_suggestions_page:
+        content_blocks.append(
+            {
+                "id": "scheme_suggestions_shortcut",
+                "type": "shortcut",
+                "data": {"shortcut_name": "Scheme Suggestions", "col": 3},
+            }
+        )
+        links.append(
+            {
+                "label": "Scheme Suggestions",
+                "type": "Link",
+                "link_type": "Page",
+                "link_to": "scheme-suggestions",
+                "hidden": 0,
+                "is_query_report": 0,
+                "link_count": 0,
+                "onboard": 1,
+                "dependencies": "",
+            }
+        )
+        shortcuts.append(
+            {
+                "type": "Page",
+                "label": "Scheme Suggestions",
+                "link_to": "scheme-suggestions",
+                "icon": "search",
+                "color": "Blue",
+            }
+        )
+
+    if has_snrg_scheme:
+        content_blocks.append(
+            {
+                "id": "snrg_scheme_shortcut",
+                "type": "shortcut",
+                "data": {"shortcut_name": "SNRG Scheme", "col": 3},
+            }
+        )
+        links.append(
+            {
+                "label": "SNRG Scheme",
+                "type": "Link",
+                "link_type": "DocType",
+                "link_to": "SNRG Scheme",
+                "hidden": 0,
+                "is_query_report": 0,
+                "link_count": 0,
+                "onboard": 1,
+                "dependencies": "",
+            }
+        )
+        shortcuts.append(
+            {
+                "type": "DocType",
+                "label": "SNRG Scheme",
+                "link_to": "SNRG Scheme",
+                "icon": "gift",
+                "color": "Purple",
+            }
+        )
+
+    workspace_values = {
+        "doctype": "Workspace",
+        "name": "Scheme Management",
+        "title": "Scheme Management",
+        "label": "Scheme Management",
+        "module": "Snrg Credit Control",
+        "category": "Modules",
+        "public": 1,
+        "icon": "gift",
+        "developer_mode_only": 0,
+        "disable_user_customization": 0,
+        "hide_custom": 0,
+        "is_default": 0,
+        "is_hidden": 0,
+        "extends": "",
+        "extends_another_page": 0,
+        "parent_page": "",
+        "for_user": "",
+        "restrict_to_domain": "",
+        "content": json.dumps(content_blocks, separators=(",", ":")),
+        "links": links,
+        "roles": [],
+        "shortcuts": shortcuts,
+    }
+
+    if frappe.db.exists("Workspace", "Scheme Management"):
+        workspace = frappe.get_doc("Workspace", "Scheme Management")
         workspace.update(workspace_values)
         workspace.save(ignore_permissions=True)
         return
