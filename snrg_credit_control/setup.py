@@ -706,6 +706,7 @@ def _ensure_credit_control_workspace():
     has_sales_tracking_page = frappe.db.exists("Page", "sales-tracking")
     has_sales_tracking_sla_settings = frappe.db.exists("DocType", "Sales Tracking SLA Settings")
     has_snrg_scheme = frappe.db.exists("DocType", "SNRG Scheme")
+    has_scheme_suggestions_page = frappe.db.exists("Page", "scheme-suggestions")
 
     content_blocks = [
         {
@@ -935,7 +936,7 @@ def _ensure_credit_control_workspace():
             }
         )
 
-    if has_snrg_scheme:
+    if has_snrg_scheme or has_scheme_suggestions_page:
         content_blocks.extend(
             [
                 {
@@ -943,36 +944,72 @@ def _ensure_credit_control_workspace():
                     "type": "header",
                     "data": {"text": "Schemes", "col": 12},
                 },
-                {
-                    "id": "snrg_scheme_shortcut",
-                    "type": "shortcut",
-                    "data": {"shortcut_name": "SNRG Scheme", "col": 3},
-                },
             ]
         )
-        links.extend(
-            [
-                {
-                    "label": "Schemes",
-                    "type": "Card Break",
-                    "hidden": 0,
-                    "is_query_report": 0,
-                    "link_count": 0,
-                    "onboard": 0,
-                    "dependencies": "",
-                },
-                {
-                    "label": "SNRG Scheme",
-                    "type": "Link",
-                    "link_type": "DocType",
-                    "link_to": "SNRG Scheme",
-                    "hidden": 0,
-                    "is_query_report": 0,
-                    "link_count": 0,
-                    "onboard": 1,
-                    "dependencies": "",
-                },
-            ]
+
+        links.append(
+            {
+                "label": "Schemes",
+                "type": "Card Break",
+                "hidden": 0,
+                "is_query_report": 0,
+                "link_count": 0,
+                "onboard": 0,
+                "dependencies": "",
+            }
+        )
+
+    if has_scheme_suggestions_page:
+        content_blocks.append(
+            {
+                "id": "scheme_suggestions_shortcut",
+                "type": "shortcut",
+                "data": {"shortcut_name": "Scheme Suggestions", "col": 3},
+            }
+        )
+        links.append(
+            {
+                "label": "Scheme Suggestions",
+                "type": "Link",
+                "link_type": "Page",
+                "link_to": "scheme-suggestions",
+                "hidden": 0,
+                "is_query_report": 0,
+                "link_count": 0,
+                "onboard": 1,
+                "dependencies": "",
+            }
+        )
+        shortcuts.append(
+            {
+                "type": "Page",
+                "label": "Scheme Suggestions",
+                "link_to": "scheme-suggestions",
+                "icon": "search",
+                "color": "Blue",
+            }
+        )
+
+    if has_snrg_scheme:
+        content_blocks.append(
+            {
+                "id": "snrg_scheme_shortcut",
+                "type": "shortcut",
+                "data": {"shortcut_name": "SNRG Scheme", "col": 3},
+            }
+        )
+        links.append(
+            {
+                "label": "SNRG Scheme",
+                "type": "Link",
+                "link_type": "DocType",
+                "link_to": "SNRG Scheme",
+                "hidden": 0,
+                "is_query_report": 0,
+                "link_count": 0,
+                "onboard": 1,
+                "dependencies": "",
+            }
         )
         shortcuts.append(
             {

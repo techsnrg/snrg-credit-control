@@ -11,6 +11,59 @@ def evaluate_sales_invoice_schemes(doc):
     return get_best_sales_invoice_scheme_suggestion(invoice)
 
 
+@frappe.whitelist()
+def get_customer_scheme_suggestions(customer, company=None, scheme=None, as_on_date=None):
+    if not customer:
+        frappe.throw(_("Customer is required."))
+
+    as_on_date = getdate(as_on_date or getdate())
+    schemes = _get_active_schemes(
+        {"company": company},
+        as_on_date,
+        scheme_name=scheme,
+    )
+    suggestions = []
+
+    for scheme_config in schemes:
+        period_from = getdate(scheme_config.valid_from)
+        period_upto = min(getdate(scheme_config.valid_upto), as_on_date)
+        rows = _get_customer_invoice_item_rows(
+            customer=customer,
+            company=company or scheme_config.company,
+            from_date=period_from,
+            upto_date=period_upto,
+        )
+        item_map = _get_item_map([row.item_code for row in rows if row.item_code])
+        group_bounds = _get_item_group_bounds([scheme_config], item_map)
+        suggestions.append(
+            evaluate_customer_amount_scheme(
+                scheme_config,
+                rows,
+                item_map,
+                group_bounds,
+                as_on_date,
+                period_from,
+                period_upto,
+            )
+        )
+
+    suggestions.sort(
+        key=lambda row: (
+            len(row.get("achieved_slabs") or []),
+            flt(row.get("eligible_amount")),
+            -flt(row.get("shortfall_amount")),
+        ),
+        reverse=True,
+    )
+
+    return {
+        "customer": customer,
+        "company": company,
+        "as_on_date": str(as_on_date),
+        "suggestions": suggestions,
+    }
+
+
 def get_best_sales_invoice_scheme_suggestion(invoice):
     posting_date = _get_invoice_date(invoice)
     schemes = _get_active_schemes(invoice, posting_date)
@@ -41,6 +94,71 @@ def get_best_sales_invoice_scheme_suggestion(invoice):
         reverse=True,
     )
     return evaluations[0]
+
+
+def evaluate_customer_amount_scheme(
+    scheme,
+    rows,
+    item_map,
+    group_bounds,
+    as_on_date,
+    period_from,
+    period_upto,
+):
+    eligible_rows = []
+    eligible_amount = 0
+    invoice_names = set()
+
+    for row in rows:
+        item = item_map.get(row.get("item_code")) or {}
+        if not _is_eligible_scheme_row(row, item, scheme, group_bounds):
+            continue
+
+        amount = _get_pre_gst_amount(row)
+        eligible_amount += amount
+        invoice_names.add(row.get("sales_invoice"))
+        eligible_rows.append(
+            {
+                "sales_invoice": row.get("sales_invoice"),
+                "posting_date": str(row.get("posting_date") or ""),
+                "item_code": row.get("item_code"),
+                "item_name": row.get("item_name") or item.get("item_name"),
+                "uom": row.get("uom"),
+                "qty": flt(row.get("qty")),
+                "rate": _get_pre_gst_rate(row),
+                "amount": amount,
+            }
+        )
+
+    achieved_slabs = [
+        slab
+        for slab in scheme.slabs
+        if eligible_amount >= flt(slab["amount"])
+    ]
+    next_slab = next(
+        (slab for slab in scheme.slabs if eligible_amount < flt(slab["amount"])),
+        None,
+    )
+
+    return {
+        "scheme_code": scheme.name,
+        "scheme_name": scheme.scheme_name,
+        "valid_from": str(scheme.valid_from),
+        "valid_upto": str(scheme.valid_upto),
+        "period_from": str(period_from),
+        "period_upto": str(period_upto),
+        "basis": scheme.calculation_basis,
+        "posting_date": str(as_on_date),
+        "eligible_amount": eligible_amount,
+        "eligible_invoice_count": len(invoice_names),
+        "eligible_rows": eligible_rows,
+        "top_items": _summarize_eligible_items(eligible_rows),
+        "achieved_slabs": achieved_slabs,
+        "next_slab": next_slab,
+        "shortfall_amount": flt(next_slab["amount"]) - eligible_amount if next_slab else 0,
+        "suggestions": _build_customer_quantity_suggestions(eligible_rows, next_slab, eligible_amount),
+        "notes": _get_scheme_notes(scheme),
+    }
 
 
 def evaluate_single_invoice_amount_scheme(scheme, invoice, item_map, group_bounds, posting_date):
@@ -106,13 +224,17 @@ def _get_invoice_date(invoice):
     return getdate(invoice.get("posting_date") or invoice.get("transaction_date") or getdate())
 
 
-def _get_active_schemes(invoice, posting_date):
+def _get_active_schemes_for_context(invoice, posting_date, scheme_name=None):
     if not frappe.db.exists("DocType", "SNRG Scheme"):
         return []
 
+    filters = {"disabled": 0, "scheme_type": "Single Invoice Amount Slab"}
+    if scheme_name:
+        filters["name"] = scheme_name
+
     rows = frappe.get_all(
         "SNRG Scheme",
-        filters={"disabled": 0, "scheme_type": "Single Invoice Amount Slab"},
+        filters=filters,
         fields=["name", "company", "valid_from", "valid_upto", "modified"],
         order_by="modified desc",
     )
@@ -131,6 +253,10 @@ def _get_active_schemes(invoice, posting_date):
     return [_get_scheme_config(name) for name in active_scheme_names]
 
 
+def _get_active_schemes(invoice, posting_date, scheme_name=None):
+    return _get_active_schemes_for_context(invoice, posting_date, scheme_name=scheme_name)
+
+
 def _get_scheme_config(name):
     doc = frappe.get_doc("SNRG Scheme", name)
     slabs = [
@@ -142,6 +268,7 @@ def _get_scheme_config(name):
 
     return frappe._dict(
         name=doc.name,
+        company=doc.company,
         scheme_name=doc.scheme_name,
         valid_from=doc.valid_from,
         valid_upto=doc.valid_upto,
@@ -173,6 +300,51 @@ def _get_item_map(item_codes):
         fields=["name", "item_name", "item_group", "description"],
     )
     return {row.name: row for row in rows}
+
+
+def _get_customer_invoice_item_rows(customer, company, from_date, upto_date):
+    conditions = [
+        "si.docstatus = 1",
+        "si.customer = %(customer)s",
+        "si.posting_date between %(from_date)s and %(upto_date)s",
+    ]
+    values = {
+        "customer": customer,
+        "company": company,
+        "from_date": from_date,
+        "upto_date": upto_date,
+    }
+
+    if company:
+        conditions.append("si.company = %(company)s")
+
+    return frappe.db.sql(
+        """
+        select
+            sii.parent as sales_invoice,
+            si.posting_date,
+            sii.idx,
+            sii.item_code,
+            sii.item_name,
+            sii.description,
+            sii.uom,
+            sii.qty,
+            sii.base_net_rate,
+            sii.net_rate,
+            sii.base_rate,
+            sii.rate,
+            sii.base_net_amount,
+            sii.net_amount,
+            sii.base_amount,
+            sii.amount
+        from `tabSales Invoice Item` sii
+        inner join `tabSales Invoice` si on si.name = sii.parent
+        where {conditions}
+        order by si.posting_date desc, sii.idx asc
+        """.format(conditions=" and ".join(conditions)),
+        values,
+        as_dict=True,
+    )
 
 
 def _get_item_group_bounds(schemes, item_map):
@@ -289,6 +461,84 @@ def _build_quantity_suggestions(eligible_rows, next_slab, eligible_amount):
 
     suggestions.sort(key=lambda row: (flt(row.get("extra_amount")), flt(row.get("extra_qty"))))
     return suggestions[:5]
+
+
+def _build_customer_quantity_suggestions(eligible_rows, next_slab, eligible_amount):
+    if not next_slab:
+        return []
+
+    item_summary = _summarize_eligible_items(eligible_rows)
+    shortfall = flt(next_slab["amount"]) - eligible_amount
+    if shortfall <= 0:
+        return []
+
+    suggestions = []
+    for row in item_summary:
+        rate = flt(row.get("average_rate"))
+        if rate <= 0:
+            continue
+
+        extra_qty = int(math.ceil(shortfall / rate))
+        suggestions.append(
+            {
+                "item_code": row.get("item_code"),
+                "item_name": row.get("item_name"),
+                "uom": row.get("uom"),
+                "historical_qty": flt(row.get("qty")),
+                "average_rate": rate,
+                "extra_qty": extra_qty,
+                "extra_amount": extra_qty * rate,
+                "target_amount": flt(next_slab.get("amount")),
+                "reward": next_slab.get("reward"),
+            }
+        )
+
+    suggestions.sort(key=lambda row: (flt(row.get("extra_amount")), flt(row.get("extra_qty"))))
+    return suggestions[:5]
+
+
+def _summarize_eligible_items(eligible_rows):
+    summary = {}
+
+    for row in eligible_rows:
+        key = (row.get("item_code"), row.get("uom"))
+        if not key[0]:
+            continue
+
+        current = summary.setdefault(
+            key,
+            {
+                "item_code": row.get("item_code"),
+                "item_name": row.get("item_name"),
+                "uom": row.get("uom"),
+                "qty": 0,
+                "amount": 0,
+                "invoice_count": set(),
+            },
+        )
+        current["qty"] += flt(row.get("qty"))
+        current["amount"] += flt(row.get("amount"))
+        if row.get("sales_invoice"):
+            current["invoice_count"].add(row.get("sales_invoice"))
+
+    rows = []
+    for row in summary.values():
+        qty = flt(row["qty"])
+        amount = flt(row["amount"])
+        rows.append(
+            {
+                "item_code": row["item_code"],
+                "item_name": row["item_name"],
+                "uom": row["uom"],
+                "qty": qty,
+                "amount": amount,
+                "average_rate": amount / qty if qty else 0,
+                "invoice_count": len(row["invoice_count"]),
+            }
+        )
+
+    rows.sort(key=lambda row: flt(row.get("amount")), reverse=True)
+    return rows[:10]
 
 
 def _get_scheme_notes(scheme):
