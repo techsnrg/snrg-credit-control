@@ -74,8 +74,18 @@ def get_customer_scheme_suggestions(customer, company=None, scheme=None, as_on_d
 
 
 @frappe.whitelist()
-def get_scheme_customer_progress(company=None, scheme=None, as_on_date=None):
+def get_scheme_customer_progress(
+    company=None,
+    scheme=None,
+    as_on_date=None,
+    include_draft_quotations=0,
+    include_submitted_quotations=0,
+):
     as_on_date = getdate(as_on_date or getdate())
+    quotation_docstatuses = _get_selected_quotation_docstatuses(
+        include_draft_quotations,
+        include_submitted_quotations,
+    )
     schemes = _get_active_schemes(
         {"company": company},
         as_on_date,
@@ -92,11 +102,21 @@ def get_scheme_customer_progress(company=None, scheme=None, as_on_date=None):
             from_date=period_from,
             upto_date=period_upto,
         )
-        item_map = _get_item_map([row.item_code for row in rows if row.item_code])
+        quotation_rows = _get_scheme_quotation_item_rows(
+            company=company or scheme_config.company,
+            from_date=period_from,
+            upto_date=period_upto,
+            docstatuses=quotation_docstatuses,
+        )
+        item_map = _get_item_map(
+            [row.item_code for row in rows if row.item_code]
+            + [row.item_code for row in quotation_rows if row.item_code]
+        )
         group_bounds = _get_item_group_bounds([scheme_config], item_map)
         customer_rows = _evaluate_scheme_customers(
             scheme_config,
             rows,
+            quotation_rows,
             item_map,
             group_bounds,
             as_on_date,
@@ -117,6 +137,8 @@ def get_scheme_customer_progress(company=None, scheme=None, as_on_date=None):
                 "period_upto": str(period_upto),
                 "customer_count": len(customer_rows),
                 "eligible_amount": sum(flt(row.get("eligible_amount")) for row in customer_rows),
+                "quotation_amount": sum(flt(row.get("quotation_amount")) for row in customer_rows),
+                "projected_amount": sum(flt(row.get("projected_amount")) for row in customer_rows),
                 "customers": customer_rows,
             }
         )
@@ -125,6 +147,7 @@ def get_scheme_customer_progress(company=None, scheme=None, as_on_date=None):
         "company": company,
         "scheme": scheme,
         "as_on_date": str(as_on_date),
+        "quotation_docstatuses": quotation_docstatuses,
         "schemes": scheme_results,
     }
 
@@ -169,10 +192,14 @@ def evaluate_customer_amount_scheme(
     as_on_date,
     period_from,
     period_upto,
+    quotation_rows=None,
 ):
     eligible_rows = []
+    quotation_eligible_rows = []
     eligible_amount = 0
+    quotation_amount = 0
     invoice_names = set()
+    quotation_names = set()
 
     for row in rows:
         item = item_map.get(row.get("item_code")) or {}
@@ -197,7 +224,33 @@ def evaluate_customer_amount_scheme(
             }
         )
 
+    for row in quotation_rows or []:
+        item = item_map.get(row.get("item_code")) or {}
+        if not _is_eligible_scheme_row(row, item, scheme, group_bounds):
+            continue
+
+        amount = _get_scheme_amount(row, scheme.gst_treatment)
+        quotation_amount += amount
+        quotation_names.add(row.get("quotation"))
+        quotation_eligible_rows.append(
+            {
+                "quotation": row.get("quotation"),
+                "transaction_date": str(row.get("transaction_date") or ""),
+                "quotation_status": _get_quotation_status(row.get("quotation_docstatus")),
+                "customer": row.get("customer"),
+                "customer_name": row.get("customer_name"),
+                "item_code": row.get("item_code"),
+                "item_name": row.get("item_name") or item.get("item_name"),
+                "uom": row.get("uom"),
+                "qty": flt(row.get("qty")),
+                "rate": _get_pre_gst_rate(row),
+                "amount": amount,
+            }
+        )
+
+    projected_amount = eligible_amount + quotation_amount
     achieved_slabs, achieved_slab, next_slab = _get_slab_progress(scheme.slabs, eligible_amount)
+    projected_slabs, projected_slab, projected_next_slab = _get_slab_progress(scheme.slabs, projected_amount)
 
     return {
         "scheme_code": scheme.name,
@@ -209,15 +262,26 @@ def evaluate_customer_amount_scheme(
         "gst_treatment": scheme.gst_treatment,
         "posting_date": str(as_on_date),
         "eligible_amount": eligible_amount,
+        "invoice_amount": eligible_amount,
+        "quotation_amount": quotation_amount,
+        "projected_amount": projected_amount,
         "eligible_invoice_count": len(invoice_names),
+        "eligible_quotation_count": len(quotation_names),
         "eligible_rows": eligible_rows,
+        "quotation_rows": quotation_eligible_rows,
         "top_items": _summarize_eligible_items(eligible_rows),
+        "projected_top_items": _summarize_eligible_items(eligible_rows + quotation_eligible_rows),
         "invoice_details": _summarize_eligible_invoices(eligible_rows),
+        "quotation_details": _summarize_eligible_quotations(quotation_eligible_rows),
         "payment_summary": _summarize_scheme_payments(eligible_rows),
         "achieved_slabs": achieved_slabs,
         "achieved_slab": achieved_slab,
         "next_slab": next_slab,
         "shortfall_amount": flt(next_slab["amount"]) - eligible_amount if next_slab else 0,
+        "projected_slabs": projected_slabs,
+        "projected_slab": projected_slab,
+        "projected_next_slab": projected_next_slab,
+        "projected_shortfall_amount": flt(projected_next_slab["amount"]) - projected_amount if projected_next_slab else 0,
         "suggestions": _build_customer_quantity_suggestions(eligible_rows, next_slab, eligible_amount),
         "notes": _get_scheme_notes(scheme),
     }
@@ -226,6 +290,7 @@ def evaluate_customer_amount_scheme(
 def _evaluate_scheme_customers(
     scheme,
     rows,
+    quotation_rows,
     item_map,
     group_bounds,
     as_on_date,
@@ -252,6 +317,27 @@ def _evaluate_scheme_customers(
             },
         )["rows"].append(row)
 
+    for row in quotation_rows:
+        item = item_map.get(row.get("item_code")) or {}
+        if not _is_eligible_scheme_row(row, item, scheme, group_bounds):
+            continue
+
+        customer = row.get("customer")
+        if not customer:
+            continue
+
+        customer_rows.setdefault(
+            customer,
+            {
+                "customer": customer,
+                "customer_name": row.get("customer_name"),
+                "rows": [],
+                "quotation_rows": [],
+            },
+        )
+        customer_rows[customer]["customer_name"] = customer_rows[customer].get("customer_name") or row.get("customer_name")
+        customer_rows[customer].setdefault("quotation_rows", []).append(row)
+
     results = []
     for customer, data in customer_rows.items():
         result = evaluate_customer_amount_scheme(
@@ -262,15 +348,16 @@ def _evaluate_scheme_customers(
             as_on_date,
             period_from,
             period_upto,
+            quotation_rows=data.get("quotation_rows") or [],
         )
-        if flt(result.get("eligible_amount")) <= 0:
+        if flt(result.get("projected_amount")) <= 0:
             continue
 
         result["customer"] = customer
         result["customer_name"] = data.get("customer_name")
         results.append(result)
 
-    results.sort(key=lambda row: flt(row.get("eligible_amount")), reverse=True)
+    results.sort(key=lambda row: flt(row.get("projected_amount")), reverse=True)
     return results
 
 
@@ -431,6 +518,7 @@ def _get_slab_progress(slabs, eligible_amount):
 def _get_customer_invoice_item_rows(customer, company, from_date, upto_date):
     conditions = [
         "si.docstatus = 1",
+        "coalesce(si.is_return, 0) = 0",
         "si.customer = %(customer)s",
         "si.posting_date between %(from_date)s and %(upto_date)s",
     ]
@@ -474,7 +562,7 @@ def _get_customer_invoice_item_rows(customer, company, from_date, upto_date):
         order by si.posting_date desc, sii.idx asc
         """.format(
             conditions=" and ".join(conditions),
-            gross_amount_fields=_get_optional_item_gross_amount_fields(),
+            gross_amount_fields=_get_optional_item_gross_amount_fields("Sales Invoice Item", "sii"),
         ),
         values,
         as_dict=True,
@@ -484,6 +572,7 @@ def _get_customer_invoice_item_rows(customer, company, from_date, upto_date):
 def _get_scheme_invoice_item_rows(company, from_date, upto_date):
     conditions = [
         "si.docstatus = 1",
+        "coalesce(si.is_return, 0) = 0",
         "si.posting_date between %(from_date)s and %(upto_date)s",
     ]
     values = {
@@ -525,7 +614,62 @@ def _get_scheme_invoice_item_rows(company, from_date, upto_date):
         order by si.customer_name asc, si.posting_date desc, sii.idx asc
         """.format(
             conditions=" and ".join(conditions),
-            gross_amount_fields=_get_optional_item_gross_amount_fields(),
+            gross_amount_fields=_get_optional_item_gross_amount_fields("Sales Invoice Item", "sii"),
+        ),
+        values,
+        as_dict=True,
+    )
+
+
+def _get_scheme_quotation_item_rows(company, from_date, upto_date, docstatuses):
+    if not docstatuses:
+        return []
+
+    conditions = [
+        "q.quotation_to = 'Customer'",
+        "q.docstatus in %(docstatuses)s",
+        "q.transaction_date between %(from_date)s and %(upto_date)s",
+    ]
+    values = {
+        "company": company,
+        "from_date": from_date,
+        "upto_date": upto_date,
+        "docstatuses": tuple(docstatuses),
+    }
+
+    if company:
+        conditions.append("q.company = %(company)s")
+
+    return frappe.db.sql(
+        """
+        select
+            qi.parent as quotation,
+            q.transaction_date,
+            q.docstatus as quotation_docstatus,
+            q.party_name as customer,
+            q.customer_name,
+            qi.idx,
+            qi.item_code,
+            qi.item_name,
+            qi.description,
+            qi.uom,
+            qi.qty,
+            qi.base_net_rate,
+            qi.net_rate,
+            qi.base_rate,
+            qi.rate,
+            {gross_amount_fields}
+            qi.base_net_amount,
+            qi.net_amount,
+            qi.base_amount,
+            qi.amount
+        from `tabQuotation Item` qi
+        inner join `tabQuotation` q on q.name = qi.parent
+        where {conditions}
+        order by q.customer_name asc, q.transaction_date desc, qi.idx asc
+        """.format(
+            conditions=" and ".join(conditions),
+            gross_amount_fields=_get_optional_item_gross_amount_fields("Quotation Item", "qi"),
         ),
         values,
         as_dict=True,
@@ -614,12 +758,12 @@ def _get_scheme_amount(row, gst_treatment):
     return _get_pre_gst_amount(row)
 
 
-def _get_optional_item_gross_amount_fields():
+def _get_optional_item_gross_amount_fields(doctype, alias):
     fields = []
-    if frappe.db.has_column("Sales Invoice Item", "base_gross_amount"):
-        fields.append("sii.base_gross_amount")
-    if frappe.db.has_column("Sales Invoice Item", "gross_amount"):
-        fields.append("sii.gross_amount")
+    if frappe.db.has_column(doctype, "base_gross_amount"):
+        fields.append(f"{alias}.base_gross_amount")
+    if frappe.db.has_column(doctype, "gross_amount"):
+        fields.append(f"{alias}.gross_amount")
     if not fields:
         return ""
     return ",\n            ".join(fields) + ",\n            "
@@ -638,6 +782,24 @@ def _normalize_gst_treatment(value):
     if value in (GST_EXCLUDED, GST_INCLUDED):
         return value
     return GST_EXCLUDED
+
+
+def _get_selected_quotation_docstatuses(include_draft_quotations, include_submitted_quotations):
+    docstatuses = []
+    if frappe.utils.cint(include_draft_quotations):
+        docstatuses.append(0)
+    if frappe.utils.cint(include_submitted_quotations):
+        docstatuses.append(1)
+    return docstatuses
+
+
+def _get_quotation_status(docstatus):
+    docstatus = frappe.utils.cint(docstatus)
+    if docstatus == 0:
+        return "Draft"
+    if docstatus == 1:
+        return "Submitted"
+    return "Unknown"
 
 
 def _build_quantity_suggestions(eligible_rows, next_slab, eligible_amount):
@@ -802,6 +964,47 @@ def _summarize_eligible_invoices(eligible_rows):
         )
 
     rows.sort(key=lambda row: (row.get("posting_date") or "", flt(row.get("amount"))), reverse=True)
+    return rows
+
+
+def _summarize_eligible_quotations(eligible_rows):
+    summary = {}
+
+    for row in eligible_rows:
+        quotation = row.get("quotation")
+        if not quotation:
+            continue
+
+        current = summary.setdefault(
+            quotation,
+            {
+                "quotation": quotation,
+                "transaction_date": row.get("transaction_date"),
+                "quotation_status": row.get("quotation_status"),
+                "qty": 0,
+                "amount": 0,
+                "item_count": set(),
+            },
+        )
+        current["qty"] += flt(row.get("qty"))
+        current["amount"] += flt(row.get("amount"))
+        if row.get("item_code"):
+            current["item_count"].add(row.get("item_code"))
+
+    rows = []
+    for row in summary.values():
+        rows.append(
+            {
+                "quotation": row["quotation"],
+                "transaction_date": row["transaction_date"],
+                "quotation_status": row["quotation_status"],
+                "qty": row["qty"],
+                "amount": row["amount"],
+                "item_count": len(row["item_count"]),
+            }
+        )
+
+    rows.sort(key=lambda row: (row.get("transaction_date") or "", flt(row.get("amount"))), reverse=True)
     return rows
 
 
