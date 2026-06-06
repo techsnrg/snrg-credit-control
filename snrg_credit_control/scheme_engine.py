@@ -49,7 +49,7 @@ def get_customer_scheme_suggestions(customer, company=None, scheme=None, as_on_d
 
     suggestions.sort(
         key=lambda row: (
-            len(row.get("achieved_slabs") or []),
+            flt((row.get("achieved_slab") or {}).get("amount")),
             flt(row.get("eligible_amount")),
             -flt(row.get("shortfall_amount")),
         ),
@@ -87,7 +87,7 @@ def get_best_sales_invoice_scheme_suggestion(invoice):
 
     evaluations.sort(
         key=lambda row: (
-            len(row.get("achieved_slabs") or []),
+            flt((row.get("achieved_slab") or {}).get("amount")),
             flt(row.get("eligible_amount")),
             -flt(row.get("shortfall_amount")),
         ),
@@ -130,15 +130,7 @@ def evaluate_customer_amount_scheme(
             }
         )
 
-    achieved_slabs = [
-        slab
-        for slab in scheme.slabs
-        if eligible_amount >= flt(slab["amount"])
-    ]
-    next_slab = next(
-        (slab for slab in scheme.slabs if eligible_amount < flt(slab["amount"])),
-        None,
-    )
+    achieved_slabs, achieved_slab, next_slab = _get_slab_progress(scheme.slabs, eligible_amount)
 
     return {
         "scheme_code": scheme.name,
@@ -154,6 +146,7 @@ def evaluate_customer_amount_scheme(
         "eligible_rows": eligible_rows,
         "top_items": _summarize_eligible_items(eligible_rows),
         "achieved_slabs": achieved_slabs,
+        "achieved_slab": achieved_slab,
         "next_slab": next_slab,
         "shortfall_amount": flt(next_slab["amount"]) - eligible_amount if next_slab else 0,
         "suggestions": _build_customer_quantity_suggestions(eligible_rows, next_slab, eligible_amount),
@@ -183,15 +176,7 @@ def evaluate_single_invoice_amount_scheme(scheme, invoice, item_map, group_bound
             }
         )
 
-    achieved_slabs = [
-        slab
-        for slab in scheme.slabs
-        if eligible_amount >= flt(slab["amount"])
-    ]
-    next_slab = next(
-        (slab for slab in scheme.slabs if eligible_amount < flt(slab["amount"])),
-        None,
-    )
+    achieved_slabs, achieved_slab, next_slab = _get_slab_progress(scheme.slabs, eligible_amount)
 
     return {
         "scheme_code": scheme.name,
@@ -204,6 +189,7 @@ def evaluate_single_invoice_amount_scheme(scheme, invoice, item_map, group_bound
         "eligible_amount": eligible_amount,
         "eligible_rows": eligible_rows,
         "achieved_slabs": achieved_slabs,
+        "achieved_slab": achieved_slab,
         "next_slab": next_slab,
         "shortfall_amount": flt(next_slab["amount"]) - eligible_amount if next_slab else 0,
         "suggestions": _build_quantity_suggestions(eligible_rows, next_slab, eligible_amount),
@@ -300,6 +286,20 @@ def _get_item_map(item_codes):
         fields=["name", "item_name", "item_group", "description"],
     )
     return {row.name: row for row in rows}
+
+
+def _get_slab_progress(slabs, eligible_amount):
+    achieved_slabs = [
+        slab
+        for slab in slabs
+        if eligible_amount >= flt(slab["amount"])
+    ]
+    achieved_slab = achieved_slabs[-1] if achieved_slabs else None
+    next_slab = next(
+        (slab for slab in slabs if eligible_amount < flt(slab["amount"])),
+        None,
+    )
+    return achieved_slabs, achieved_slab, next_slab
 
 
 def _get_customer_invoice_item_rows(customer, company, from_date, upto_date):

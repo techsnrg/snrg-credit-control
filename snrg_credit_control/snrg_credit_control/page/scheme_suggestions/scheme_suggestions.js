@@ -239,8 +239,13 @@ class SnrgSchemeSuggestions {
   }
 
   render_scheme_card(scheme) {
-    const achieved = (scheme.achieved_slabs || []).map((row) => row.reward).join(", ") || "None";
-    const nextReward = scheme.next_slab ? scheme.next_slab.reward : "Highest slab achieved";
+    const achievedSlab = scheme.achieved_slab;
+    const achieved = achievedSlab
+      ? `${format_currency(achievedSlab.amount)} - ${achievedSlab.reward}`
+      : "None";
+    const nextReward = scheme.next_slab
+      ? `${format_currency(scheme.next_slab.amount)} - ${scheme.next_slab.reward}`
+      : "Highest slab achieved";
     const shortfall = scheme.next_slab ? format_currency(scheme.shortfall_amount) : "0";
 
     return `
@@ -256,9 +261,9 @@ class SnrgSchemeSuggestions {
         </div>
         <div class="snrg-scheme-metrics">
           ${this.render_metric("Eligible Value", format_currency(scheme.eligible_amount))}
-          ${this.render_metric("Achieved", achieved)}
+          ${this.render_metric("Slab Achieved Till Now", achieved)}
+          ${this.render_metric("Next Achievable Slab", nextReward)}
           ${this.render_metric("Shortfall", shortfall)}
-          ${this.render_metric("Invoices", format_number(scheme.eligible_invoice_count || 0))}
         </div>
         <div class="snrg-scheme-history">
           <h4 class="snrg-scheme-section-title">Eligible Item History</h4>
