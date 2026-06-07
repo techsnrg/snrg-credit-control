@@ -167,24 +167,73 @@ class SnrgSchemePlanning {
         }
         .snrg-scheme-detail-grid {
           display: grid;
-          grid-template-columns: minmax(620px, 1fr) minmax(420px, .8fr) minmax(520px, .9fr);
+          grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr);
           gap: 18px;
           align-items: start;
         }
         .snrg-scheme-detail-modal .modal-dialog {
-          width: min(1280px, calc(100vw - 64px));
-          max-width: min(1280px, calc(100vw - 64px));
+          width: min(1440px, calc(100vw - 56px));
+          max-width: min(1440px, calc(100vw - 56px));
         }
         .snrg-scheme-detail-modal .modal-content {
           font-family: Inter, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
           font-size: 13px;
           line-height: 1.45;
         }
-        .snrg-scheme-detail-modal .modal-body { overflow-x: auto; }
+        .snrg-scheme-detail-modal .modal-body {
+          overflow-x: auto;
+          padding: 0;
+        }
+        .snrg-scheme-detail-shell {
+          display: grid;
+          gap: 16px;
+          padding: 18px;
+        }
+        .snrg-scheme-detail-summary {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 10px;
+        }
+        .snrg-scheme-detail-card {
+          border: 1px solid #e4eaf2;
+          border-radius: 8px;
+          background: #fbfcff;
+          padding: 11px 12px;
+          min-height: 74px;
+        }
+        .snrg-scheme-detail-card-label {
+          color: #667085;
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: .03em;
+          line-height: 1.3;
+          text-transform: uppercase;
+        }
+        .snrg-scheme-detail-card-value {
+          margin-top: 7px;
+          color: #101828;
+          font-size: 15px;
+          font-weight: 800;
+          line-height: 1.25;
+          overflow-wrap: anywhere;
+        }
+        .snrg-scheme-detail-section {
+          min-width: 0;
+        }
+        .snrg-scheme-detail-section h5 {
+          margin: 0 0 8px;
+          color: #101828;
+          font-size: 15px;
+          font-weight: 800;
+        }
+        .snrg-scheme-detail-items {
+          grid-column: 1 / -1;
+        }
         .snrg-scheme-dialog-table {
           width: 100%;
           border-collapse: collapse;
           border: 1px solid #edf1f7;
+          table-layout: auto;
         }
         .snrg-scheme-dialog-table th,
         .snrg-scheme-dialog-table td {
@@ -194,9 +243,11 @@ class SnrgSchemePlanning {
           line-height: 1.45;
         }
         .snrg-scheme-dialog-table th { background: #f8fafc; color: #667085; }
+        .snrg-scheme-dialog-table td:first-child { min-width: 150px; }
         @media (max-width: 900px) {
           .snrg-scheme-filter-row,
           .snrg-scheme-metrics,
+          .snrg-scheme-detail-summary,
           .snrg-scheme-detail-grid { grid-template-columns: 1fr; }
         }
       </style>
@@ -584,6 +635,15 @@ class SnrgSchemePlanning {
     return `${format_currency(slab.amount || 0)} - ${slab.reward || ""}`;
   }
 
+  render_detail_card(label, value) {
+    return `
+      <div class="snrg-scheme-detail-card">
+        <div class="snrg-scheme-detail-card-label">${frappe.utils.escape_html(label)}</div>
+        <div class="snrg-scheme-detail-card-value">${frappe.utils.escape_html(String(value || ""))}</div>
+      </div>
+    `;
+  }
+
   open_customer_details(key) {
     const entry = this.customerIndex[key];
     if (!entry) return;
@@ -593,28 +653,32 @@ class SnrgSchemePlanning {
       title: `${row.customer_name || row.customer} - ${scheme.scheme_name}`,
       wide: true,
       message: `
-        <p>
-          Invoice Eligible Value: <strong>${format_currency(row.eligible_amount || 0)}</strong><br>
-          Quotation Eligible Value: <strong>${format_currency(row.quotation_amount || 0)}</strong><br>
-          Projected Eligible Value: <strong>${format_currency(row.projected_amount || row.eligible_amount || 0)}</strong><br>
-          Slab Achieved Till Now: <strong>${frappe.utils.escape_html(this.format_slab(row.achieved_slab, "None"))}</strong><br>
-          Projected Slab With Quotations: <strong>${frappe.utils.escape_html(this.format_slab(row.projected_slab, "None"))}</strong><br>
-          Next Achievable Slab: <strong>${frappe.utils.escape_html(this.format_slab(row.next_slab, "Highest slab achieved"))}</strong><br>
-          Invoices: <strong>${format_number(row.eligible_invoice_count || 0)}</strong><br>
-          Quotations: <strong>${format_number(row.eligible_quotation_count || 0)}</strong><br>
-          Paid Against Scheme Invoices: <strong>${format_currency(row.payment_summary?.paid_amount || 0)}</strong><br>
-          Outstanding Against Scheme Invoices: <strong>${format_currency(row.payment_summary?.outstanding_amount || 0)}</strong>
-        </p>
-        <div class="snrg-scheme-detail-grid">
-          <div>
-            <h5>Invoice-wise Sales</h5>
-            ${this.render_invoice_details(row.invoice_details || [])}
+        <div class="snrg-scheme-detail-shell">
+          <div class="snrg-scheme-detail-summary">
+            ${this.render_detail_card("Invoice Eligible", format_currency(row.eligible_amount || 0))}
+            ${this.render_detail_card("Quotation Eligible", format_currency(row.quotation_amount || 0))}
+            ${this.render_detail_card("Projected Eligible", format_currency(row.projected_amount || row.eligible_amount || 0))}
+            ${this.render_detail_card("Shortfall", row.next_slab ? format_currency(row.shortfall_amount || 0) : "0")}
+            ${this.render_detail_card("Slab Achieved", this.format_slab(row.achieved_slab, "None"))}
+            ${this.render_detail_card("Projected Slab", this.format_slab(row.projected_slab, "None"))}
+            ${this.render_detail_card("Next Slab", this.format_slab(row.next_slab, "Highest slab achieved"))}
+            ${this.render_detail_card("Payment Status", row.payment_summary?.payment_status || "")}
+            ${this.render_detail_card("Invoices", format_number(row.eligible_invoice_count || 0))}
+            ${this.render_detail_card("Quotations", format_number(row.eligible_quotation_count || 0))}
+            ${this.render_detail_card("Paid", format_currency(row.payment_summary?.paid_amount || 0))}
+            ${this.render_detail_card("Outstanding", format_currency(row.payment_summary?.outstanding_amount || 0))}
           </div>
-          <div>
-            <h5>Quotation-wise Pipeline</h5>
-            ${this.render_quotation_details(row.quotation_details || [])}
+          <div class="snrg-scheme-detail-grid">
+            <div class="snrg-scheme-detail-section">
+              <h5>Invoice-wise Sales</h5>
+              ${this.render_invoice_details(row.invoice_details || [])}
+            </div>
+            <div class="snrg-scheme-detail-section">
+              <h5>Quotation-wise Pipeline</h5>
+              ${this.render_quotation_details(row.quotation_details || [])}
+            </div>
           </div>
-          <div>
+          <div class="snrg-scheme-detail-section snrg-scheme-detail-items">
             <h5>Projected Item-wise Sales</h5>
             ${this.render_item_details(row.projected_top_items || row.top_items || [])}
           </div>
