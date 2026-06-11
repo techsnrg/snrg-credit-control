@@ -1,4 +1,6 @@
 frappe.query_reports["Pending Invoice Planning Report"] = {
+  disable_prepared_report: true,
+
   filters: [
     {
       fieldname: "company",
@@ -7,40 +9,47 @@ frappe.query_reports["Pending Invoice Planning Report"] = {
       options: "Company",
       default: frappe.defaults.get_user_default("Company"),
       reqd: 1,
+      on_change: refresh_pending_invoice_planning_report,
     },
     {
       fieldname: "date_range",
       label: __("Date Range"),
       fieldtype: "DateRange",
+      on_change: refresh_pending_invoice_planning_report,
     },
     {
       fieldname: "customer",
       label: __("Customer"),
       fieldtype: "Link",
       options: "Customer",
+      on_change: refresh_pending_invoice_planning_report,
     },
     {
       fieldname: "territory",
       label: __("Territory"),
       fieldtype: "Link",
       options: "Territory",
+      on_change: refresh_pending_invoice_planning_report,
     },
     {
       fieldname: "quotation",
       label: __("Quotation"),
       fieldtype: "Link",
       options: "Quotation",
+      on_change: refresh_pending_invoice_planning_report,
     },
     {
       fieldname: "item_code",
       label: __("Item Code"),
       fieldtype: "Link",
       options: "Item",
+      on_change: refresh_pending_invoice_planning_report,
     },
     {
       fieldname: "quotation_status",
       label: __("Quotation Status"),
       fieldtype: "MultiSelectList",
+      on_change: refresh_pending_invoice_planning_report,
       get_data(txt) {
         const options = ["Draft", "Submitted"];
         return options
@@ -52,6 +61,7 @@ frappe.query_reports["Pending Invoice Planning Report"] = {
       fieldname: "sales_order_status",
       label: __("Sales Order Status"),
       fieldtype: "MultiSelectList",
+      on_change: refresh_pending_invoice_planning_report,
       get_data(txt) {
         const options = ["No SO", "Draft SO", "Submitted SO", "Mixed SO"];
         return options
@@ -60,6 +70,10 @@ frappe.query_reports["Pending Invoice Planning Report"] = {
       },
     },
   ],
+
+  onload(report) {
+    setTimeout(() => force_live_pending_invoice_planning_refresh(report), 300);
+  },
 
   formatter(value, row, column, data, default_formatter) {
     const formatted = default_formatter(value, row, column, data);
@@ -97,3 +111,26 @@ frappe.query_reports["Pending Invoice Planning Report"] = {
     return formatted;
   },
 };
+
+function refresh_pending_invoice_planning_report(report) {
+  if (!report) {
+    return;
+  }
+
+  clearTimeout(report.snrgPendingInvoicePlanningRefreshTimer);
+  report.snrgPendingInvoicePlanningRefreshTimer = setTimeout(() => {
+    report.refresh();
+  }, 200);
+}
+
+function force_live_pending_invoice_planning_refresh(report) {
+  if (!report || report.__snrgPendingInvoicePlanningLiveRefreshDone) {
+    return;
+  }
+
+  const wrapperText = report.page && report.page.wrapper ? report.page.wrapper.text() : "";
+  if (wrapperText && wrapperText.includes("See all past reports")) {
+    report.__snrgPendingInvoicePlanningLiveRefreshDone = true;
+    report.refresh();
+  }
+}

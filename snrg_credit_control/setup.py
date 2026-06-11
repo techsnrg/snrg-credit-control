@@ -489,6 +489,11 @@ def _ensure_report():
             "ref_doctype": "Sales Invoice",
         },
         {
+            "report_name": "Pending Invoice Planning Report",
+            "ref_doctype": "Quotation",
+            "extra_roles": ["Sales User"],
+        },
+        {
             "report_name": "Sales Person Sales and Collection Summary",
             "ref_doctype": "Sales Invoice",
             "extra_roles": ["Sales User"],
@@ -506,8 +511,16 @@ def _ensure_report():
         name = report_def["report_name"]
         roles = default_roles + report_def.get("extra_roles", [])
         if frappe.db.exists("Report", name):
-            frappe.db.set_value("Report", name, "module", "Snrg Credit Control")
-            frappe.db.set_value("Report", name, "disabled", 0)
+            frappe.db.set_value(
+                "Report",
+                name,
+                {
+                    "module": "Snrg Credit Control",
+                    "disabled": 0,
+                    "prepared_report": 0,
+                },
+                update_modified=False,
+            )
             _ensure_report_roles(name, roles)
             continue
 
@@ -520,9 +533,17 @@ def _ensure_report():
                 "module": "Snrg Credit Control",
                 "is_standard": "Yes",
                 "disabled": 0,
+                "prepared_report": 0,
                 "roles": [{"role": role} for role in roles],
             }
         ).insert(ignore_permissions=True)
+
+    _disable_reports(
+        [
+            "Pending Invoice Planning Item Wise Report",
+            "Pending Invoice Planning Customer Wise Report",
+        ]
+    )
 
 
 def _ensure_report_roles(report_name, roles):
@@ -535,6 +556,21 @@ def _ensure_report_roles(report_name, roles):
     for role in missing_roles:
         report.append("roles", {"role": role})
     report.save(ignore_permissions=True)
+
+
+def _disable_reports(report_names):
+    for report_name in report_names:
+        if not frappe.db.exists("Report", report_name):
+            continue
+        frappe.db.set_value(
+            "Report",
+            report_name,
+            {
+                "disabled": 1,
+                "prepared_report": 0,
+            },
+            update_modified=False,
+        )
 
 
 # ---------------------------------------------------------------------------
