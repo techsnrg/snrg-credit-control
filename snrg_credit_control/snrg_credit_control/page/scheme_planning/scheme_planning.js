@@ -8,6 +8,10 @@ frappe.pages["scheme-planning"].on_page_load = function (wrapper) {
   wrapper.scheme_planning = new SnrgSchemePlanning(page, wrapper);
 };
 
+frappe.pages["scheme-planning"].on_page_show = function (wrapper) {
+  wrapper.scheme_planning?.set_breadcrumb();
+};
+
 class SnrgSchemePlanning {
   constructor(page, wrapper) {
     this.page = page;
@@ -23,9 +27,34 @@ class SnrgSchemePlanning {
 
   setup() {
     this.page.set_primary_action("Get Suggestions", () => this.refresh(), "search");
+    this.set_breadcrumb();
     this.render_shell();
     this.make_filters();
     this.bind_events();
+  }
+
+  set_breadcrumb() {
+    if (frappe.breadcrumbs) {
+      try {
+        frappe.breadcrumbs.clear?.();
+        frappe.breadcrumbs.add("Scheme Management");
+      } catch (error) {
+        // Breadcrumb behavior differs slightly across Frappe versions.
+      }
+    }
+
+    const updateLabel = () => {
+      $(".breadcrumb-container a, .breadcrumbs a, .page-head a").each((_, element) => {
+        const link = $(element);
+        if (link.text().trim() === "Credit Control") {
+          link.text("Scheme Management");
+          link.attr("href", "/app/scheme-management");
+        }
+      });
+    };
+
+    setTimeout(updateLabel, 50);
+    setTimeout(updateLabel, 250);
   }
 
   render_shell() {
@@ -111,7 +140,7 @@ class SnrgSchemePlanning {
         .snrg-scheme-table-wrap { padding: 0 16px 16px; overflow: auto; }
         .snrg-scheme-table {
           width: 100%;
-          min-width: 1780px;
+          min-width: 1540px;
           border-collapse: collapse;
           border: 1px solid #edf1f7;
           border-radius: 8px;
@@ -127,6 +156,27 @@ class SnrgSchemePlanning {
           vertical-align: top;
         }
         .snrg-scheme-table th { background: #f8fafc; color: #667085; font-weight: 800; }
+        .snrg-scheme-table .snrg-scheme-group-row th {
+          background: #fff;
+          border-bottom: 1px solid #d0d5dd;
+          color: #344054;
+          font-size: 12px;
+          letter-spacing: .03em;
+          padding: 7px 12px;
+          text-align: center;
+          text-transform: uppercase;
+        }
+        .snrg-scheme-table .snrg-scheme-group-row th:first-child,
+        .snrg-scheme-table .snrg-scheme-group-row th:nth-child(2),
+        .snrg-scheme-table .snrg-scheme-group-row th:last-child {
+          background: #f8fafc;
+        }
+        .snrg-scheme-table .snrg-scheme-group-achieved {
+          box-shadow: inset 1px 0 0 #d0d5dd, inset -1px 0 0 #d0d5dd;
+        }
+        .snrg-scheme-table .snrg-scheme-group-projected {
+          box-shadow: inset 1px 0 0 #d0d5dd, inset -1px 0 0 #d0d5dd;
+        }
         .snrg-scheme-table tr:last-child td { border-bottom: 0; }
         .snrg-scheme-sort-btn {
           border: 0;
@@ -445,32 +495,35 @@ class SnrgSchemePlanning {
     return `
       <table class="snrg-scheme-table">
         <thead>
+          <tr class="snrg-scheme-group-row">
+            <th></th>
+            <th></th>
+            <th class="snrg-scheme-group-achieved" colspan="3">Achieved</th>
+            <th class="snrg-scheme-group-projected" colspan="4">Projected</th>
+            <th></th>
+          </tr>
           <tr>
             ${this.render_sort_header(tableKey, "customer_name", "Customer")}
             ${this.render_sort_header(tableKey, "eligible_amount", "Invoice Eligible", true)}
-            ${this.render_sort_header(tableKey, "quotation_amount", "Quotation Eligible", true)}
-            ${this.render_sort_header(tableKey, "projected_amount", "Projected Eligible", true)}
             ${this.render_sort_header(tableKey, "achieved_slab", "Slab Achieved Till Now")}
-            ${this.render_sort_header(tableKey, "projected_slab", "Projected Slab")}
             ${this.render_sort_header(tableKey, "next_slab", "Next Achievable Slab")}
             ${this.render_sort_header(tableKey, "shortfall_amount", "Shortfall", true)}
-            ${this.render_sort_header(tableKey, "paid_amount", "Paid", true)}
-            ${this.render_sort_header(tableKey, "outstanding_amount", "Outstanding", true)}
-            ${this.render_sort_header(tableKey, "payment_status", "Payment Status")}
+            ${this.render_sort_header(tableKey, "quotation_amount", "Quotation Eligible", true)}
+            ${this.render_sort_header(tableKey, "projected_slab", "Projected Slab")}
+            ${this.render_sort_header(tableKey, "projected_amount", "Projected Eligible", true)}
+            ${this.render_sort_header(tableKey, "projected_shortfall_amount", "Projected Shortfall", true)}
             <th></th>
           </tr>
           <tr>
             ${this.render_filter_cell(tableKey, "customer", "Search customer")}
             ${this.render_filter_cell(tableKey, "eligible_amount", "Search invoice", true)}
-            ${this.render_filter_cell(tableKey, "quotation_amount", "Search quotation", true)}
-            ${this.render_filter_cell(tableKey, "projected_amount", "Search projected", true)}
             ${this.render_filter_cell(tableKey, "achieved_slab", "Search slab")}
-            ${this.render_filter_cell(tableKey, "projected_slab", "Search projected slab")}
             ${this.render_filter_cell(tableKey, "next_slab", "Search next slab")}
             ${this.render_filter_cell(tableKey, "shortfall_amount", "Search shortfall", true)}
-            ${this.render_filter_cell(tableKey, "paid_amount", "Search paid", true)}
-            ${this.render_filter_cell(tableKey, "outstanding_amount", "Search outstanding", true)}
-            ${this.render_filter_cell(tableKey, "payment_status", "Search status")}
+            ${this.render_filter_cell(tableKey, "quotation_amount", "Search quotation", true)}
+            ${this.render_filter_cell(tableKey, "projected_slab", "Search projected slab")}
+            ${this.render_filter_cell(tableKey, "projected_amount", "Search projected", true)}
+            ${this.render_filter_cell(tableKey, "projected_shortfall_amount", "Search projected shortfall", true)}
             <th></th>
           </tr>
         </thead>
@@ -520,7 +573,7 @@ class SnrgSchemePlanning {
   render_customer_rows(scheme, tableKey) {
     const rows = this.get_visible_customer_rows(scheme, tableKey);
     if (!rows.length) {
-      return `<tr><td colspan="12" class="snrg-scheme-empty">No rows match the current search.</td></tr>`;
+      return `<tr><td colspan="10" class="snrg-scheme-empty">No rows match the current search.</td></tr>`;
     }
 
     return rows.map((row, index) => this.render_customer_row(scheme, row, index)).join("");
@@ -573,18 +626,10 @@ class SnrgSchemePlanning {
       || field === "quotation_amount"
       || field === "projected_amount"
       || field === "shortfall_amount"
-      || field === "paid_amount"
-      || field === "outstanding_amount"
+      || field === "projected_shortfall_amount"
     ) {
-      const value = field === "paid_amount"
-        ? row.payment_summary?.paid_amount
-        : field === "outstanding_amount"
-          ? row.payment_summary?.outstanding_amount
-          : row[field];
+      const value = row[field];
       return `${format_currency(value || 0)} ${value || 0}`;
-    }
-    if (field === "payment_status") {
-      return row.payment_summary?.payment_status || "";
     }
     return String(row[field] || "");
   }
@@ -594,10 +639,13 @@ class SnrgSchemePlanning {
     if (field === "achieved_slab") return row.achieved_slab ? row.achieved_slab.amount || 0 : 0;
     if (field === "projected_slab") return row.projected_slab ? row.projected_slab.amount || 0 : 0;
     if (field === "next_slab") return row.next_slab ? row.next_slab.amount || 0 : Infinity;
-    if (field === "paid_amount") return Number(row.payment_summary?.paid_amount || 0);
-    if (field === "outstanding_amount") return Number(row.payment_summary?.outstanding_amount || 0);
-    if (field === "payment_status") return row.payment_summary?.payment_status || "";
-    if (field === "eligible_amount" || field === "quotation_amount" || field === "projected_amount" || field === "shortfall_amount") {
+    if (
+      field === "eligible_amount"
+      || field === "quotation_amount"
+      || field === "projected_amount"
+      || field === "shortfall_amount"
+      || field === "projected_shortfall_amount"
+    ) {
       return Number(row[field] || 0);
     }
     return row[field] || "";
@@ -614,15 +662,13 @@ class SnrgSchemePlanning {
           <div class="snrg-scheme-subtitle">${frappe.utils.escape_html(row.customer || "")}</div>
         </td>
         <td class="snrg-scheme-right">${format_currency(row.eligible_amount || 0)}</td>
-        <td class="snrg-scheme-right">${format_currency(row.quotation_amount || 0)}</td>
-        <td class="snrg-scheme-right">${format_currency(row.projected_amount || row.eligible_amount || 0)}</td>
         <td>${frappe.utils.escape_html(this.format_slab(row.achieved_slab, "None"))}</td>
-        <td>${frappe.utils.escape_html(this.format_slab(row.projected_slab, "None"))}</td>
         <td>${frappe.utils.escape_html(this.format_slab(row.next_slab, "Highest slab achieved"))}</td>
         <td class="snrg-scheme-right">${row.next_slab ? format_currency(row.shortfall_amount || 0) : "0"}</td>
-        <td class="snrg-scheme-right">${format_currency(row.payment_summary?.paid_amount || 0)}</td>
-        <td class="snrg-scheme-right">${format_currency(row.payment_summary?.outstanding_amount || 0)}</td>
-        <td>${frappe.utils.escape_html(row.payment_summary?.payment_status || "")}</td>
+        <td class="snrg-scheme-right">${format_currency(row.quotation_amount || 0)}</td>
+        <td>${frappe.utils.escape_html(this.format_slab(row.projected_slab, "None"))}</td>
+        <td class="snrg-scheme-right">${format_currency(row.projected_amount || row.eligible_amount || 0)}</td>
+        <td class="snrg-scheme-right">${row.projected_next_slab ? format_currency(row.projected_shortfall_amount || 0) : "0"}</td>
         <td class="snrg-scheme-right">
           <button class="snrg-scheme-detail-btn" data-show-details="${frappe.utils.escape_html(key)}">Details</button>
         </td>
