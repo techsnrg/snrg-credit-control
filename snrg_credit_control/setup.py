@@ -491,14 +491,24 @@ def _ensure_report():
         {
             "report_name": "Sales Person Sales and Collection Summary",
             "ref_doctype": "Sales Invoice",
+            "extra_roles": ["Sales User"],
         },
+    ]
+
+    default_roles = [
+        "Credit Approver",
+        "Accounts Manager",
+        "System Manager",
+        "Sales Manager",
     ]
 
     for report_def in report_defs:
         name = report_def["report_name"]
+        roles = default_roles + report_def.get("extra_roles", [])
         if frappe.db.exists("Report", name):
             frappe.db.set_value("Report", name, "module", "Snrg Credit Control")
             frappe.db.set_value("Report", name, "disabled", 0)
+            _ensure_report_roles(name, roles)
             continue
 
         frappe.get_doc(
@@ -510,14 +520,21 @@ def _ensure_report():
                 "module": "Snrg Credit Control",
                 "is_standard": "Yes",
                 "disabled": 0,
-                "roles": [
-                    {"role": "Credit Approver"},
-                    {"role": "Accounts Manager"},
-                    {"role": "System Manager"},
-                    {"role": "Sales Manager"},
-                ],
+                "roles": [{"role": role} for role in roles],
             }
         ).insert(ignore_permissions=True)
+
+
+def _ensure_report_roles(report_name, roles):
+    report = frappe.get_doc("Report", report_name)
+    existing_roles = {row.role for row in report.roles}
+    missing_roles = [role for role in roles if role not in existing_roles]
+    if not missing_roles:
+        return
+
+    for role in missing_roles:
+        report.append("roles", {"role": role})
+    report.save(ignore_permissions=True)
 
 
 # ---------------------------------------------------------------------------
