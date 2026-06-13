@@ -69,6 +69,13 @@ frappe.query_reports["Pending Invoice Planning Report"] = {
           .map((value) => ({ value, description: value }));
       },
     },
+    {
+      fieldname: "show_values",
+      label: __("Show Values"),
+      fieldtype: "Check",
+      default: 0,
+      on_change: refresh_pending_invoice_planning_report,
+    },
   ],
 
   onload(report) {
@@ -85,6 +92,7 @@ frappe.query_reports["Pending Invoice Planning Report"] = {
 
       return `
         <button
+          type="button"
           class="btn btn-xs btn-default snrg-pip-request-production"
           data-quotation="${encodeURIComponent(data.quotation || "")}"
           data-quotation-date="${encodeURIComponent(data.quotation_date || "")}"
@@ -98,6 +106,29 @@ frappe.query_reports["Pending Invoice Planning Report"] = {
           ${__("Request")}
         </button>
       `;
+    }
+
+    if (column.fieldname === "quotation" && data) {
+      return render_pending_invoice_planning_stacked_link({
+        route: `/app/quotation/${encodeURIComponent(data.quotation || "")}`,
+        primary: data.quotation || "",
+        secondary: formatPendingInvoicePlanningDate(data.quotation_date),
+      });
+    }
+
+    if (column.fieldname === "customer" && data) {
+      return render_pending_invoice_planning_stacked_link({
+        route: `/app/customer/${encodeURIComponent(data.customer || "")}`,
+        primary: data.customer || "",
+        secondary: data.customer_name || "",
+      });
+    }
+
+    if (column.fieldname === "item_code" && data) {
+      return render_pending_invoice_planning_link({
+        route: `/app/item/${encodeURIComponent(data.item_code || "")}`,
+        label: data.item_code || "",
+      });
     }
 
     const formatted = default_formatter(value, row, column, data);
@@ -212,10 +243,34 @@ function create_production_request_from_button(report, button) {
         message: result.message || __("Production Requests created."),
         indicator: "green",
       });
-      report.refresh();
+      button
+        .removeClass("btn-default")
+        .addClass("btn-secondary")
+        .prop("disabled", true)
+        .text(result.updated_count ? __("Updated") : __("Requested"));
     },
     error: () => {
       button.prop("disabled", false).text(__("Request"));
     },
   });
+}
+
+function render_pending_invoice_planning_stacked_link({ route, primary, secondary }) {
+  return `
+    <div style="display:grid;gap:2px;line-height:1.25;">
+      <a href="${route}" style="font-weight:700;color:#0f766e;">${frappe.utils.escape_html(primary || "")}</a>
+      <div style="color:#667085;font-size:12px;">${frappe.utils.escape_html(secondary || "")}</div>
+    </div>
+  `;
+}
+
+function render_pending_invoice_planning_link({ route, label }) {
+  return `<a href="${route}" style="font-weight:600;color:#344054;">${frappe.utils.escape_html(label || "")}</a>`;
+}
+
+function formatPendingInvoicePlanningDate(value) {
+  if (!value) {
+    return "";
+  }
+  return frappe.datetime.str_to_user ? frappe.datetime.str_to_user(value) : value;
 }
