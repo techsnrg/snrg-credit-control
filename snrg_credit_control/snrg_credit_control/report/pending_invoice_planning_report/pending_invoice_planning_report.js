@@ -84,6 +84,12 @@ frappe.query_reports["Pending Invoice Planning Report"] = {
     setTimeout(() => setup_pending_invoice_planning_actions(report), 400);
   },
 
+  get_datatable_options(options) {
+    return Object.assign(options || {}, {
+      cellHeight: 64,
+    });
+  },
+
   after_datatable_render(datatable, report) {
     apply_pending_invoice_planning_table_layout(report, datatable);
   },
@@ -93,6 +99,23 @@ frappe.query_reports["Pending Invoice Planning Report"] = {
       const pendingQty = Number(data.total_uninvoiced_qty || 0);
       if (pendingQty <= 0) {
         return "";
+      }
+
+      if (data.has_active_production_request) {
+        const requestName = data.production_request_name || "";
+        const requiredBy = formatPendingInvoicePlanningDate(data.production_required_by_date || "");
+        const statusParts = [requestName, requiredBy ? `${__("Required by")}: ${requiredBy}` : ""].filter(Boolean);
+        const title = statusParts.join(" | ");
+        return `
+          <button
+            type="button"
+            class="btn btn-xs btn-secondary"
+            disabled
+            title="${frappe.utils.escape_html(title)}"
+          >
+            ${__("Requested")}
+          </button>
+        `;
       }
 
       return `
@@ -136,6 +159,10 @@ frappe.query_reports["Pending Invoice Planning Report"] = {
       });
     }
 
+    if (column.fieldname === "item_name" && data) {
+      return `<div class="snrg-pip-item-name-cell">${frappe.utils.escape_html(data.item_name || "")}</div>`;
+    }
+
     const formatted = default_formatter(value, row, column, data);
     if (!data) {
       return formatted;
@@ -177,6 +204,7 @@ function refresh_pending_invoice_planning_report(report) {
     return;
   }
 
+  close_pending_invoice_planning_request_picker(report);
   clearTimeout(report.snrgPendingInvoicePlanningRefreshTimer);
   report.snrgPendingInvoicePlanningRefreshTimer = setTimeout(() => {
     report.refresh();
@@ -208,6 +236,7 @@ function setup_pending_invoice_planning_actions(report) {
     };
     frappe.set_route("production-planning");
   });
+  bind_pending_invoice_planning_request_picker_events(report);
 
   const wrapper = report.page && report.page.wrapper ? report.page.wrapper : $(document.body);
   wrapper.off("click.snrg_pip_request_production");
@@ -218,7 +247,7 @@ function setup_pending_invoice_planning_actions(report) {
       event.stopImmediatePropagation();
     }
     const button = $(event.currentTarget);
-    create_production_request_from_button(report, button);
+    toggle_pending_invoice_planning_request_picker(report, button);
     return false;
   });
 }
@@ -239,20 +268,17 @@ function ensure_pending_invoice_planning_report_styles(report) {
     <style id="snrg-pip-report-style">
       .snrg-pip-report-page .dt-scrollable .dt-row,
       .snrg-pip-report-page .dt-scrollable .dt-cell {
-        height: auto !important;
-        min-height: 58px;
+        min-height: 64px;
       }
 
       .snrg-pip-report-page .dt-scrollable .dt-cell__content {
-        height: auto !important;
-        min-height: 58px;
+        height: 100% !important;
         white-space: normal !important;
         line-height: 1.25;
         padding-top: 6px;
         padding-bottom: 6px;
         overflow: visible;
-        display: flex;
-        align-items: center;
+        display: block;
       }
 
       .snrg-pip-report-page .snrg-pip-stacked-cell {
@@ -270,6 +296,60 @@ function ensure_pending_invoice_planning_report_styles(report) {
         color: #667085;
         font-size: 12px;
       }
+
+      .snrg-pip-report-page .snrg-pip-item-name-cell {
+        white-space: normal;
+        overflow-wrap: anywhere;
+        line-height: 1.25;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+      }
+
+      .snrg-pip-request-picker {
+        position: absolute;
+        z-index: 30;
+        width: 220px;
+        padding: 12px;
+        border: 1px solid #d0d5dd;
+        border-radius: 12px;
+        background: #ffffff;
+        box-shadow: 0 16px 40px rgba(16, 24, 40, 0.18);
+      }
+
+      .snrg-pip-request-picker-title {
+        color: #101828;
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 1.3;
+        margin-bottom: 8px;
+      }
+
+      .snrg-pip-request-picker-hint {
+        color: #667085;
+        font-size: 11px;
+        line-height: 1.35;
+        margin-top: 8px;
+      }
+
+      .snrg-pip-request-picker .frappe-control,
+      .snrg-pip-request-picker .form-group,
+      .snrg-pip-request-picker .control-input-wrapper {
+        margin-bottom: 0;
+      }
+
+      .snrg-pip-request-picker .control-label,
+      .snrg-pip-request-picker label {
+        display: none !important;
+      }
+
+      .snrg-pip-request-picker .form-control {
+        min-height: 36px;
+      }
+
+      .snrg-pip-request-production-active {
+        box-shadow: 0 0 0 2px rgba(23, 92, 211, 0.16);
+      }
     </style>
   `);
 }
@@ -285,25 +365,193 @@ function apply_pending_invoice_planning_table_layout(report, datatable) {
   }
 
   target.querySelectorAll(".dt-row, .dt-cell").forEach((element) => {
-    element.style.height = "auto";
-    element.style.minHeight = "58px";
+    element.style.minHeight = "64px";
   });
 
   target.querySelectorAll(".dt-cell__content").forEach((element) => {
-    element.style.height = "auto";
-    element.style.minHeight = "58px";
+    element.style.height = "100%";
     element.style.whiteSpace = "normal";
     element.style.lineHeight = "1.25";
     element.style.paddingTop = "6px";
     element.style.paddingBottom = "6px";
     element.style.overflow = "visible";
-    element.style.display = "flex";
-    element.style.alignItems = "center";
+    element.style.display = "block";
   });
 }
 
-function create_production_request_from_button(report, button) {
-  if (!button || !button.length) {
+function bind_pending_invoice_planning_request_picker_events(report) {
+  $(document).off("mousedown.snrg_pip_request_picker");
+  $(document).on("mousedown.snrg_pip_request_picker", (event) => {
+    const picker = report && report.__snrgPendingInvoicePlanningRequestPicker;
+    if (!picker) {
+      return;
+    }
+
+    const target = $(event.target);
+    if (
+      target.closest(".air-datepicker, .datepicker, .flatpickr-calendar, .ui-datepicker").length
+    ) {
+      return;
+    }
+
+    if (
+      picker.popover.is(target) ||
+      picker.popover.has(target).length ||
+      picker.button.is(target) ||
+      picker.button.has(target).length
+    ) {
+      return;
+    }
+
+    close_pending_invoice_planning_request_picker(report);
+  });
+
+  $(document).off("keydown.snrg_pip_request_picker");
+  $(document).on("keydown.snrg_pip_request_picker", (event) => {
+    if (event.key === "Escape") {
+      close_pending_invoice_planning_request_picker(report);
+    }
+  });
+
+  $(window).off("resize.snrg_pip_request_picker");
+  $(window).on("resize.snrg_pip_request_picker", () => {
+    const picker = report && report.__snrgPendingInvoicePlanningRequestPicker;
+    if (!picker) {
+      return;
+    }
+    position_pending_invoice_planning_request_picker(picker.button, picker.popover);
+  });
+}
+
+function toggle_pending_invoice_planning_request_picker(report, button) {
+  const activePicker = report && report.__snrgPendingInvoicePlanningRequestPicker;
+  if (activePicker && activePicker.button && activePicker.button.get(0) === button.get(0)) {
+    close_pending_invoice_planning_request_picker(report);
+    return;
+  }
+
+  open_pending_invoice_planning_request_picker(report, button);
+}
+
+function open_pending_invoice_planning_request_picker(report, button) {
+  if (!report || !button || !button.length || button.prop("disabled")) {
+    return;
+  }
+
+  close_pending_invoice_planning_request_picker(report);
+
+  const popover = $(`
+    <div class="snrg-pip-request-picker">
+      <div class="snrg-pip-request-picker-title">${__("Required by")}</div>
+      <div data-request-date-control></div>
+      <div class="snrg-pip-request-picker-hint">${__("Pick a date to create this production request.")}</div>
+    </div>
+  `).appendTo(document.body);
+
+  let dateControl = null;
+  dateControl = frappe.ui.form.make_control({
+    parent: popover.find("[data-request-date-control]").get(0),
+    df: {
+      fieldname: "required_by_date",
+      fieldtype: "Date",
+      placeholder: __("Required by"),
+      change: () => {
+        const requiredByDate = dateControl && dateControl.get_value ? dateControl.get_value() : "";
+        if (!requiredByDate) {
+          return;
+        }
+        close_pending_invoice_planning_request_picker(report);
+        create_production_request_from_button(report, button, requiredByDate);
+      },
+    },
+    render_input: true,
+  });
+  dateControl.refresh();
+
+  report.__snrgPendingInvoicePlanningRequestPicker = {
+    button,
+    popover,
+    dateControl,
+  };
+
+  button.addClass("snrg-pip-request-production-active");
+  position_pending_invoice_planning_request_picker(button, popover);
+
+  const input = dateControl && dateControl.$input ? dateControl.$input.get(0) : null;
+  setTimeout(() => {
+    if (!input || !report.__snrgPendingInvoicePlanningRequestPicker) {
+      return;
+    }
+
+    if (typeof input.showPicker === "function") {
+      try {
+        input.showPicker();
+        return;
+      } catch (error) {
+        // Fall back to the normal focus / click behavior when the browser blocks showPicker.
+      }
+    }
+
+    if (dateControl.datepicker && typeof dateControl.datepicker.show === "function") {
+      dateControl.datepicker.show();
+      return;
+    }
+
+    $(input).trigger("focus");
+    $(input).trigger("click");
+  }, 0);
+}
+
+function close_pending_invoice_planning_request_picker(report) {
+  const picker = report && report.__snrgPendingInvoicePlanningRequestPicker;
+  if (!picker) {
+    return;
+  }
+
+  if (picker.button && picker.button.length) {
+    picker.button.removeClass("snrg-pip-request-production-active");
+  }
+  if (picker.popover && picker.popover.length) {
+    picker.popover.remove();
+  }
+
+  report.__snrgPendingInvoicePlanningRequestPicker = null;
+}
+
+function position_pending_invoice_planning_request_picker(button, popover) {
+  if (!button || !button.length || !popover || !popover.length) {
+    return;
+  }
+
+  const rect = button.get(0).getBoundingClientRect();
+  const pickerWidth = popover.outerWidth();
+  const pickerHeight = popover.outerHeight();
+  const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+  const scrollX = window.scrollX || window.pageXOffset || 0;
+  const scrollY = window.scrollY || window.pageYOffset || 0;
+  const spacing = 8;
+  const gutter = 12;
+
+  let left = rect.left + scrollX;
+  if (left + pickerWidth > scrollX + viewportWidth - gutter) {
+    left = rect.right + scrollX - pickerWidth;
+  }
+  left = Math.max(scrollX + gutter, left);
+
+  const canOpenBelow = rect.bottom + pickerHeight + spacing <= viewportHeight - gutter;
+  const top = canOpenBelow
+    ? rect.bottom + scrollY + spacing
+    : Math.max(scrollY + gutter, rect.top + scrollY - pickerHeight - spacing);
+
+  popover.css({
+    left: `${left}px`,
+    top: `${top}px`,
+  });
+}
+
+function create_production_request_from_button(report, button, requiredByDate) {
+  if (!button || !button.length || !requiredByDate) {
     return;
   }
 
@@ -316,6 +564,7 @@ function create_production_request_from_button(report, button) {
     item_code: decodeURIComponent(button.attr("data-item-code") || ""),
     item_name: decodeURIComponent(button.attr("data-item-name") || ""),
     requested_qty: Number(decodeURIComponent(button.attr("data-requested-qty") || "0")) || 0,
+    required_by_date: requiredByDate,
   }];
 
   button.prop("disabled", true).text(__("Creating..."));
@@ -325,8 +574,7 @@ function create_production_request_from_button(report, button) {
     args: {
       rows: payload,
     },
-    freeze: true,
-    freeze_message: __("Creating Production Requests..."),
+    freeze: false,
     callback: ({ message }) => {
       const result = message || {};
       frappe.show_alert({
@@ -334,13 +582,16 @@ function create_production_request_from_button(report, button) {
         indicator: "green",
       });
       button
-        .removeClass("btn-default")
+        .removeClass("btn-default snrg-pip-request-production-active")
         .addClass("btn-secondary")
         .prop("disabled", true)
         .text(result.updated_count ? __("Updated") : __("Requested"));
     },
     error: () => {
-      button.prop("disabled", false).text(__("Request"));
+      button
+        .prop("disabled", false)
+        .removeClass("snrg-pip-request-production-active")
+        .text(__("Request"));
     },
   });
 }

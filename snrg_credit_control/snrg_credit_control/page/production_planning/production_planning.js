@@ -137,7 +137,7 @@ class SnrgProductionPlanning {
           padding: 16px;
           box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
           display: grid;
-          gap: 14px;
+          gap: 10px;
         }
         .snrg-production-card-open {
           border-left-color: #2563eb;
@@ -169,6 +169,7 @@ class SnrgProductionPlanning {
           font-size: 16px;
           font-weight: 800;
           line-height: 1.35;
+          margin-top: -2px;
         }
         .snrg-production-qty-pill {
           display: inline-flex;

@@ -166,6 +166,7 @@ def get_board_data(company=None, search=None, show_completed=1):
             "item_code",
             "item_name",
             "requested_qty",
+            "required_by_date",
             "status",
             "remarks",
             "requested_by",
@@ -205,6 +206,7 @@ def get_board_data(company=None, search=None, show_completed=1):
                     str(row.get("customer_name") or "").lower(),
                     str(row.get("item_code") or "").lower(),
                     str(row.get("item_name") or "").lower(),
+                    str(row.get("required_by_date") or "").lower(),
                     str(row.get("requested_by_name") or "").lower(),
                 ]
             )
@@ -280,6 +282,10 @@ def normalize_pending_row(row):
     if not item_code:
         frappe.throw(_("Item Code is required to create a Production Request."))
 
+    required_by_date = row.get("required_by_date")
+    if not required_by_date:
+        frappe.throw(_("Required By date is required to create a Production Request."))
+
     return {
         "quotation": quotation,
         "quotation_date": row.get("quotation_date") or None,
@@ -289,6 +295,7 @@ def normalize_pending_row(row):
         "item_code": item_code,
         "item_name": (row.get("item_name") or "").strip(),
         "requested_qty": flt(row.get("requested_qty") or row.get("total_uninvoiced_qty")),
+        "required_by_date": str(getdate(required_by_date)),
         "remarks": (row.get("remarks") or "").strip(),
     }
 
@@ -302,6 +309,7 @@ def apply_row_to_request(doc, row):
     doc.item_code = row["item_code"]
     doc.item_name = row.get("item_name") or ""
     doc.requested_qty = flt(row.get("requested_qty"))
+    doc.required_by_date = row.get("required_by_date") or None
     if row.get("remarks"):
         doc.remarks = row["remarks"]
     return doc
@@ -326,6 +334,7 @@ def serialize_request_row(row, requested_by_name_map=None):
         "item_code": row.get("item_code") or "",
         "item_name": row.get("item_name") or "",
         "requested_qty": flt(row.get("requested_qty")),
+        "required_by_date": str(row.get("required_by_date") or ""),
         "status": row.get("status") or "Open",
         "remarks": row.get("remarks") or "",
         "requested_by": requested_by,

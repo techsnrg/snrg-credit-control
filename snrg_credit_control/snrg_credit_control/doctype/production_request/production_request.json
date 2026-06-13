@@ -17,6 +17,7 @@
   "item_code",
   "item_name",
   "requested_qty",
+  "required_by_date",
   "workflow_section",
   "status",
   "remarks",
@@ -107,6 +108,12 @@
    "label": "Requested Qty",
    "precision": "2",
    "reqd": 1
+  },
+  {
+   "fieldname": "required_by_date",
+   "fieldtype": "Date",
+   "in_standard_filter": 1,
+   "label": "Required By"
   },
   {
    "fieldname": "workflow_section",

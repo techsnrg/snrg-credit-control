@@ -52,6 +52,7 @@ def get_pending_invoice_planning_rows(filters=None, quotation_id=None, include_c
         )
 
     rows = _finalize_group_rows(grouped_rows)
+    _attach_production_request_state(rows)
 
     sales_order_statuses = set(_normalize_multiselect(filters.get("sales_order_status")))
     if sales_order_statuses:
@@ -74,6 +75,42 @@ def get_pending_invoice_planning_rows(filters=None, quotation_id=None, include_c
         row.pop("_sort_index", None)
 
     return rows
+
+
+def _attach_production_request_state(rows):
+    if not rows:
+        return
+
+    source_keys = {
+        _build_pending_invoice_source_key(row.get("quotation"), row.get("item_code"))
+        for row in rows
+        if row.get("quotation") and row.get("item_code")
+    }
+    source_keys.discard("")
+
+    if not source_keys:
+        return
+
+    active_requests = frappe.get_all(
+        "Production Request",
+        filters={
+            "source_key": ["in", sorted(source_keys)],
+            "status": ["in", ["Open", "In Progress"]],
+        },
+        fields=["name", "source_key", "status", "required_by_date"],
+        limit_page_length=len(source_keys),
+    )
+    request_by_source_key = {
+        (request.get("source_key") or "").strip().lower(): request for request in active_requests
+    }
+
+    for row in rows:
+        source_key = _build_pending_invoice_source_key(row.get("quotation"), row.get("item_code"))
+        request = request_by_source_key.get(source_key)
+        row["has_active_production_request"] = bool(request)
+        row["production_request_name"] = request.get("name") if request else ""
+        row["production_request_status"] = request.get("status") if request else ""
+        row["production_required_by_date"] = str(request.get("required_by_date") or "") if request else ""
 
 
 def get_pending_invoice_planning_item_summary_rows(filters=None):
@@ -912,6 +949,10 @@ def _build_status_summary(quotation_status, sales_order_status):
     quote_label = quotation_status or "Unknown Quote"
     order_label = sales_order_status or "Unknown SO"
     return f"{quote_label} / {order_label}"
+
+
+def _build_pending_invoice_source_key(quotation, item_code):
+    return f"{(quotation or '').strip().lower()}::{(item_code or '').strip().lower()}"
 
 
 def _sum_planning_fields(target, source):
