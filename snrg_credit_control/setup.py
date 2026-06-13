@@ -767,6 +767,8 @@ def _ensure_credit_control_workspace():
     has_demand_notice_settings = frappe.db.exists("DocType", "Demand Notice Settings")
     has_ptp_dashboard_page = frappe.db.exists("Page", "ptp-dashboard")
     has_md_dashboard_page = frappe.db.exists("Page", "managing-director-dashboard")
+    has_pending_invoice_planning_report = frappe.db.exists("Report", "Pending Invoice Planning Report")
+    has_production_planning_page = frappe.db.exists("Page", "production-planning")
     has_sales_tracking_page = frappe.db.exists("Page", "sales-tracking")
     has_sales_tracking_sla_settings = frappe.db.exists("DocType", "Sales Tracking SLA Settings")
 
@@ -828,6 +830,34 @@ def _ensure_credit_control_workspace():
                 "data": {"shortcut_name": "Sales Tracking SLA Settings", "col": 3},
             }
         )
+
+    if has_pending_invoice_planning_report or has_production_planning_page:
+        content_blocks.append(
+            {
+                "id": "production_planning_header",
+                "type": "header",
+                "data": {"text": "Production Planning", "col": 12},
+            }
+        )
+
+    if has_pending_invoice_planning_report:
+        content_blocks.append(
+            {
+                "id": "pending_invoice_planning_shortcut",
+                "type": "shortcut",
+                "data": {"shortcut_name": "Pending Invoice Planning Report", "col": 3},
+            }
+        )
+
+    if has_production_planning_page:
+        content_blocks.append(
+            {
+                "id": "production_planning_page_shortcut",
+                "type": "shortcut",
+                "data": {"shortcut_name": "Production Planning", "col": 3},
+            }
+        )
+
     links = [
         {
             "label": "Credit Management",
@@ -928,6 +958,49 @@ def _ensure_credit_control_workspace():
         },
     ]
 
+    if has_pending_invoice_planning_report or has_production_planning_page:
+        links.append(
+            {
+                "label": "Production Planning",
+                "type": "Card Break",
+                "hidden": 0,
+                "is_query_report": 0,
+                "link_count": 0,
+                "onboard": 0,
+                "dependencies": "",
+            }
+        )
+
+    if has_pending_invoice_planning_report:
+        links.append(
+            {
+                "label": "Pending Invoice Planning Report",
+                "type": "Link",
+                "link_type": "Report",
+                "link_to": "Pending Invoice Planning Report",
+                "hidden": 0,
+                "is_query_report": 0,
+                "link_count": 0,
+                "onboard": 1,
+                "dependencies": "",
+            }
+        )
+
+    if has_production_planning_page:
+        links.append(
+            {
+                "label": "Production Planning",
+                "type": "Link",
+                "link_type": "Page",
+                "link_to": "production-planning",
+                "hidden": 0,
+                "is_query_report": 0,
+                "link_count": 0,
+                "onboard": 1,
+                "dependencies": "",
+            }
+        )
+
     shortcuts = [
         {
             "type": "DocType",
@@ -995,6 +1068,29 @@ def _ensure_credit_control_workspace():
                 "link_to": "Sales Tracking SLA Settings",
                 "icon": "settings",
                 "color": "Grey",
+            }
+        )
+
+    if has_pending_invoice_planning_report:
+        shortcuts.append(
+            {
+                "type": "Report",
+                "label": "Pending Invoice Planning Report",
+                "link_to": "Pending Invoice Planning Report",
+                "icon": "list",
+                "doc_view": "",
+                "color": "Orange",
+            }
+        )
+
+    if has_production_planning_page:
+        shortcuts.append(
+            {
+                "type": "Page",
+                "label": "Production Planning",
+                "link_to": "production-planning",
+                "icon": "package",
+                "color": "Green",
             }
         )
 

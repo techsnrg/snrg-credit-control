@@ -29,11 +29,14 @@ def get_pending_invoice_planning_rows(filters=None, quotation_id=None, include_c
         sales_order_items,
     )
 
-    submitted_sales_orders = sorted(invoice_candidate_maps["submitted_sales_orders"])
-    if submitted_sales_orders:
-        invoice_items = _get_invoice_items(submitted_sales_orders)
+    invoice_items = _get_invoice_items(
+        sales_order_names=sorted(invoice_candidate_maps["submitted_sales_orders"]),
+        quotation_names=quotation_names,
+    )
+    if invoice_items:
         _apply_invoice_items(
             grouped_rows,
+            quotation_lookups,
             sales_order_item_to_group,
             invoice_candidate_maps,
             invoice_items,
@@ -217,10 +220,18 @@ def get_sales_order_item_quotation_link_config():
 
 def _get_sales_invoice_item_link_config():
     meta = frappe.get_meta("Sales Invoice Item")
-    for candidate in ("so_detail", "sales_order_item"):
-        if meta.has_field(candidate):
-            return candidate
-    return None
+    return {
+        "sales_order_fieldname": "sales_order" if meta.has_field("sales_order") else None,
+        "sales_order_item_fieldname": next(
+            (candidate for candidate in ("so_detail", "sales_order_item") if meta.has_field(candidate)),
+            None,
+        ),
+        "quotation_fieldname": "quotation" if meta.has_field("quotation") else None,
+        "quotation_item_fieldname": "quotation_item" if meta.has_field("quotation_item") else None,
+        "prevdoc_fieldname": "prevdoc_docname" if meta.has_field("prevdoc_docname") else None,
+        "prevdoc_detail_fieldname": "prevdoc_detail_docname" if meta.has_field("prevdoc_detail_docname") else None,
+        "has_prevdoc_doctype": meta.has_field("prevdoc_doctype"),
+    }
 
 
 def _get_quotations(filters, quotation_id=None, include_cancelled=False):
@@ -331,6 +342,10 @@ def _build_group_rows(quotations, quotation_items):
                 "draft_so_value": 0,
                 "submitted_so_qty": 0,
                 "submitted_so_value": 0,
+                "submitted_so_invoiced_qty": 0,
+                "submitted_so_invoiced_value": 0,
+                "direct_quote_invoiced_qty": 0,
+                "direct_quote_invoiced_value": 0,
                 "submitted_so_uninvoiced_qty": 0,
                 "submitted_so_uninvoiced_value": 0,
                 "invoiced_qty": 0,
@@ -467,66 +482,171 @@ def _resolve_sales_order_group_key(row, grouped_rows, quotation_lookups):
     return None
 
 
-def _get_invoice_items(sales_order_names):
-    if not sales_order_names:
+def _get_invoice_items(sales_order_names=None, quotation_names=None):
+    sales_order_names = sales_order_names or []
+    quotation_names = quotation_names or []
+    if not sales_order_names and not quotation_names:
         return []
 
-    so_detail_fieldname = _get_sales_invoice_item_link_config()
-    placeholders = ", ".join(["%s"] * len(sales_order_names))
-    detail_select = f", sii.{so_detail_fieldname} AS sales_order_item_ref" if so_detail_fieldname else ", NULL AS sales_order_item_ref"
+    link_config = _get_sales_invoice_item_link_config()
+    source_conditions = []
+    values = []
+
+    sales_order_condition, sales_order_values = _build_invoice_source_condition(
+        values=sales_order_names,
+        direct_fieldname=link_config["sales_order_fieldname"],
+        prevdoc_fieldname=link_config["prevdoc_fieldname"],
+        has_prevdoc_doctype=link_config["has_prevdoc_doctype"],
+        target_doctype="Sales Order",
+    )
+    if sales_order_condition:
+        source_conditions.append(sales_order_condition)
+        values.extend(sales_order_values)
+
+    quotation_condition, quotation_values = _build_invoice_source_condition(
+        values=quotation_names,
+        direct_fieldname=link_config["quotation_fieldname"],
+        prevdoc_fieldname=link_config["prevdoc_fieldname"],
+        has_prevdoc_doctype=link_config["has_prevdoc_doctype"],
+        target_doctype="Quotation",
+    )
+    if quotation_condition:
+        source_conditions.append(quotation_condition)
+        values.extend(quotation_values)
+
+    if not source_conditions:
+        return []
+
+    sales_order_select = _build_invoice_source_select(
+        direct_fieldname=link_config["sales_order_fieldname"],
+        prevdoc_fieldname=link_config["prevdoc_fieldname"],
+        has_prevdoc_doctype=link_config["has_prevdoc_doctype"],
+        target_doctype="Sales Order",
+        alias="sales_order",
+    )
+    sales_order_item_select = _build_invoice_source_select(
+        direct_fieldname=link_config["sales_order_item_fieldname"],
+        prevdoc_fieldname=link_config["prevdoc_detail_fieldname"],
+        has_prevdoc_doctype=link_config["has_prevdoc_doctype"],
+        target_doctype="Sales Order",
+        alias="sales_order_item_ref",
+    )
+    quotation_select = _build_invoice_source_select(
+        direct_fieldname=link_config["quotation_fieldname"],
+        prevdoc_fieldname=link_config["prevdoc_fieldname"],
+        has_prevdoc_doctype=link_config["has_prevdoc_doctype"],
+        target_doctype="Quotation",
+        alias="quotation",
+    )
+    quotation_item_select = _build_invoice_source_select(
+        direct_fieldname=link_config["quotation_item_fieldname"],
+        prevdoc_fieldname=link_config["prevdoc_detail_fieldname"],
+        has_prevdoc_doctype=link_config["has_prevdoc_doctype"],
+        target_doctype="Quotation",
+        alias="quotation_item_ref",
+    )
 
     return frappe.db.sql(
         f"""
         SELECT
             sii.parent AS invoice_name,
-            sii.sales_order,
+            {sales_order_select},
+            {quotation_select},
             sii.item_code,
             sii.item_name,
             sii.qty,
             sii.amount,
             si.posting_date
-            {detail_select}
+            , {sales_order_item_select}
+            , {quotation_item_select}
         FROM `tabSales Invoice Item` sii
         INNER JOIN `tabSales Invoice` si ON si.name = sii.parent
-        WHERE sii.sales_order IN ({placeholders})
+        WHERE ({' OR '.join(f'({condition})' for condition in source_conditions)})
           AND si.docstatus = 1
           AND COALESCE(si.is_return, 0) = 0
         ORDER BY si.posting_date DESC, si.name DESC, sii.idx ASC
         """,
-        tuple(sales_order_names),
+        tuple(values),
         as_dict=True,
     )
 
 
-def _apply_invoice_items(grouped_rows, sales_order_item_to_group, invoice_candidate_maps, invoice_items):
+def _apply_invoice_items(grouped_rows, quotation_lookups, sales_order_item_to_group, invoice_candidate_maps, invoice_items):
     for row in invoice_items:
-        allocations = _resolve_invoice_allocations(
+        allocation = _resolve_invoice_allocations(
             row,
             grouped_rows,
+            quotation_lookups,
             sales_order_item_to_group,
             invoice_candidate_maps,
         )
-        if not allocations:
+        if not allocation:
             continue
 
+        allocations = allocation["group_keys"]
+        source = allocation["source"]
         qty = flt(row.qty)
         amount = flt(row.amount)
-        qty_weights = _get_allocation_weights(grouped_rows, allocations, "submitted_so_qty", "invoiced_qty")
-        value_weights = _get_allocation_weights(grouped_rows, allocations, "submitted_so_value", "invoiced_value")
+
+        if source == "submitted_so":
+            qty_weights = _get_allocation_weights(
+                grouped_rows,
+                allocations,
+                "submitted_so_qty",
+                "submitted_so_invoiced_qty",
+            )
+            value_weights = _get_allocation_weights(
+                grouped_rows,
+                allocations,
+                "submitted_so_value",
+                "submitted_so_invoiced_value",
+            )
+        else:
+            qty_weights = _get_quote_open_allocation_weights(
+                grouped_rows,
+                allocations,
+                "quotation_qty",
+                "draft_so_qty",
+                "submitted_so_qty",
+                "direct_quote_invoiced_qty",
+            )
+            value_weights = _get_quote_open_allocation_weights(
+                grouped_rows,
+                allocations,
+                "quotation_value",
+                "draft_so_value",
+                "submitted_so_value",
+                "direct_quote_invoiced_value",
+            )
+
         qty_shares = _allocate_by_weights(qty, qty_weights)
         value_shares = _allocate_by_weights(amount, value_weights)
 
         for index, group_key in enumerate(allocations):
             group = grouped_rows[group_key]
-            group["invoiced_qty"] += qty_shares[index]
-            group["invoiced_value"] += value_shares[index]
+            if source == "submitted_so":
+                group["submitted_so_invoiced_qty"] += qty_shares[index]
+                group["submitted_so_invoiced_value"] += value_shares[index]
+            else:
+                group["direct_quote_invoiced_qty"] += qty_shares[index]
+                group["direct_quote_invoiced_value"] += value_shares[index]
             _capture_latest_reference(group, None, "latest_invoice_date", row.invoice_name, row.posting_date)
 
 
-def _resolve_invoice_allocations(row, grouped_rows, sales_order_item_to_group, invoice_candidate_maps):
+def _resolve_invoice_allocations(row, grouped_rows, quotation_lookups, sales_order_item_to_group, invoice_candidate_maps):
     sales_order_item_ref = row.get("sales_order_item_ref")
     if sales_order_item_ref and sales_order_item_ref in sales_order_item_to_group:
-        return [sales_order_item_to_group[sales_order_item_ref]]
+        return {
+            "source": "submitted_so",
+            "group_keys": [sales_order_item_to_group[sales_order_item_ref]],
+        }
+
+    quotation_item_ref = row.get("quotation_item_ref")
+    if quotation_item_ref and quotation_item_ref in quotation_lookups["by_quote_item"]:
+        return {
+            "source": "direct_quote",
+            "group_keys": [quotation_lookups["by_quote_item"][quotation_item_ref]],
+        }
 
     sales_order = row.get("sales_order") or ""
     item_code = row.get("item_code") or ""
@@ -535,14 +655,37 @@ def _resolve_invoice_allocations(row, grouped_rows, sales_order_item_to_group, i
     if item_code:
         candidates = invoice_candidate_maps["by_code"].get((sales_order, item_code), set())
         if candidates:
-            return sorted(key for key in candidates if key in grouped_rows)
+            return {
+                "source": "submitted_so",
+                "group_keys": sorted(key for key in candidates if key in grouped_rows),
+            }
 
     if item_name:
         candidates = invoice_candidate_maps["by_name"].get((sales_order, item_name), set())
         if candidates:
-            return sorted(key for key in candidates if key in grouped_rows)
+            return {
+                "source": "submitted_so",
+                "group_keys": sorted(key for key in candidates if key in grouped_rows),
+            }
 
-    return []
+    quotation = row.get("quotation") or ""
+    if item_code:
+        candidates = quotation_lookups["by_code"].get((quotation, item_code), set())
+        if candidates:
+            return {
+                "source": "direct_quote",
+                "group_keys": sorted(key for key in candidates if key in grouped_rows),
+            }
+
+    if item_name:
+        candidates = quotation_lookups["by_name"].get((quotation, item_name), set())
+        if candidates:
+            return {
+                "source": "direct_quote",
+                "group_keys": sorted(key for key in candidates if key in grouped_rows),
+            }
+
+    return None
 
 
 def _get_allocation_weights(grouped_rows, allocations, total_key, used_key):
@@ -558,6 +701,41 @@ def _get_allocation_weights(grouped_rows, allocations, total_key, used_key):
     fallback_weights = [flt(grouped_rows[group_key].get(total_key)) for group_key in allocations]
     if any(weight > 0 for weight in fallback_weights):
         return fallback_weights
+
+    return [1] * len(allocations)
+
+
+def _get_quote_open_allocation_weights(grouped_rows, allocations, total_key, draft_key, submitted_key, used_key):
+    weights = []
+    for group_key in allocations:
+        group = grouped_rows[group_key]
+        remaining = max(
+            flt(group.get(total_key))
+            - flt(group.get(draft_key))
+            - flt(group.get(submitted_key))
+            - flt(group.get(used_key)),
+            0,
+        )
+        weights.append(remaining)
+
+    if any(weight > 0 for weight in weights):
+        return weights
+
+    fallback_weights = [
+        max(
+            flt(grouped_rows[group_key].get(total_key))
+            - flt(grouped_rows[group_key].get(draft_key))
+            - flt(grouped_rows[group_key].get(submitted_key)),
+            0,
+        )
+        for group_key in allocations
+    ]
+    if any(weight > 0 for weight in fallback_weights):
+        return fallback_weights
+
+    absolute_weights = [flt(grouped_rows[group_key].get(total_key)) for group_key in allocations]
+    if any(weight > 0 for weight in absolute_weights):
+        return absolute_weights
 
     return [1] * len(allocations)
 
@@ -588,15 +766,32 @@ def _allocate_by_weights(total, weights):
 def _finalize_group_rows(grouped_rows):
     rows = []
     for group in grouped_rows.values():
-        quotation_open_qty = max(flt(group["quotation_qty"]) - flt(group["draft_so_qty"]) - flt(group["submitted_so_qty"]), 0)
+        quotation_open_qty = max(
+            flt(group["quotation_qty"])
+            - flt(group["draft_so_qty"])
+            - flt(group["submitted_so_qty"])
+            - flt(group["direct_quote_invoiced_qty"]),
+            0,
+        )
         quotation_open_value = max(
-            flt(group["quotation_value"]) - flt(group["draft_so_value"]) - flt(group["submitted_so_value"]),
+            flt(group["quotation_value"])
+            - flt(group["draft_so_value"])
+            - flt(group["submitted_so_value"])
+            - flt(group["direct_quote_invoiced_value"]),
             0,
         )
         order_qty = flt(group["draft_so_qty"]) + flt(group["submitted_so_qty"])
         order_value = flt(group["draft_so_value"]) + flt(group["submitted_so_value"])
-        submitted_so_uninvoiced_qty = max(flt(group["submitted_so_qty"]) - flt(group["invoiced_qty"]), 0)
-        submitted_so_uninvoiced_value = max(flt(group["submitted_so_value"]) - flt(group["invoiced_value"]), 0)
+        submitted_so_uninvoiced_qty = max(
+            flt(group["submitted_so_qty"]) - flt(group["submitted_so_invoiced_qty"]),
+            0,
+        )
+        submitted_so_uninvoiced_value = max(
+            flt(group["submitted_so_value"]) - flt(group["submitted_so_invoiced_value"]),
+            0,
+        )
+        invoiced_qty = flt(group["submitted_so_invoiced_qty"]) + flt(group["direct_quote_invoiced_qty"])
+        invoiced_value = flt(group["submitted_so_invoiced_value"]) + flt(group["direct_quote_invoiced_value"])
         total_uninvoiced_qty = quotation_open_qty + flt(group["draft_so_qty"]) + submitted_so_uninvoiced_qty
         total_uninvoiced_value = quotation_open_value + flt(group["draft_so_value"]) + submitted_so_uninvoiced_value
 
@@ -624,8 +819,8 @@ def _finalize_group_rows(grouped_rows):
             "submitted_so_value": flt(group["submitted_so_value"]),
             "submitted_so_uninvoiced_qty": submitted_so_uninvoiced_qty,
             "submitted_so_uninvoiced_value": submitted_so_uninvoiced_value,
-            "invoiced_qty": flt(group["invoiced_qty"]),
-            "invoiced_value": flt(group["invoiced_value"]),
+            "invoiced_qty": invoiced_qty,
+            "invoiced_value": invoiced_value,
             "total_uninvoiced_qty": total_uninvoiced_qty,
             "total_uninvoiced_value": total_uninvoiced_value,
             "sales_order_status": sales_order_status,
@@ -642,7 +837,7 @@ def _finalize_group_rows(grouped_rows):
                 quotation_open_qty=quotation_open_qty,
                 draft_so_qty=flt(group["draft_so_qty"]),
                 submitted_so_uninvoiced_qty=submitted_so_uninvoiced_qty,
-                invoiced_qty=flt(group["invoiced_qty"]),
+                invoiced_qty=invoiced_qty,
             ),
             "_sort_index": group["_sort_index"],
         }
@@ -742,6 +937,29 @@ def _capture_latest_reference(group, name_field, date_field, docname, date_value
     group[date_field] = _serialize_date(date_value)
     if name_field:
         group[name_field] = docname or ""
+
+
+def _build_invoice_source_select(direct_fieldname, prevdoc_fieldname, has_prevdoc_doctype, target_doctype, alias):
+    if direct_fieldname:
+        return f"sii.{direct_fieldname} AS {alias}"
+    if prevdoc_fieldname and has_prevdoc_doctype:
+        return f"CASE WHEN sii.prevdoc_doctype = '{target_doctype}' THEN sii.{prevdoc_fieldname} ELSE NULL END AS {alias}"
+    return f"NULL AS {alias}"
+
+
+def _build_invoice_source_condition(values, direct_fieldname, prevdoc_fieldname, has_prevdoc_doctype, target_doctype):
+    if not values:
+        return None, []
+
+    placeholders = ", ".join(["%s"] * len(values))
+    if direct_fieldname:
+        return f"sii.{direct_fieldname} IN ({placeholders})", list(values)
+    if prevdoc_fieldname and has_prevdoc_doctype:
+        return (
+            f"(sii.{prevdoc_fieldname} IN ({placeholders}) AND sii.prevdoc_doctype = '{target_doctype}')",
+            list(values),
+        )
+    return None, []
 
 
 def _extract_date_bounds(filters):

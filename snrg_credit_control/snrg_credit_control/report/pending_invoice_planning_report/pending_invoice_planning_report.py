@@ -47,13 +47,6 @@ def get_columns():
             "width": 180,
         },
         {
-            "label": "Company",
-            "fieldname": "company",
-            "fieldtype": "Link",
-            "options": "Company",
-            "width": 140,
-        },
-        {
             "label": "Territory",
             "fieldname": "territory",
             "fieldtype": "Link",

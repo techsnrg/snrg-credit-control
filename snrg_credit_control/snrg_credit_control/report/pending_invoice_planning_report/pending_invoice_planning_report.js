@@ -73,6 +73,7 @@ frappe.query_reports["Pending Invoice Planning Report"] = {
 
   onload(report) {
     setTimeout(() => force_live_pending_invoice_planning_refresh(report), 300);
+    setTimeout(() => setup_pending_invoice_planning_actions(report), 400);
   },
 
   formatter(value, row, column, data, default_formatter) {
@@ -133,4 +134,75 @@ function force_live_pending_invoice_planning_refresh(report) {
     report.__snrgPendingInvoicePlanningLiveRefreshDone = true;
     report.refresh();
   }
+}
+
+function setup_pending_invoice_planning_actions(report) {
+  if (!report || report.__snrgPendingInvoicePlanningActionsSetup) {
+    return;
+  }
+
+  report.__snrgPendingInvoicePlanningActionsSetup = true;
+  report.page.add_action_item(__("Request Production"), () => create_production_requests_from_report(report));
+  report.page.add_action_item(__("Open Production Planning"), () => {
+    frappe.route_options = {
+      company: report.get_filter_value("company") || "",
+    };
+    frappe.set_route("production-planning");
+  });
+}
+
+function create_production_requests_from_report(report) {
+  const rows = get_selected_pending_invoice_planning_rows(report);
+  if (!rows.length) {
+    frappe.msgprint({
+      title: __("Select Rows"),
+      message: __("Select one or more rows from the report to create Production Requests."),
+      indicator: "orange",
+    });
+    return;
+  }
+
+  const payload = rows.map((row) => ({
+    quotation: row.quotation,
+    quotation_date: row.quotation_date,
+    customer: row.customer,
+    customer_name: row.customer_name,
+    company: row.company,
+    item_code: row.item_code,
+    item_name: row.item_name,
+    requested_qty: row.total_uninvoiced_qty,
+  }));
+
+  frappe.call({
+    method: "snrg_credit_control.snrg_credit_control.doctype.production_request.production_request.create_from_pending_rows",
+    args: {
+      rows: payload,
+    },
+    freeze: true,
+    freeze_message: __("Creating Production Requests..."),
+    callback: ({ message }) => {
+      const result = message || {};
+      frappe.show_alert({
+        message: result.message || __("Production Requests created."),
+        indicator: "green",
+      });
+      report.refresh();
+      frappe.route_options = {
+        company: report.get_filter_value("company") || "",
+      };
+      frappe.set_route("production-planning");
+    },
+  });
+}
+
+function get_selected_pending_invoice_planning_rows(report) {
+  const datatableRowmanager = report.datatable && report.datatable.rowmanager;
+  if (!datatableRowmanager || !datatableRowmanager.getCheckedRows) {
+    return [];
+  }
+
+  const checkedRows = datatableRowmanager.getCheckedRows() || [];
+  return checkedRows
+    .map((index) => (report.data || [])[index] || null)
+    .filter(Boolean);
 }
