@@ -18,6 +18,7 @@ def after_install():
     _ensure_module()
     _ensure_role()
     _ensure_customer_fields()
+    _ensure_customer_credit_limit_fields()
     _ensure_so_fields()
     _ensure_quotation_fields()
     _ensure_sales_invoice_fields()
@@ -36,6 +37,7 @@ def after_migrate():
     _ensure_module()
     _ensure_role()
     _ensure_customer_fields()
+    _ensure_customer_credit_limit_fields()
     _ensure_so_fields()
     _ensure_quotation_fields()
     _ensure_sales_invoice_fields()
@@ -89,12 +91,36 @@ def _ensure_role():
 
 _CUSTOMER_FIELDS = [
     {
+        "fieldname": "custom_snrg_credit_limit_snapshot_info",
+        "fieldtype": "HTML",
+        "label": "Credit Limit Snapshot Info",
+        "insert_after": "credit_limits",
+    },
+    {
         "fieldname": "custom_credit_lock_days",
         "fieldtype": "Int",
         "label": "Credit Lock Days",
         "description": "Invoices older than this many days with outstanding balance trigger a Credit Hold. Leave blank to use the system default (75 days).",
         "default": "75",
-        "insert_after": "credit_limits",  # placed after the credit limits table
+        "insert_after": "custom_snrg_credit_limit_snapshot_info",
+    },
+]
+
+_CUSTOMER_CREDIT_LIMIT_FIELDS = [
+    {
+        "fieldname": "custom_snrg_recommended_credit_limit",
+        "fieldtype": "Currency",
+        "label": "Recommended Credit Limit",
+        "read_only": 1,
+        "insert_after": "credit_limit",
+        "in_list_view": 1,
+    },
+    {
+        "fieldname": "custom_snrg_recommended_credit_limit_updated_on",
+        "fieldtype": "Datetime",
+        "label": "Recommendation Updated On",
+        "read_only": 1,
+        "insert_after": "custom_snrg_recommended_credit_limit",
     },
 ]
 
@@ -102,6 +128,11 @@ _CUSTOMER_FIELDS = [
 def _ensure_customer_fields():
     for fdef in _CUSTOMER_FIELDS:
         _ensure_custom_field("Customer", fdef)
+
+
+def _ensure_customer_credit_limit_fields():
+    for fdef in _CUSTOMER_CREDIT_LIMIT_FIELDS:
+        _ensure_custom_field("Customer Credit Limit", fdef)
 
 
 # ---------------------------------------------------------------------------
