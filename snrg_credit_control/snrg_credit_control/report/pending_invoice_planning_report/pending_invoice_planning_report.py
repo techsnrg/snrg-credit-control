@@ -128,4 +128,10 @@ def get_columns():
             "fieldtype": "Data",
             "width": 180,
         },
+        {
+            "label": "Production",
+            "fieldname": "production_request_action",
+            "fieldtype": "HTML",
+            "width": 140,
+        },
     ]

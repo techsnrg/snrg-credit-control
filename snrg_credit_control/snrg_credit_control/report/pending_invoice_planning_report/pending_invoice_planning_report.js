@@ -77,6 +77,29 @@ frappe.query_reports["Pending Invoice Planning Report"] = {
   },
 
   formatter(value, row, column, data, default_formatter) {
+    if (column.fieldname === "production_request_action" && data) {
+      const pendingQty = Number(data.total_uninvoiced_qty || 0);
+      if (pendingQty <= 0) {
+        return "";
+      }
+
+      return `
+        <button
+          class="btn btn-xs btn-default snrg-pip-request-production"
+          data-quotation="${encodeURIComponent(data.quotation || "")}"
+          data-quotation-date="${encodeURIComponent(data.quotation_date || "")}"
+          data-customer="${encodeURIComponent(data.customer || "")}"
+          data-customer-name="${encodeURIComponent(data.customer_name || "")}"
+          data-company="${encodeURIComponent(data.company || "")}"
+          data-item-code="${encodeURIComponent(data.item_code || "")}"
+          data-item-name="${encodeURIComponent(data.item_name || "")}"
+          data-requested-qty="${encodeURIComponent(String(data.total_uninvoiced_qty || 0))}"
+        >
+          ${__("Request")}
+        </button>
+      `;
+    }
+
     const formatted = default_formatter(value, row, column, data);
     if (!data) {
       return formatted;
@@ -142,36 +165,39 @@ function setup_pending_invoice_planning_actions(report) {
   }
 
   report.__snrgPendingInvoicePlanningActionsSetup = true;
-  report.page.add_action_item(__("Request Production"), () => create_production_requests_from_report(report));
   report.page.add_action_item(__("Open Production Planning"), () => {
     frappe.route_options = {
       company: report.get_filter_value("company") || "",
     };
     frappe.set_route("production-planning");
   });
+
+  const wrapper = report.page && report.page.wrapper ? report.page.wrapper : $(document.body);
+  wrapper.off("click.snrg_pip_request_production");
+  wrapper.on("click.snrg_pip_request_production", ".snrg-pip-request-production", (event) => {
+    event.preventDefault();
+    const button = $(event.currentTarget);
+    create_production_request_from_button(report, button);
+  });
 }
 
-function create_production_requests_from_report(report) {
-  const rows = get_selected_pending_invoice_planning_rows(report);
-  if (!rows.length) {
-    frappe.msgprint({
-      title: __("Select Rows"),
-      message: __("Select one or more rows from the report to create Production Requests."),
-      indicator: "orange",
-    });
+function create_production_request_from_button(report, button) {
+  if (!button || !button.length) {
     return;
   }
 
-  const payload = rows.map((row) => ({
-    quotation: row.quotation,
-    quotation_date: row.quotation_date,
-    customer: row.customer,
-    customer_name: row.customer_name,
-    company: row.company,
-    item_code: row.item_code,
-    item_name: row.item_name,
-    requested_qty: row.total_uninvoiced_qty,
-  }));
+  const payload = [{
+    quotation: decodeURIComponent(button.attr("data-quotation") || ""),
+    quotation_date: decodeURIComponent(button.attr("data-quotation-date") || ""),
+    customer: decodeURIComponent(button.attr("data-customer") || ""),
+    customer_name: decodeURIComponent(button.attr("data-customer-name") || ""),
+    company: decodeURIComponent(button.attr("data-company") || ""),
+    item_code: decodeURIComponent(button.attr("data-item-code") || ""),
+    item_name: decodeURIComponent(button.attr("data-item-name") || ""),
+    requested_qty: Number(decodeURIComponent(button.attr("data-requested-qty") || "0")) || 0,
+  }];
+
+  button.prop("disabled", true).text(__("Creating..."));
 
   frappe.call({
     method: "snrg_credit_control.snrg_credit_control.doctype.production_request.production_request.create_from_pending_rows",
@@ -187,22 +213,9 @@ function create_production_requests_from_report(report) {
         indicator: "green",
       });
       report.refresh();
-      frappe.route_options = {
-        company: report.get_filter_value("company") || "",
-      };
-      frappe.set_route("production-planning");
+    },
+    error: () => {
+      button.prop("disabled", false).text(__("Request"));
     },
   });
-}
-
-function get_selected_pending_invoice_planning_rows(report) {
-  const datatableRowmanager = report.datatable && report.datatable.rowmanager;
-  if (!datatableRowmanager || !datatableRowmanager.getCheckedRows) {
-    return [];
-  }
-
-  const checkedRows = datatableRowmanager.getCheckedRows() || [];
-  return checkedRows
-    .map((index) => (report.data || [])[index] || null)
-    .filter(Boolean);
 }
