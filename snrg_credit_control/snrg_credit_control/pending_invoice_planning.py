@@ -10,6 +10,15 @@ QTY_EPSILON = 0.0001
 VALUE_EPSILON = 0.01
 
 
+@frappe.whitelist()
+def create_production_requests_from_pending_rows(rows):
+    from snrg_credit_control.snrg_credit_control.doctype.production_request.production_request import (
+        create_from_pending_rows,
+    )
+
+    return create_from_pending_rows(rows)
+
+
 def get_pending_invoice_planning_rows(filters=None, quotation_id=None, include_cancelled=False, pending_only=True):
     filters = frappe._dict(filters or {})
     quotations = _get_quotations(filters, quotation_id=quotation_id, include_cancelled=include_cancelled)

@@ -178,8 +178,21 @@ def get_board_data(company=None, search=None, show_completed=1):
         limit_page_length=500,
     )
 
+    requested_by_ids = sorted({row.get("requested_by") for row in rows if row.get("requested_by")})
+    requested_by_name_map = {}
+    if requested_by_ids:
+        requested_by_name_map = {
+            user.name: (user.full_name or user.name)
+            for user in frappe.get_all(
+                "User",
+                filters={"name": ["in", requested_by_ids]},
+                fields=["name", "full_name"],
+                limit_page_length=len(requested_by_ids),
+            )
+        }
+
     search_term = (search or "").strip().lower()
-    normalized_rows = [serialize_request_row(row) for row in rows]
+    normalized_rows = [serialize_request_row(row, requested_by_name_map) for row in rows]
     if search_term:
         normalized_rows = [
             row
@@ -192,6 +205,7 @@ def get_board_data(company=None, search=None, show_completed=1):
                     str(row.get("customer_name") or "").lower(),
                     str(row.get("item_code") or "").lower(),
                     str(row.get("item_name") or "").lower(),
+                    str(row.get("requested_by_name") or "").lower(),
                 ]
             )
         ]
@@ -297,9 +311,11 @@ def build_source_key(quotation, item_code):
     return f"{(quotation or '').strip().lower()}::{(item_code or '').strip().lower()}"
 
 
-def serialize_request_row(row):
+def serialize_request_row(row, requested_by_name_map=None):
+    requested_by_name_map = requested_by_name_map or {}
     requested_on = row.get("requested_on")
     completed_on = row.get("completed_on")
+    requested_by = row.get("requested_by") or ""
     return {
         "name": row.get("name"),
         "quotation": row.get("quotation") or "",
@@ -312,7 +328,8 @@ def serialize_request_row(row):
         "requested_qty": flt(row.get("requested_qty")),
         "status": row.get("status") or "Open",
         "remarks": row.get("remarks") or "",
-        "requested_by": row.get("requested_by") or "",
+        "requested_by": requested_by,
+        "requested_by_name": requested_by_name_map.get(requested_by) or requested_by,
         "requested_on": str(requested_on or ""),
         "completed_by": row.get("completed_by") or "",
         "completed_on": str(completed_on or ""),

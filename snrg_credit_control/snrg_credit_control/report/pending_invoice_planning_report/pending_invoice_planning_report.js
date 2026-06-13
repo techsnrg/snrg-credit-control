@@ -79,8 +79,13 @@ frappe.query_reports["Pending Invoice Planning Report"] = {
   ],
 
   onload(report) {
+    ensure_pending_invoice_planning_report_styles(report);
     setTimeout(() => force_live_pending_invoice_planning_refresh(report), 300);
     setTimeout(() => setup_pending_invoice_planning_actions(report), 400);
+  },
+
+  after_datatable_render(datatable, report) {
+    apply_pending_invoice_planning_table_layout(report, datatable);
   },
 
   formatter(value, row, column, data, default_formatter) {
@@ -196,7 +201,8 @@ function setup_pending_invoice_planning_actions(report) {
   }
 
   report.__snrgPendingInvoicePlanningActionsSetup = true;
-  report.page.add_action_item(__("Open Production Planning"), () => {
+  ensure_pending_invoice_planning_report_styles(report);
+  report.page.set_primary_action(__("Open Production Planning"), () => {
     frappe.route_options = {
       company: report.get_filter_value("company") || "",
     };
@@ -207,8 +213,92 @@ function setup_pending_invoice_planning_actions(report) {
   wrapper.off("click.snrg_pip_request_production");
   wrapper.on("click.snrg_pip_request_production", ".snrg-pip-request-production", (event) => {
     event.preventDefault();
+    event.stopPropagation();
+    if (event.stopImmediatePropagation) {
+      event.stopImmediatePropagation();
+    }
     const button = $(event.currentTarget);
     create_production_request_from_button(report, button);
+    return false;
+  });
+}
+
+function ensure_pending_invoice_planning_report_styles(report) {
+  if (!report || !report.page || !report.page.wrapper) {
+    return;
+  }
+
+  const wrapper = report.page.wrapper;
+  wrapper.addClass("snrg-pip-report-page");
+
+  if ($("#snrg-pip-report-style").length) {
+    return;
+  }
+
+  $("head").append(`
+    <style id="snrg-pip-report-style">
+      .snrg-pip-report-page .dt-scrollable .dt-row,
+      .snrg-pip-report-page .dt-scrollable .dt-cell {
+        height: auto !important;
+        min-height: 58px;
+      }
+
+      .snrg-pip-report-page .dt-scrollable .dt-cell__content {
+        height: auto !important;
+        min-height: 58px;
+        white-space: normal !important;
+        line-height: 1.25;
+        padding-top: 6px;
+        padding-bottom: 6px;
+        overflow: visible;
+        display: flex;
+        align-items: center;
+      }
+
+      .snrg-pip-report-page .snrg-pip-stacked-cell {
+        display: grid;
+        gap: 3px;
+        line-height: 1.25;
+      }
+
+      .snrg-pip-report-page .snrg-pip-stacked-primary {
+        font-weight: 700;
+        color: #0f766e;
+      }
+
+      .snrg-pip-report-page .snrg-pip-stacked-secondary {
+        color: #667085;
+        font-size: 12px;
+      }
+    </style>
+  `);
+}
+
+function apply_pending_invoice_planning_table_layout(report, datatable) {
+  const target =
+    datatable?.wrapper ||
+    report?.datatable?.wrapper ||
+    report?.page?.wrapper?.find(".dt-scrollable")[0];
+
+  if (!target) {
+    return;
+  }
+
+  target.querySelectorAll(".dt-row, .dt-cell").forEach((element) => {
+    element.style.height = "auto";
+    element.style.minHeight = "58px";
+  });
+
+  target.querySelectorAll(".dt-cell__content").forEach((element) => {
+    element.style.height = "auto";
+    element.style.minHeight = "58px";
+    element.style.whiteSpace = "normal";
+    element.style.lineHeight = "1.25";
+    element.style.paddingTop = "6px";
+    element.style.paddingBottom = "6px";
+    element.style.overflow = "visible";
+    element.style.display = "flex";
+    element.style.alignItems = "center";
   });
 }
 
@@ -231,7 +321,7 @@ function create_production_request_from_button(report, button) {
   button.prop("disabled", true).text(__("Creating..."));
 
   frappe.call({
-    method: "snrg_credit_control.snrg_credit_control.doctype.production_request.production_request.create_from_pending_rows",
+    method: "snrg_credit_control.snrg_credit_control.pending_invoice_planning.create_production_requests_from_pending_rows",
     args: {
       rows: payload,
     },
@@ -257,9 +347,9 @@ function create_production_request_from_button(report, button) {
 
 function render_pending_invoice_planning_stacked_link({ route, primary, secondary }) {
   return `
-    <div style="display:grid;gap:2px;line-height:1.25;">
-      <a href="${route}" style="font-weight:700;color:#0f766e;">${frappe.utils.escape_html(primary || "")}</a>
-      <div style="color:#667085;font-size:12px;">${frappe.utils.escape_html(secondary || "")}</div>
+    <div class="snrg-pip-stacked-cell">
+      <a href="${route}" class="snrg-pip-stacked-primary">${frappe.utils.escape_html(primary || "")}</a>
+      <div class="snrg-pip-stacked-secondary">${frappe.utils.escape_html(secondary || "")}</div>
     </div>
   `;
 }

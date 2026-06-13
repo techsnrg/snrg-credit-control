@@ -19,10 +19,10 @@ class SnrgProductionPlanning {
   }
 
   setup() {
-    this.page.set_primary_action(__("Refresh"), () => this.refresh(), "refresh");
-    this.page.add_action_item(__("Open Pending Invoice Planning Report"), () => {
+    this.page.set_primary_action(__("Open Pending Invoice Planning Report"), () => {
       frappe.set_route("query-report", "Pending Invoice Planning Report");
     });
+    this.page.set_secondary_action(__("Refresh"), () => this.refresh(), "refresh");
     this.render_shell();
     this.make_filters();
     this.bind_events();
@@ -131,73 +131,137 @@ class SnrgProductionPlanning {
         }
         .snrg-production-card {
           border: 1px solid #e4eaf2;
+          border-left-width: 4px;
           border-radius: 10px;
           background: #fff;
-          padding: 14px;
+          padding: 16px;
           box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
           display: grid;
-          gap: 10px;
+          gap: 14px;
         }
-        .snrg-production-card-head {
+        .snrg-production-card-open {
+          border-left-color: #2563eb;
+        }
+        .snrg-production-card-progress {
+          border-left-color: #d97706;
+        }
+        .snrg-production-card-completed {
+          border-left-color: #16a34a;
+        }
+        .snrg-production-card-cancelled {
+          border-left-color: #98a2b3;
+        }
+        .snrg-production-card-top {
           display: flex;
           justify-content: space-between;
-          gap: 10px;
-          align-items: flex-start;
+          gap: 12px;
+          align-items: center;
         }
-        .snrg-production-card-title {
+        .snrg-production-card-code {
+          color: #0f172a;
+          font-size: 15px;
+          font-weight: 800;
+          line-height: 1.2;
+          letter-spacing: .01em;
+        }
+        .snrg-production-item-name {
           color: #101828;
-          font-size: 14px;
+          font-size: 16px;
           font-weight: 800;
           line-height: 1.35;
         }
-        .snrg-production-card-subtitle {
-          margin-top: 3px;
-          color: #667085;
-          font-size: 12px;
-        }
-        .snrg-production-status {
+        .snrg-production-qty-pill {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          padding: 4px 10px;
+          min-width: 70px;
+          padding: 6px 12px;
           border-radius: 999px;
-          font-size: 11px;
+          border: 1px solid transparent;
+          font-size: 13px;
           font-weight: 800;
           white-space: nowrap;
         }
-        .snrg-production-status-open {
-          background: #eef6ff;
+        .snrg-production-qty-open {
+          background: #eef4ff;
+          border-color: #c7d7fe;
           color: #175cd3;
         }
-        .snrg-production-status-progress {
-          background: #fff4e5;
+        .snrg-production-qty-progress {
+          background: #fff4e8;
+          border-color: #f6d2a8;
           color: #b45309;
         }
-        .snrg-production-status-completed {
+        .snrg-production-qty-completed {
           background: #ecfdf3;
+          border-color: #b7e6c0;
           color: #027a48;
         }
-        .snrg-production-status-cancelled {
-          background: #f2f4f7;
+        .snrg-production-qty-cancelled {
+          background: #f4f6f8;
+          border-color: #d5dae0;
           color: #475467;
         }
-        .snrg-production-grid {
+        .snrg-production-card-grid {
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 8px 12px;
+          gap: 14px 18px;
         }
-        .snrg-production-meta-label {
+        .snrg-production-card-stack {
+          display: grid;
+          gap: 3px;
+          min-width: 0;
+        }
+        .snrg-production-card-primary {
+          color: #101828;
+          font-size: 14px;
+          font-weight: 700;
+          line-height: 1.35;
+          overflow-wrap: anywhere;
+        }
+        .snrg-production-card-secondary {
+          color: #667085;
+          font-size: 12px;
+          font-weight: 600;
+          line-height: 1.3;
+          overflow-wrap: anywhere;
+        }
+        .snrg-production-inline-meta {
+          display: inline-flex;
+          align-items: baseline;
+          gap: 6px;
+          flex-wrap: wrap;
+        }
+        .snrg-production-inline-label {
           color: #667085;
           font-size: 11px;
-          font-weight: 700;
+          font-weight: 800;
           text-transform: uppercase;
-          letter-spacing: .03em;
+          letter-spacing: .05em;
         }
-        .snrg-production-meta-value {
-          margin-top: 2px;
+        .snrg-production-inline-value {
           color: #101828;
           font-size: 13px;
-          font-weight: 600;
+          font-weight: 800;
+        }
+        .snrg-production-card-id {
+          color: #667085;
+          font-size: 12px;
+          font-weight: 700;
+          line-height: 1.3;
+        }
+        .snrg-production-requested-label {
+          color: #667085;
+          font-size: 11px;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: .05em;
+        }
+        .snrg-production-requested-value {
+          color: #101828;
+          font-size: 14px;
+          font-weight: 700;
+          line-height: 1.35;
           overflow-wrap: anywhere;
         }
         .snrg-production-actions {
@@ -238,6 +302,12 @@ class SnrgProductionPlanning {
           .snrg-production-summary,
           .snrg-production-board {
             grid-template-columns: 1fr;
+          }
+        }
+        @media (max-width: 640px) {
+          .snrg-production-card-grid {
+            grid-template-columns: 1fr;
+            gap: 12px;
           }
         }
       </style>
@@ -342,9 +412,9 @@ class SnrgProductionPlanning {
     const summary = this.data?.summary || {};
     const target = this.wrapper.find("[data-summary]");
     target.html([
-      this.renderMetric("Open Requests", summary.open_count || 0, `Qty ${frappe.format(summary.open_qty || 0, { fieldtype: "Float", precision: 2 })}`),
-      this.renderMetric("In Progress", summary.in_progress_count || 0, `Qty ${frappe.format(summary.in_progress_qty || 0, { fieldtype: "Float", precision: 2 })}`),
-      this.renderMetric("Completed", summary.completed_count || 0, `Qty ${frappe.format(summary.completed_qty || 0, { fieldtype: "Float", precision: 2 })}`),
+      this.renderMetric("Open Requests", summary.open_count || 0, `Qty ${this.format_qty(summary.open_qty || 0)}`),
+      this.renderMetric("In Progress", summary.in_progress_count || 0, `Qty ${this.format_qty(summary.in_progress_qty || 0)}`),
+      this.renderMetric("Completed", summary.completed_count || 0, `Qty ${this.format_qty(summary.completed_qty || 0)}`),
     ].join(""));
   }
 
@@ -390,33 +460,36 @@ class SnrgProductionPlanning {
   }
 
   render_card(row) {
-    const statusClass =
-      row.status === "Completed"
-        ? "snrg-production-status-completed"
-        : row.status === "In Progress"
-          ? "snrg-production-status-progress"
-          : row.status === "Cancelled"
-            ? "snrg-production-status-cancelled"
-            : "snrg-production-status-open";
+    const tone = this.getStatusTone(row.status);
+    const requestedBy = row.requested_by_name || row.requested_by || "-";
 
     return `
-      <div class="snrg-production-card">
-        <div class="snrg-production-card-head">
-          <div>
-            <div class="snrg-production-card-title">${frappe.utils.escape_html(row.item_name || row.item_code || row.name)}</div>
-            <div class="snrg-production-card-subtitle">${frappe.utils.escape_html(row.name || "")}</div>
-          </div>
-          <div class="snrg-production-status ${statusClass}">${frappe.utils.escape_html(row.status || "Open")}</div>
+      <div class="snrg-production-card snrg-production-card-${tone}">
+        <div class="snrg-production-card-top">
+          <div class="snrg-production-card-code">${frappe.utils.escape_html(row.item_code || "-")}</div>
+          <div class="snrg-production-qty-pill snrg-production-qty-${tone}">${frappe.utils.escape_html(this.format_qty(row.requested_qty || 0))}</div>
         </div>
-        <div class="snrg-production-grid">
-          ${this.renderMeta("Quotation", row.quotation)}
-          ${this.renderMeta("Quote Date", row.quotation_date)}
-          ${this.renderMeta("Customer", row.customer)}
-          ${this.renderMeta("Customer Name", row.customer_name)}
-          ${this.renderMeta("Item Code", row.item_code)}
-          ${this.renderMeta("Qty", frappe.format(row.requested_qty || 0, { fieldtype: "Float", precision: 2 }))}
-          ${this.renderMeta("Requested By", row.requested_by)}
-          ${this.renderMeta("Age (Days)", String(row.age_days || 0))}
+        <div class="snrg-production-item-name">${frappe.utils.escape_html(row.item_name || row.item_code || row.name)}</div>
+        <div class="snrg-production-card-grid">
+          <div class="snrg-production-card-stack">
+            <div class="snrg-production-card-primary">${frappe.utils.escape_html(row.quotation || "-")}</div>
+            <div class="snrg-production-card-secondary">${frappe.utils.escape_html(row.quotation_date || "-")}</div>
+          </div>
+          <div class="snrg-production-card-stack">
+            <div class="snrg-production-card-primary">${frappe.utils.escape_html(row.customer || "-")}</div>
+            <div class="snrg-production-card-secondary">${frappe.utils.escape_html(row.customer_name || "-")}</div>
+          </div>
+          <div class="snrg-production-card-stack">
+            <div class="snrg-production-inline-meta">
+              <span class="snrg-production-inline-label">${__("Days")}</span>
+              <span class="snrg-production-inline-value">${frappe.utils.escape_html(String(row.age_days || 0))}</span>
+            </div>
+            <div class="snrg-production-card-id">${__("ID")}: ${frappe.utils.escape_html(row.name || "-")}</div>
+          </div>
+          <div class="snrg-production-card-stack">
+            <div class="snrg-production-requested-label">${__("Requested By")}</div>
+            <div class="snrg-production-requested-value">${frappe.utils.escape_html(requestedBy)}</div>
+          </div>
         </div>
         <div class="snrg-production-actions">
           ${this.renderStatusActions(row)}
@@ -426,13 +499,17 @@ class SnrgProductionPlanning {
     `;
   }
 
-  renderMeta(label, value) {
-    return `
-      <div>
-        <div class="snrg-production-meta-label">${frappe.utils.escape_html(label)}</div>
-        <div class="snrg-production-meta-value">${frappe.utils.escape_html(value || "-")}</div>
-      </div>
-    `;
+  getStatusTone(status) {
+    if (status === "Completed") {
+      return "completed";
+    }
+    if (status === "In Progress") {
+      return "progress";
+    }
+    if (status === "Cancelled") {
+      return "cancelled";
+    }
+    return "open";
   }
 
   renderStatusActions(row) {
@@ -457,6 +534,10 @@ class SnrgProductionPlanning {
     return `
       <button class="snrg-production-btn" data-action="set-status" data-name="${name}" data-status="Open">${__("Move to Open")}</button>
     `;
+  }
+
+  format_qty(value) {
+    return format_number(value || 0, null, 2);
   }
 
   setStatus(name, status, button) {
