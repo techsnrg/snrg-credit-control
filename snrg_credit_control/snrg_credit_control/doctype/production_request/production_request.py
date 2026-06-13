@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import json
-
 import frappe
 from frappe import _
 from frappe.model.document import Document
@@ -9,8 +7,8 @@ from frappe.utils import cint, flt, getdate, now_datetime
 
 
 REQUEST_ROLES = {"System Manager", "Sales Manager", "Sales User", "Fulfillment User"}
-ACTIVE_REQUEST_STATUSES = ("Open", "In Progress")
 VALID_STATUSES = ("Open", "In Progress", "Completed", "Cancelled")
+QTY_EPSILON = 0.0001
 
 
 class ProductionRequest(Document):
@@ -19,7 +17,6 @@ class ProductionRequest(Document):
         self._set_source_key()
         self._validate_requested_qty()
         self._validate_status()
-        self._validate_active_duplicate()
         self._sync_completion_fields()
 
     def _set_defaults(self):
@@ -41,26 +38,6 @@ class ProductionRequest(Document):
         if self.status not in VALID_STATUSES:
             frappe.throw(_("Invalid Production Request status: {0}").format(frappe.bold(self.status or "")))
 
-    def _validate_active_duplicate(self):
-        if self.status not in ACTIVE_REQUEST_STATUSES or not self.source_key:
-            return
-
-        filters = {
-            "source_key": self.source_key,
-            "status": ["in", list(ACTIVE_REQUEST_STATUSES)],
-        }
-        if not self.is_new():
-            filters["name"] = ["!=", self.name]
-
-        duplicate = frappe.db.get_value(self.doctype, filters, "name")
-        if duplicate:
-            frappe.throw(
-                _("Active Production Request {0} already exists for this quotation item.").format(
-                    frappe.bold(duplicate)
-                ),
-                title=_("Duplicate Production Request"),
-            )
-
     def _sync_completion_fields(self):
         if self.status == "Completed":
             if not self.completed_by:
@@ -81,8 +58,9 @@ def create_from_pending_rows(rows):
         frappe.throw(_("Select at least one pending row to create a production request."))
 
     created = []
-    updated = []
     skipped = []
+    pending_qty_by_source_key = {}
+    requested_qty_by_source_key = {}
 
     for row in rows:
         normalized = normalize_pending_row(row)
@@ -96,20 +74,36 @@ def create_from_pending_rows(rows):
             )
             continue
 
-        existing_name = frappe.db.get_value(
-            "Production Request",
-            {
-                "source_key": build_source_key(normalized["quotation"], normalized["item_code"]),
-                "status": ["in", list(ACTIVE_REQUEST_STATUSES)],
-            },
-            "name",
-        )
+        source_key = build_source_key(normalized["quotation"], normalized["item_code"])
+        if source_key not in pending_qty_by_source_key:
+            pending_qty_by_source_key[source_key] = get_current_pending_qty_for_source_key(normalized)
+        if source_key not in requested_qty_by_source_key:
+            requested_qty_by_source_key[source_key] = get_existing_requested_qty_for_source_key(source_key)
 
-        if existing_name:
-            doc = frappe.get_doc("Production Request", existing_name)
-            apply_row_to_request(doc, normalized)
-            doc.save(ignore_permissions=True)
-            updated.append(doc.name)
+        remaining_qty = max(
+            flt(pending_qty_by_source_key[source_key]) - flt(requested_qty_by_source_key[source_key]),
+            0,
+        )
+        if remaining_qty <= QTY_EPSILON:
+            skipped.append(
+                {
+                    "quotation": normalized["quotation"],
+                    "item_code": normalized["item_code"],
+                    "reason": _("Pending quantity is already fully requested."),
+                }
+            )
+            continue
+
+        if flt(normalized["requested_qty"]) - remaining_qty > QTY_EPSILON:
+            skipped.append(
+                {
+                    "quotation": normalized["quotation"],
+                    "item_code": normalized["item_code"],
+                    "reason": _("Only {0} qty is still available to request.").format(
+                        frappe.format_value(remaining_qty, {"fieldtype": "Float", "precision": 2})
+                    ),
+                }
+            )
             continue
 
         doc = frappe.get_doc(
@@ -123,23 +117,30 @@ def create_from_pending_rows(rows):
         )
         doc.insert(ignore_permissions=True)
         created.append(doc.name)
+        requested_qty_by_source_key[source_key] = flt(requested_qty_by_source_key[source_key]) + flt(
+            normalized["requested_qty"]
+        )
 
     message_parts = []
     if created:
-        message_parts.append(_("{0} created").format(len(created)))
-    if updated:
-        message_parts.append(_("{0} refreshed").format(len(updated)))
+        if len(created) == 1:
+            message_parts.append(_("Request created"))
+        else:
+            message_parts.append(_("{0} requests created").format(len(created)))
     if skipped:
-        message_parts.append(_("{0} skipped").format(len(skipped)))
+        if len(skipped) == 1:
+            message_parts.append(_("1 skipped"))
+        else:
+            message_parts.append(_("{0} skipped").format(len(skipped)))
 
     return {
         "created": created,
-        "updated": updated,
+        "updated": [],
         "skipped": skipped,
         "created_count": len(created),
-        "updated_count": len(updated),
+        "updated_count": 0,
         "skipped_count": len(skipped),
-        "message": ", ".join(message_parts) if message_parts else _("No Production Requests were created."),
+        "message": ", ".join(message_parts) if message_parts else _("No requests were created."),
     }
 
 
@@ -169,6 +170,7 @@ def get_board_data(company=None, search=None, show_completed=1):
             "required_by_date",
             "status",
             "remarks",
+            "assigned_to",
             "requested_by",
             "requested_on",
             "completed_by",
@@ -179,21 +181,18 @@ def get_board_data(company=None, search=None, show_completed=1):
         limit_page_length=500,
     )
 
-    requested_by_ids = sorted({row.get("requested_by") for row in rows if row.get("requested_by")})
-    requested_by_name_map = {}
-    if requested_by_ids:
-        requested_by_name_map = {
-            user.name: (user.full_name or user.name)
-            for user in frappe.get_all(
-                "User",
-                filters={"name": ["in", requested_by_ids]},
-                fields=["name", "full_name"],
-                limit_page_length=len(requested_by_ids),
-            )
+    user_ids = sorted(
+        {
+            user_id
+            for row in rows
+            for user_id in (row.get("requested_by"), row.get("assigned_to"))
+            if user_id
         }
+    )
+    user_name_map = get_user_name_map(user_ids)
 
     search_term = (search or "").strip().lower()
-    normalized_rows = [serialize_request_row(row, requested_by_name_map) for row in rows]
+    normalized_rows = [serialize_request_row(row, user_name_map) for row in rows]
     if search_term:
         normalized_rows = [
             row
@@ -208,6 +207,8 @@ def get_board_data(company=None, search=None, show_completed=1):
                     str(row.get("item_name") or "").lower(),
                     str(row.get("required_by_date") or "").lower(),
                     str(row.get("requested_by_name") or "").lower(),
+                    str(row.get("assigned_to") or "").lower(),
+                    str(row.get("assigned_to_name") or "").lower(),
                 ]
             )
         ]
@@ -258,6 +259,27 @@ def set_request_status(name, status):
     }
 
 
+@frappe.whitelist()
+def set_request_assignee(name, assigned_to=None):
+    require_request_role()
+
+    if not name:
+        frappe.throw(_("Production Request name is required."))
+
+    doc = frappe.get_doc("Production Request", name)
+    doc.assigned_to = (assigned_to or "").strip() or None
+    doc.save(ignore_permissions=True)
+
+    user_name_map = get_user_name_map([doc.assigned_to] if doc.assigned_to else [])
+    assigned_to_name = user_name_map.get(doc.assigned_to) or doc.assigned_to or ""
+    return {
+        "name": doc.name,
+        "assigned_to": doc.assigned_to or "",
+        "assigned_to_name": assigned_to_name,
+        "message": _("Production Request {0} assignee updated.").format(frappe.bold(doc.name)),
+    }
+
+
 def require_request_role():
     if any(role in REQUEST_ROLES for role in frappe.get_roles()):
         return
@@ -294,9 +316,12 @@ def normalize_pending_row(row):
         "company": (row.get("company") or "").strip(),
         "item_code": item_code,
         "item_name": (row.get("item_name") or "").strip(),
-        "requested_qty": flt(row.get("requested_qty") or row.get("total_uninvoiced_qty")),
+        "requested_qty": flt(
+            row.get("requested_qty") or row.get("remaining_requestable_qty") or row.get("total_uninvoiced_qty")
+        ),
         "required_by_date": str(getdate(required_by_date)),
         "remarks": (row.get("remarks") or "").strip(),
+        "assigned_to": (row.get("assigned_to") or "").strip() or None,
     }
 
 
@@ -310,20 +335,77 @@ def apply_row_to_request(doc, row):
     doc.item_name = row.get("item_name") or ""
     doc.requested_qty = flt(row.get("requested_qty"))
     doc.required_by_date = row.get("required_by_date") or None
+    doc.assigned_to = row.get("assigned_to") or None
     if row.get("remarks"):
         doc.remarks = row["remarks"]
     return doc
+
+
+def get_current_pending_qty_for_source_key(row):
+    from snrg_credit_control.snrg_credit_control.pending_invoice_planning import get_pending_invoice_planning_rows
+
+    filters = {
+        "quotation": row.get("quotation"),
+        "item_code": row.get("item_code"),
+    }
+    if row.get("company"):
+        filters["company"] = row.get("company")
+
+    rows = get_pending_invoice_planning_rows(
+        filters=filters,
+        quotation_id=row.get("quotation"),
+        pending_only=False,
+    )
+    for detail_row in rows:
+        if build_source_key(detail_row.get("quotation"), detail_row.get("item_code")) == build_source_key(
+            row.get("quotation"),
+            row.get("item_code"),
+        ):
+            return flt(detail_row.get("total_uninvoiced_qty"))
+    return 0
+
+
+def get_existing_requested_qty_for_source_key(source_key):
+    return flt(
+        frappe.db.sql(
+            """
+            SELECT COALESCE(SUM(requested_qty), 0)
+            FROM `tabProduction Request`
+            WHERE source_key = %s
+              AND status != 'Cancelled'
+            """,
+            source_key,
+        )[0][0]
+        or 0
+    )
 
 
 def build_source_key(quotation, item_code):
     return f"{(quotation or '').strip().lower()}::{(item_code or '').strip().lower()}"
 
 
-def serialize_request_row(row, requested_by_name_map=None):
-    requested_by_name_map = requested_by_name_map or {}
+def get_user_name_map(user_ids):
+    user_ids = [user_id for user_id in (user_ids or []) if user_id]
+    if not user_ids:
+        return {}
+
+    return {
+        user.name: (user.full_name or user.name)
+        for user in frappe.get_all(
+            "User",
+            filters={"name": ["in", user_ids]},
+            fields=["name", "full_name"],
+            limit_page_length=len(user_ids),
+        )
+    }
+
+
+def serialize_request_row(row, user_name_map=None):
+    user_name_map = user_name_map or {}
     requested_on = row.get("requested_on")
     completed_on = row.get("completed_on")
     requested_by = row.get("requested_by") or ""
+    assigned_to = row.get("assigned_to") or ""
     return {
         "name": row.get("name"),
         "quotation": row.get("quotation") or "",
@@ -337,8 +419,10 @@ def serialize_request_row(row, requested_by_name_map=None):
         "required_by_date": str(row.get("required_by_date") or ""),
         "status": row.get("status") or "Open",
         "remarks": row.get("remarks") or "",
+        "assigned_to": assigned_to,
+        "assigned_to_name": user_name_map.get(assigned_to) or assigned_to,
         "requested_by": requested_by,
-        "requested_by_name": requested_by_name_map.get(requested_by) or requested_by,
+        "requested_by_name": user_name_map.get(requested_by) or requested_by,
         "requested_on": str(requested_on or ""),
         "completed_by": row.get("completed_by") or "",
         "completed_on": str(completed_on or ""),

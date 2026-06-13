@@ -213,6 +213,13 @@ class SnrgProductionPlanning {
           gap: 3px;
           min-width: 0;
         }
+        .snrg-production-card-link {
+          color: inherit;
+          text-decoration: none;
+        }
+        .snrg-production-card-link:hover {
+          text-decoration: underline;
+        }
         .snrg-production-card-primary {
           color: #101828;
           font-size: 14px;
@@ -264,6 +271,36 @@ class SnrgProductionPlanning {
           font-weight: 700;
           line-height: 1.35;
           overflow-wrap: anywhere;
+        }
+        .snrg-production-card-meta-line {
+          color: #667085;
+          font-size: 12px;
+          font-weight: 700;
+          line-height: 1.35;
+          overflow-wrap: anywhere;
+        }
+        .snrg-production-assignee-control .control-label,
+        .snrg-production-assignee-control label {
+          display: none !important;
+        }
+        .snrg-production-assignee-control .form-group,
+        .snrg-production-assignee-control .control-input-wrapper {
+          margin-bottom: 0;
+        }
+        .snrg-production-assignee-control .form-control {
+          min-height: 34px;
+        }
+        .snrg-production-required-by-overdue {
+          color: #b42318;
+        }
+        .snrg-production-required-by-soon {
+          color: #b54708;
+        }
+        .snrg-production-card-due-overdue {
+          box-shadow: 0 0 0 1px rgba(180, 35, 24, 0.12);
+        }
+        .snrg-production-card-due-soon {
+          box-shadow: 0 0 0 1px rgba(181, 71, 8, 0.12);
         }
         .snrg-production-actions {
           display: flex;
@@ -443,10 +480,12 @@ class SnrgProductionPlanning {
         ${columns.map((column) => this.render_column(column)).join("")}
       </div>
     `);
+
+    this.mount_assignee_controls();
   }
 
   render_column(column) {
-    const rows = column.rows || [];
+    const rows = this.sort_rows_by_urgency(column.rows || []);
     return `
       <div class="snrg-production-column">
         <div class="snrg-production-column-head">
@@ -463,33 +502,58 @@ class SnrgProductionPlanning {
   render_card(row) {
     const tone = this.getStatusTone(row.status);
     const requestedBy = row.requested_by_name || row.requested_by || "-";
+    const dueInfo = this.getDueInfo(row.required_by_date);
+    const dueClass = dueInfo.overdue
+      ? "snrg-production-card-due-overdue"
+      : dueInfo.dueSoon || dueInfo.dueToday
+        ? "snrg-production-card-due-soon"
+        : "";
+    const requiredByClass = dueInfo.overdue
+      ? "snrg-production-required-by-overdue"
+      : dueInfo.dueSoon || dueInfo.dueToday
+        ? "snrg-production-required-by-soon"
+        : "";
+    const requiredByText = this.format_date(row.required_by_date) || "-";
+    const dueMeta = this.getDueMetaText(dueInfo);
 
     return `
-      <div class="snrg-production-card snrg-production-card-${tone}">
+      <div class="snrg-production-card snrg-production-card-${tone} ${dueClass}">
         <div class="snrg-production-card-top">
-          <div class="snrg-production-card-code">${frappe.utils.escape_html(row.item_code || "-")}</div>
+          <div class="snrg-production-card-code">
+            <a class="snrg-production-card-link" href="/app/item/${encodeURIComponent(row.item_code || "")}">
+              ${frappe.utils.escape_html(row.item_code || "-")}
+            </a>
+          </div>
           <div class="snrg-production-qty-pill snrg-production-qty-${tone}">${frappe.utils.escape_html(this.format_qty(row.requested_qty || 0))}</div>
         </div>
         <div class="snrg-production-item-name">${frappe.utils.escape_html(row.item_name || row.item_code || row.name)}</div>
         <div class="snrg-production-card-grid">
           <div class="snrg-production-card-stack">
-            <div class="snrg-production-card-primary">${frappe.utils.escape_html(row.quotation || "-")}</div>
+            <div class="snrg-production-card-primary">
+              <a class="snrg-production-card-link" href="/app/quotation/${encodeURIComponent(row.quotation || "")}">
+                ${frappe.utils.escape_html(row.quotation || "-")}
+              </a>
+            </div>
             <div class="snrg-production-card-secondary">${frappe.utils.escape_html(row.quotation_date || "-")}</div>
           </div>
           <div class="snrg-production-card-stack">
-            <div class="snrg-production-card-primary">${frappe.utils.escape_html(row.customer || "-")}</div>
+            <div class="snrg-production-card-primary">
+              <a class="snrg-production-card-link" href="/app/customer/${encodeURIComponent(row.customer || "")}">
+                ${frappe.utils.escape_html(row.customer || "-")}
+              </a>
+            </div>
             <div class="snrg-production-card-secondary">${frappe.utils.escape_html(row.customer_name || "-")}</div>
           </div>
           <div class="snrg-production-card-stack">
-            <div class="snrg-production-inline-meta">
-              <span class="snrg-production-inline-label">${__("Days")}</span>
-              <span class="snrg-production-inline-value">${frappe.utils.escape_html(String(row.age_days || 0))}</span>
-            </div>
-            <div class="snrg-production-card-id">${__("ID")}: ${frappe.utils.escape_html(row.name || "-")}</div>
+            <div class="snrg-production-requested-label ${requiredByClass}">${__("Required By")}</div>
+            <div class="snrg-production-requested-value ${requiredByClass}">${frappe.utils.escape_html(requiredByText)}</div>
+            <div class="snrg-production-card-meta-line ${requiredByClass}">${frappe.utils.escape_html(dueMeta)}</div>
           </div>
           <div class="snrg-production-card-stack">
-            <div class="snrg-production-requested-label">${__("Requested By")}</div>
-            <div class="snrg-production-requested-value">${frappe.utils.escape_html(requestedBy)}</div>
+            <div class="snrg-production-requested-label">${__("Assigned To")}</div>
+            <div class="snrg-production-assignee-control" data-assignee-control data-name="${frappe.utils.escape_html(row.name || "")}" data-assigned-to="${frappe.utils.escape_html(row.assigned_to || "")}"></div>
+            <div class="snrg-production-card-meta-line">${__("Requested By")}: ${frappe.utils.escape_html(requestedBy)}</div>
+            <div class="snrg-production-card-meta-line">${__("ID")}: ${frappe.utils.escape_html(row.name || "-")} | ${__("Days")} ${frappe.utils.escape_html(String(row.age_days || 0))}</div>
           </div>
         </div>
         <div class="snrg-production-actions">
@@ -537,8 +601,152 @@ class SnrgProductionPlanning {
     `;
   }
 
+  mount_assignee_controls() {
+    this.wrapper.find("[data-assignee-control]").each((_, element) => {
+      const target = $(element);
+      if (target.attr("data-control-mounted")) {
+        return;
+      }
+
+      const name = target.attr("data-name") || "";
+      const assignedTo = target.attr("data-assigned-to") || "";
+      let isBootstrapping = true;
+      const control = frappe.ui.form.make_control({
+        parent: target.get(0),
+        df: {
+          fieldtype: "Link",
+          fieldname: `assigned_to_${name}`,
+          label: __("Assigned To"),
+          options: "User",
+          placeholder: __("Assign user"),
+          default: assignedTo,
+          onchange: () => {
+            if (isBootstrapping) {
+              return;
+            }
+            this.setAssignee(name, control.get_value(), control);
+          },
+        },
+        render_input: true,
+      });
+      control.refresh();
+      control.set_value(assignedTo);
+      setTimeout(() => {
+        isBootstrapping = false;
+      }, 0);
+      target.attr("data-control-mounted", "1");
+    });
+  }
+
   format_qty(value) {
-    return format_number(value || 0, null, 2);
+    return new Intl.NumberFormat("en-IN", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(Number(value || 0) || 0);
+  }
+
+  format_date(value) {
+    if (!value) {
+      return "";
+    }
+    return frappe.datetime.str_to_user ? frappe.datetime.str_to_user(value) : value;
+  }
+
+  getDueInfo(requiredByDate) {
+    if (!requiredByDate) {
+      return {
+        hasDate: false,
+        overdue: false,
+        dueToday: false,
+        dueSoon: false,
+        daysUntil: null,
+      };
+    }
+
+    const today = frappe.datetime.get_today ? frappe.datetime.get_today() : "";
+    if (!today) {
+      return {
+        hasDate: true,
+        overdue: false,
+        dueToday: false,
+        dueSoon: false,
+        daysUntil: null,
+      };
+    }
+
+    const dueDate = new Date(`${requiredByDate}T00:00:00`);
+    const todayDate = new Date(`${today}T00:00:00`);
+    const millisecondsPerDay = 24 * 60 * 60 * 1000;
+    const daysUntil = Math.round((dueDate - todayDate) / millisecondsPerDay);
+
+    return {
+      hasDate: true,
+      overdue: daysUntil < 0,
+      dueToday: daysUntil === 0,
+      dueSoon: daysUntil > 0 && daysUntil <= 2,
+      daysUntil,
+    };
+  }
+
+  getDueMetaText(dueInfo) {
+    if (!dueInfo || !dueInfo.hasDate) {
+      return __("No due date set");
+    }
+    if (dueInfo.overdue) {
+      return __("{0} day(s) overdue", [Math.abs(dueInfo.daysUntil)]);
+    }
+    if (dueInfo.dueToday) {
+      return __("Due today");
+    }
+    if (dueInfo.dueSoon) {
+      return __("Due in {0} day(s)", [dueInfo.daysUntil]);
+    }
+    return __("Due in {0} day(s)", [dueInfo.daysUntil]);
+  }
+
+  sort_rows_by_urgency(rows) {
+    return [...rows].sort((left, right) => this.compareRowsByUrgency(left, right));
+  }
+
+  compareRowsByUrgency(left, right) {
+    const leftDue = this.getDueInfo(left.required_by_date);
+    const rightDue = this.getDueInfo(right.required_by_date);
+
+    const leftPriority = this.getDuePriority(leftDue);
+    const rightPriority = this.getDuePriority(rightDue);
+    if (leftPriority !== rightPriority) {
+      return leftPriority - rightPriority;
+    }
+
+    const leftDaysUntil = leftDue.hasDate ? leftDue.daysUntil : Number.POSITIVE_INFINITY;
+    const rightDaysUntil = rightDue.hasDate ? rightDue.daysUntil : Number.POSITIVE_INFINITY;
+    if (leftDaysUntil !== rightDaysUntil) {
+      return leftDaysUntil - rightDaysUntil;
+    }
+
+    const leftAge = Number(left.age_days || 0);
+    const rightAge = Number(right.age_days || 0);
+    if (leftAge !== rightAge) {
+      return rightAge - leftAge;
+    }
+
+    return String(left.name || "").localeCompare(String(right.name || ""));
+  }
+
+  getDuePriority(dueInfo) {
+    if (!dueInfo || !dueInfo.hasDate) {
+      return 3;
+    }
+    if (dueInfo.overdue) {
+      return 0;
+    }
+    if (dueInfo.dueToday) {
+      return 1;
+    }
+    if (dueInfo.dueSoon) {
+      return 2;
+    }
+    return 3;
   }
 
   setStatus(name, status, button) {
@@ -560,6 +768,38 @@ class SnrgProductionPlanning {
       },
       error: () => {
         button.prop("disabled", false);
+      },
+    });
+  }
+
+  setAssignee(name, assignedTo, control) {
+    if (!name || !control) {
+      return;
+    }
+
+    const input = control.$input;
+    if (input && input.length) {
+      input.prop("disabled", true);
+    }
+
+    frappe.call({
+      method: "snrg_credit_control.snrg_credit_control.doctype.production_request.production_request.set_request_assignee",
+      args: {
+        name,
+        assigned_to: assignedTo || "",
+      },
+      freeze: false,
+      callback: ({ message }) => {
+        frappe.show_alert({
+          message: (message && message.message) || __("Production Request assignee updated."),
+          indicator: "green",
+        });
+        this.refresh();
+      },
+      error: () => {
+        if (input && input.length) {
+          input.prop("disabled", false);
+        }
       },
     });
   }

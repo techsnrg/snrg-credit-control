@@ -76,23 +76,28 @@ def get_columns(filters=None):
             "width": 130,
         },
         {
-            "label": "Pending Value",
-            "fieldname": "total_uninvoiced_value",
-            "fieldtype": "Currency",
-            "options": "currency",
-            "width": 140,
-        },
-        {
             "label": "Status",
             "fieldname": "status_summary",
             "fieldtype": "Data",
             "width": 180,
         },
         {
+            "label": "Production Status",
+            "fieldname": "production_request_status",
+            "fieldtype": "Data",
+            "width": 140,
+        },
+        {
+            "label": "Required By",
+            "fieldname": "production_required_by_date",
+            "fieldtype": "Date",
+            "width": 115,
+        },
+        {
             "label": "Production",
             "fieldname": "production_request_action",
             "fieldtype": "HTML",
-            "width": 140,
+            "width": 190,
         },
     ]
 

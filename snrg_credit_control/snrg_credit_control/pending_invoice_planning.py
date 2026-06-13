@@ -54,6 +54,25 @@ def get_pending_invoice_planning_rows(filters=None, quotation_id=None, include_c
     rows = _finalize_group_rows(grouped_rows)
     _attach_production_request_state(rows)
 
+    production_statuses = set(_normalize_multiselect(filters.get("production_status")))
+    if production_statuses:
+        rows = [row for row in rows if (row.get("production_request_status") or "Not Requested") in production_statuses]
+
+    required_by_from, required_by_to = _extract_date_bounds(
+        frappe._dict(
+            {
+                "from_date": filters.get("required_by_from_date"),
+                "to_date": filters.get("required_by_to_date"),
+                "date_range": filters.get("required_by_date_range"),
+            }
+        )
+    )
+    if required_by_from or required_by_to:
+        rows = [
+            row for row in rows
+            if _matches_required_by_date_range(row.get("production_required_by_date"), required_by_from, required_by_to)
+        ]
+
     sales_order_statuses = set(_normalize_multiselect(filters.get("sales_order_status")))
     if sales_order_statuses:
         rows = [row for row in rows if row["sales_order_status"] in sales_order_statuses]
@@ -91,26 +110,128 @@ def _attach_production_request_state(rows):
     if not source_keys:
         return
 
-    active_requests = frappe.get_all(
-        "Production Request",
-        filters={
-            "source_key": ["in", sorted(source_keys)],
-            "status": ["in", ["Open", "In Progress"]],
-        },
-        fields=["name", "source_key", "status", "required_by_date"],
-        limit_page_length=len(source_keys),
-    )
-    request_by_source_key = {
-        (request.get("source_key") or "").strip().lower(): request for request in active_requests
-    }
+    request_rows = _get_production_requests_for_source_keys(sorted(source_keys))
+    requests_by_source_key = defaultdict(list)
+    user_ids = set()
+
+    for request in request_rows:
+        source_key = (request.get("source_key") or "").strip().lower()
+        if not source_key:
+            continue
+
+        requests_by_source_key[source_key].append(request)
+        if request.get("assigned_to"):
+            user_ids.add(request.get("assigned_to"))
+
+    user_name_map = _get_pending_invoice_user_name_map(user_ids)
 
     for row in rows:
         source_key = _build_pending_invoice_source_key(row.get("quotation"), row.get("item_code"))
-        request = request_by_source_key.get(source_key)
-        row["has_active_production_request"] = bool(request)
-        row["production_request_name"] = request.get("name") if request else ""
-        row["production_request_status"] = request.get("status") if request else ""
-        row["production_required_by_date"] = str(request.get("required_by_date") or "") if request else ""
+        request_list = requests_by_source_key.get(source_key, [])
+        display_request = _get_pending_invoice_display_request(request_list)
+        production_status = _get_pending_invoice_production_status(request_list)
+        requested_qty = sum(
+            flt(request.get("requested_qty"))
+            for request in request_list
+            if request.get("status") in ("Open", "In Progress", "Completed")
+        )
+        active_requested_qty = sum(
+            flt(request.get("requested_qty"))
+            for request in request_list
+            if request.get("status") in ("Open", "In Progress")
+        )
+        remaining_requestable_qty = max(flt(row.get("total_uninvoiced_qty")) - requested_qty, 0)
+
+        row["has_active_production_request"] = active_requested_qty > QTY_EPSILON
+        row["production_request_name"] = display_request.get("name") if display_request else ""
+        row["production_request_status"] = production_status
+        row["production_required_by_date"] = (
+            str(display_request.get("required_by_date") or "") if display_request else ""
+        )
+        row["production_requested_qty"] = requested_qty
+        row["production_active_requested_qty"] = active_requested_qty
+        row["remaining_requestable_qty"] = remaining_requestable_qty
+        row["production_assigned_to"] = display_request.get("assigned_to") if display_request else ""
+        row["production_assigned_to_name"] = (
+            user_name_map.get(display_request.get("assigned_to")) or display_request.get("assigned_to") or ""
+        ) if display_request else ""
+
+
+def _get_production_requests_for_source_keys(source_keys):
+    if not source_keys:
+        return []
+
+    placeholders = ", ".join(["%s"] * len(source_keys))
+    return frappe.db.sql(
+        f"""
+        SELECT
+            name,
+            source_key,
+            status,
+            requested_qty,
+            required_by_date,
+            assigned_to,
+            modified,
+            creation
+        FROM `tabProduction Request`
+        WHERE source_key IN ({placeholders})
+        ORDER BY modified DESC, creation DESC, name DESC
+        """,
+        tuple(source_keys),
+        as_dict=True,
+    )
+
+
+def _get_pending_invoice_user_name_map(user_ids):
+    user_ids = [user_id for user_id in user_ids if user_id]
+    if not user_ids:
+        return {}
+
+    return {
+        user.name: (user.full_name or user.name)
+        for user in frappe.get_all(
+            "User",
+            filters={"name": ["in", user_ids]},
+            fields=["name", "full_name"],
+            limit_page_length=len(user_ids),
+        )
+    }
+
+
+def _get_pending_invoice_display_request(request_list):
+    if not request_list:
+        return None
+
+    active_requests = [request for request in request_list if request.get("status") in ("Open", "In Progress")]
+    if active_requests:
+        return sorted(
+            active_requests,
+            key=lambda request: (
+                1 if not request.get("required_by_date") else 0,
+                str(request.get("required_by_date") or ""),
+                str(request.get("modified") or ""),
+                str(request.get("name") or ""),
+            ),
+        )[0]
+
+    non_cancelled_requests = [request for request in request_list if request.get("status") != "Cancelled"]
+    if non_cancelled_requests:
+        return non_cancelled_requests[0]
+
+    return request_list[0]
+
+
+def _get_pending_invoice_production_status(request_list):
+    statuses = {request.get("status") for request in request_list if request.get("status")}
+    if "In Progress" in statuses:
+        return "In Progress"
+    if "Open" in statuses:
+        return "Open"
+    if "Completed" in statuses:
+        return "Completed"
+    if "Cancelled" in statuses:
+        return "Cancelled"
+    return "Not Requested"
 
 
 def get_pending_invoice_planning_item_summary_rows(filters=None):
@@ -1023,6 +1144,18 @@ def _extract_date_bounds(filters):
         to_date = parsed_range.get("to_date") or to_date
 
     return from_date, to_date
+
+
+def _matches_required_by_date_range(required_by_date, from_date, to_date):
+    if not required_by_date:
+        return False
+
+    required_date = getdate(required_by_date)
+    if from_date and required_date < getdate(from_date):
+        return False
+    if to_date and required_date > getdate(to_date):
+        return False
+    return True
 
 
 def _is_pending_row(row):

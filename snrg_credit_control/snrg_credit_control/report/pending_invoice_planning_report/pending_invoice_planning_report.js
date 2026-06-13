@@ -70,6 +70,30 @@ frappe.query_reports["Pending Invoice Planning Report"] = {
       },
     },
     {
+      fieldname: "production_status",
+      label: __("Production Status"),
+      fieldtype: "MultiSelectList",
+      on_change: refresh_pending_invoice_planning_report,
+      get_data(txt) {
+        const options = ["Not Requested", "Open", "In Progress", "Completed", "Cancelled"];
+        return options
+          .filter((option) => !txt || option.toLowerCase().includes(txt.toLowerCase()))
+          .map((value) => ({ value, description: value }));
+      },
+    },
+    {
+      fieldname: "required_by_date_range",
+      label: __("Required By"),
+      fieldtype: "DateRange",
+      on_change: refresh_pending_invoice_planning_report,
+    },
+    {
+      fieldname: "default_assignee",
+      label: __("Default Assignee"),
+      fieldtype: "Link",
+      options: "User",
+    },
+    {
       fieldname: "show_values",
       label: __("Show Values"),
       fieldtype: "Check",
@@ -79,6 +103,8 @@ frappe.query_reports["Pending Invoice Planning Report"] = {
   ],
 
   onload(report) {
+    report.__snrgPendingInvoicePlanningDraftQtyByKey =
+      report.__snrgPendingInvoicePlanningDraftQtyByKey || {};
     ensure_pending_invoice_planning_report_styles(report);
     setTimeout(() => force_live_pending_invoice_planning_refresh(report), 300);
     setTimeout(() => setup_pending_invoice_planning_actions(report), 400);
@@ -86,7 +112,8 @@ frappe.query_reports["Pending Invoice Planning Report"] = {
 
   get_datatable_options(options) {
     return Object.assign(options || {}, {
-      cellHeight: 64,
+      cellHeight: 92,
+      checkboxColumn: true,
     });
   },
 
@@ -96,12 +123,14 @@ frappe.query_reports["Pending Invoice Planning Report"] = {
 
   formatter(value, row, column, data, default_formatter) {
     if (column.fieldname === "production_request_action" && data) {
-      const pendingQty = Number(data.total_uninvoiced_qty || 0);
-      if (pendingQty <= 0) {
+      const report = get_pending_invoice_planning_active_report();
+      const remainingQty = get_pending_invoice_planning_remaining_qty(data);
+      const requestedQty = Number(data.production_requested_qty || 0);
+      if (Number(data.total_uninvoiced_qty || 0) <= 0) {
         return "";
       }
 
-      if (data.has_active_production_request) {
+      if (remainingQty <= 0.0001) {
         const requestName = data.production_request_name || "";
         const requiredBy = formatPendingInvoicePlanningDate(data.production_required_by_date || "");
         const statusParts = [requestName, requiredBy ? `${__("Required by")}: ${requiredBy}` : ""].filter(Boolean);
@@ -118,21 +147,28 @@ frappe.query_reports["Pending Invoice Planning Report"] = {
         `;
       }
 
+      const rowKey = get_pending_invoice_planning_row_key(data);
+      const draftQty = get_pending_invoice_planning_draft_qty(report, data);
+      const buttonLabel = requestedQty > 0 ? __("Request More") : __("Request");
       return `
-        <button
-          type="button"
-          class="btn btn-xs btn-default snrg-pip-request-production"
-          data-quotation="${encodeURIComponent(data.quotation || "")}"
-          data-quotation-date="${encodeURIComponent(data.quotation_date || "")}"
-          data-customer="${encodeURIComponent(data.customer || "")}"
-          data-customer-name="${encodeURIComponent(data.customer_name || "")}"
-          data-company="${encodeURIComponent(data.company || "")}"
-          data-item-code="${encodeURIComponent(data.item_code || "")}"
-          data-item-name="${encodeURIComponent(data.item_name || "")}"
-          data-requested-qty="${encodeURIComponent(String(data.total_uninvoiced_qty || 0))}"
-        >
-          ${__("Request")}
-        </button>
+        <div class="snrg-pip-production-cell">
+          <input
+            type="number"
+            class="form-control input-xs snrg-pip-request-qty"
+            data-row-key="${frappe.utils.escape_html(rowKey)}"
+            data-max-qty="${frappe.utils.escape_html(String(remainingQty))}"
+            min="0.01"
+            step="0.01"
+            value="${frappe.utils.escape_html(format_pending_invoice_planning_qty_input(draftQty))}"
+          />
+          <button
+            type="button"
+            class="btn btn-xs btn-default snrg-pip-request-production"
+            data-row-key="${frappe.utils.escape_html(rowKey)}"
+          >
+            ${buttonLabel}
+          </button>
+        </div>
       `;
     }
 
@@ -163,6 +199,10 @@ frappe.query_reports["Pending Invoice Planning Report"] = {
       return `<div class="snrg-pip-item-name-cell">${frappe.utils.escape_html(data.item_name || "")}</div>`;
     }
 
+    if (column.fieldname === "production_required_by_date" && data) {
+      return render_pending_invoice_planning_required_by(data.production_required_by_date);
+    }
+
     const formatted = default_formatter(value, row, column, data);
     if (!data) {
       return formatted;
@@ -179,6 +219,10 @@ frappe.query_reports["Pending Invoice Planning Report"] = {
       if (valueText.includes("submitted")) {
         return `<span style="color:#2563eb;font-weight:600;">${formatted}</span>`;
       }
+    }
+
+    if (column.fieldname === "production_request_status") {
+      return render_pending_invoice_planning_production_status(formatted, data.production_request_status);
     }
 
     if (column.fieldname === "total_uninvoiced_value") {
@@ -198,6 +242,93 @@ frappe.query_reports["Pending Invoice Planning Report"] = {
     return formatted;
   },
 };
+
+function get_pending_invoice_planning_active_report() {
+  return frappe.query_report || null;
+}
+
+function get_pending_invoice_planning_row_key(row) {
+  const quotation = String(row?.quotation || "").trim().toLowerCase();
+  const itemCode = String(row?.item_code || "").trim().toLowerCase();
+  return `${quotation}::${itemCode}`;
+}
+
+function get_pending_invoice_planning_row_by_key(report, rowKey) {
+  return (report?.data || []).find((row) => get_pending_invoice_planning_row_key(row) === rowKey) || null;
+}
+
+function get_pending_invoice_planning_remaining_qty(row) {
+  return Math.max(
+    Number(
+      row?.remaining_requestable_qty != null
+        ? row.remaining_requestable_qty
+        : row?.total_uninvoiced_qty || 0
+    ) || 0,
+    0
+  );
+}
+
+function get_pending_invoice_planning_draft_qty(report, row) {
+  const rowKey = get_pending_invoice_planning_row_key(row);
+  const maxQty = get_pending_invoice_planning_remaining_qty(row);
+  if (!report) {
+    return maxQty;
+  }
+
+  report.__snrgPendingInvoicePlanningDraftQtyByKey =
+    report.__snrgPendingInvoicePlanningDraftQtyByKey || {};
+
+  const storedQty = Number(report.__snrgPendingInvoicePlanningDraftQtyByKey[rowKey]);
+  if (!Number.isFinite(storedQty) || storedQty <= 0) {
+    report.__snrgPendingInvoicePlanningDraftQtyByKey[rowKey] = maxQty;
+    return maxQty;
+  }
+
+  const normalizedQty = Math.min(storedQty, maxQty);
+  report.__snrgPendingInvoicePlanningDraftQtyByKey[rowKey] = normalizedQty;
+  return normalizedQty;
+}
+
+function set_pending_invoice_planning_draft_qty(report, row, qty) {
+  if (!report || !row) {
+    return 0;
+  }
+
+  report.__snrgPendingInvoicePlanningDraftQtyByKey =
+    report.__snrgPendingInvoicePlanningDraftQtyByKey || {};
+
+  const maxQty = get_pending_invoice_planning_remaining_qty(row);
+  const normalizedQty = normalize_pending_invoice_planning_request_qty(qty, maxQty);
+  report.__snrgPendingInvoicePlanningDraftQtyByKey[get_pending_invoice_planning_row_key(row)] = normalizedQty;
+  return normalizedQty;
+}
+
+function clear_pending_invoice_planning_draft_qty(report, rows) {
+  if (!report || !rows?.length || !report.__snrgPendingInvoicePlanningDraftQtyByKey) {
+    return;
+  }
+
+  rows.forEach((row) => {
+    delete report.__snrgPendingInvoicePlanningDraftQtyByKey[get_pending_invoice_planning_row_key(row)];
+  });
+}
+
+function normalize_pending_invoice_planning_request_qty(value, maxQty) {
+  const numericMaxQty = Math.max(Number(maxQty || 0) || 0, 0);
+  const numericValue = Number(value || 0);
+  if (!Number.isFinite(numericValue) || numericValue <= 0) {
+    return numericMaxQty;
+  }
+  return Math.min(numericValue, numericMaxQty);
+}
+
+function format_pending_invoice_planning_qty_input(value) {
+  const numericValue = Number(value || 0);
+  if (!Number.isFinite(numericValue)) {
+    return "0";
+  }
+  return numericValue.toFixed(2).replace(/\.00$/, "");
+}
 
 function refresh_pending_invoice_planning_report(report) {
   if (!report) {
@@ -236,9 +367,31 @@ function setup_pending_invoice_planning_actions(report) {
     };
     frappe.set_route("production-planning");
   });
+  ensure_pending_invoice_planning_bulk_button(report);
   bind_pending_invoice_planning_request_picker_events(report);
 
   const wrapper = report.page && report.page.wrapper ? report.page.wrapper : $(document.body);
+  wrapper.off("input.snrg_pip_request_qty change.snrg_pip_request_qty blur.snrg_pip_request_qty");
+  wrapper.on("input.snrg_pip_request_qty change.snrg_pip_request_qty", ".snrg-pip-request-qty", (event) => {
+    const input = $(event.currentTarget);
+    const rowKey = input.attr("data-row-key") || "";
+    const rowData = get_pending_invoice_planning_row_by_key(report, rowKey);
+    if (!rowData) {
+      return;
+    }
+    set_pending_invoice_planning_draft_qty(report, rowData, input.val());
+  });
+  wrapper.on("blur.snrg_pip_request_qty", ".snrg-pip-request-qty", (event) => {
+    const input = $(event.currentTarget);
+    const rowKey = input.attr("data-row-key") || "";
+    const rowData = get_pending_invoice_planning_row_by_key(report, rowKey);
+    if (!rowData) {
+      return;
+    }
+    const normalizedQty = set_pending_invoice_planning_draft_qty(report, rowData, input.val());
+    input.val(format_pending_invoice_planning_qty_input(normalizedQty));
+  });
+
   wrapper.off("click.snrg_pip_request_production");
   wrapper.on("click.snrg_pip_request_production", ".snrg-pip-request-production", (event) => {
     event.preventDefault();
@@ -247,8 +400,190 @@ function setup_pending_invoice_planning_actions(report) {
       event.stopImmediatePropagation();
     }
     const button = $(event.currentTarget);
-    toggle_pending_invoice_planning_request_picker(report, button);
+    const rowKey = button.attr("data-row-key") || "";
+    const rowData = get_pending_invoice_planning_row_by_key(report, rowKey);
+    if (!rowData) {
+      frappe.show_alert({
+        message: __("This row is no longer available. Please refresh the report."),
+        indicator: "orange",
+      });
+      return false;
+    }
+
+    toggle_pending_invoice_planning_request_picker(report, button, {
+      contextKey: `row:${rowKey}`,
+      assignee: report.get_filter_value("default_assignee") || rowData.production_assigned_to || "",
+      assigneeEditable: true,
+      title: __("Create Production Request"),
+      helpText: __("Pick the required-by date to create this production request."),
+      onSelect: (requiredByDate, meta = {}) => {
+        const payloadRow = build_pending_invoice_planning_payload_from_row(
+          report,
+          rowData,
+          requiredByDate,
+          meta.assignedTo || ""
+        );
+        if (!payloadRow) {
+          return;
+        }
+        create_pending_invoice_planning_requests(
+          report,
+          button,
+          [payloadRow],
+          {
+            onSuccess: () => report.refresh(),
+          }
+        );
+      },
+    });
     return false;
+  });
+}
+
+function ensure_pending_invoice_planning_bulk_button(report) {
+  if (!report || report.__snrgPendingInvoicePlanningBulkButton) {
+    return;
+  }
+
+  const bulkButton = report.page.add_inner_button(__("Request Selected"), () => {
+    const selectedRows = get_selected_pending_invoice_planning_rows(report);
+    const requestableRows = selectedRows.filter((row) => is_requestable_pending_invoice_planning_row(row));
+    const defaultAssignee = report.get_filter_value("default_assignee") || "";
+
+    if (!selectedRows.length) {
+      frappe.show_alert({
+        message: __("Select one or more rows first."),
+        indicator: "orange",
+      });
+      return;
+    }
+
+    if (!requestableRows.length) {
+      frappe.show_alert({
+        message: __("Selected rows are already requested or have no pending quantity."),
+        indicator: "orange",
+      });
+      return;
+    }
+
+    if (!defaultAssignee) {
+      frappe.show_alert({
+        message: __("Select a Default Assignee first for bulk requests."),
+        indicator: "orange",
+      });
+      return;
+    }
+
+    toggle_pending_invoice_planning_request_picker(report, $(bulkButton), {
+      contextKey: `bulk:${requestableRows.map((row) => `${row.quotation}:${row.item_code}`).join("|")}`,
+      assignee: defaultAssignee,
+      assigneeEditable: false,
+      title: __("Create Bulk Production Requests"),
+      helpText: __("Pick one required-by date for all selected rows."),
+      onSelect: (requiredByDate, meta = {}) => {
+        const payloadRows = requestableRows
+          .map((row) => build_pending_invoice_planning_payload_from_row(report, row, requiredByDate, meta.assignedTo || defaultAssignee))
+          .filter(Boolean);
+        if (!payloadRows.length) {
+          frappe.show_alert({
+            message: __("Selected rows do not have any requestable quantity left."),
+            indicator: "orange",
+          });
+          return;
+        }
+        create_pending_invoice_planning_requests(report, $(bulkButton), payloadRows, {
+          onSuccess: () => report.refresh(),
+        });
+      },
+    });
+  });
+
+  report.__snrgPendingInvoicePlanningBulkButton = $(bulkButton);
+}
+
+function get_selected_pending_invoice_planning_rows(report) {
+  const datatableRowmanager = report && report.datatable && report.datatable.rowmanager;
+  if (!datatableRowmanager || !datatableRowmanager.getCheckedRows) {
+    return [];
+  }
+
+  const checkedRows = datatableRowmanager.getCheckedRows() || [];
+  return checkedRows
+    .map((index) => (report.data || [])[index] || null)
+    .filter(Boolean);
+}
+
+function is_requestable_pending_invoice_planning_row(row) {
+  if (!row) {
+    return false;
+  }
+
+  return get_pending_invoice_planning_remaining_qty(row) > 0.0001;
+}
+
+function build_pending_invoice_planning_payload_from_row(report, row, requiredByDate, assignedTo = "") {
+  if (!row) {
+    return null;
+  }
+
+  const requestedQty = get_pending_invoice_planning_draft_qty(report, row);
+  if (!(requestedQty > 0)) {
+    return null;
+  }
+
+  return {
+    quotation: row.quotation || "",
+    quotation_date: row.quotation_date || "",
+    customer: row.customer || "",
+    customer_name: row.customer_name || "",
+    company: row.company || "",
+    item_code: row.item_code || "",
+    item_name: row.item_name || "",
+    requested_qty: requestedQty,
+    remaining_requestable_qty: get_pending_invoice_planning_remaining_qty(row),
+    required_by_date: requiredByDate || "",
+    assigned_to: assignedTo || "",
+  };
+}
+
+function create_pending_invoice_planning_requests(report, triggerButton, rows, options = {}) {
+  if (!triggerButton || !triggerButton.length || !rows || !rows.length) {
+    return;
+  }
+
+  const originalText = triggerButton.text();
+  triggerButton.prop("disabled", true).text(__("Creating..."));
+
+  frappe.call({
+    method: "snrg_credit_control.snrg_credit_control.pending_invoice_planning.create_production_requests_from_pending_rows",
+    args: {
+      rows,
+    },
+    freeze: false,
+    callback: ({ message }) => {
+      const result = message || {};
+      clear_pending_invoice_planning_draft_qty(report, rows);
+      frappe.show_alert({
+        message: result.message || __("Request created"),
+        indicator: "green",
+      });
+
+      if (typeof options.onSuccess === "function") {
+        options.onSuccess(result);
+      } else {
+        triggerButton
+          .removeClass("btn-default snrg-pip-request-production-active")
+          .addClass("btn-secondary")
+          .prop("disabled", true)
+          .text(result.updated_count ? __("Updated") : __("Requested"));
+      }
+    },
+    error: () => {
+      triggerButton
+        .prop("disabled", false)
+        .removeClass("snrg-pip-request-production-active")
+        .text(originalText || __("Request"));
+    },
   });
 }
 
@@ -268,15 +603,15 @@ function ensure_pending_invoice_planning_report_styles(report) {
     <style id="snrg-pip-report-style">
       .snrg-pip-report-page .dt-scrollable .dt-row,
       .snrg-pip-report-page .dt-scrollable .dt-cell {
-        min-height: 64px;
+        min-height: 92px;
       }
 
       .snrg-pip-report-page .dt-scrollable .dt-cell__content {
         height: 100% !important;
         white-space: normal !important;
         line-height: 1.25;
-        padding-top: 6px;
-        padding-bottom: 6px;
+        padding-top: 8px;
+        padding-bottom: 8px;
         overflow: visible;
         display: block;
       }
@@ -306,45 +641,83 @@ function ensure_pending_invoice_planning_report_styles(report) {
         -webkit-box-orient: vertical;
       }
 
-      .snrg-pip-request-picker {
+      .snrg-pip-production-cell {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .snrg-pip-production-cell .snrg-pip-request-qty {
+        width: 82px;
+        min-width: 82px;
+        text-align: right;
+        padding-right: 8px;
+      }
+
+      .snrg-pip-request-popover {
         position: absolute;
         z-index: 30;
-        width: 220px;
+        width: 280px;
+        max-width: min(280px, calc(100vw - 24px));
         padding: 12px;
-        border: 1px solid #d0d5dd;
+        border: 1px solid #dfe5ef;
         border-radius: 12px;
         background: #ffffff;
-        box-shadow: 0 16px 40px rgba(16, 24, 40, 0.18);
+        box-shadow: 0 18px 42px rgba(15, 23, 42, 0.16);
       }
 
-      .snrg-pip-request-picker-title {
+      .snrg-pip-request-popover-title {
         color: #101828;
-        font-size: 12px;
+        font-size: 13px;
         font-weight: 700;
-        line-height: 1.3;
-        margin-bottom: 8px;
+        margin-bottom: 6px;
       }
 
-      .snrg-pip-request-picker-hint {
+      .snrg-pip-request-popover-help {
+        color: #667085;
+        font-size: 12px;
+        line-height: 1.4;
+        margin-bottom: 10px;
+      }
+
+      .snrg-pip-request-popover-static {
+        margin-bottom: 10px;
+      }
+
+      .snrg-pip-request-popover-static-label {
         color: #667085;
         font-size: 11px;
-        line-height: 1.35;
-        margin-top: 8px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+        margin-bottom: 4px;
       }
 
-      .snrg-pip-request-picker .frappe-control,
-      .snrg-pip-request-picker .form-group,
-      .snrg-pip-request-picker .control-input-wrapper {
+      .snrg-pip-request-popover-static-value {
+        color: #101828;
+        font-size: 13px;
+        font-weight: 700;
+        line-height: 1.4;
+        overflow-wrap: anywhere;
+      }
+
+      .snrg-pip-request-popover .frappe-control,
+      .snrg-pip-request-popover .form-group,
+      .snrg-pip-request-popover .control-input-wrapper {
         margin-bottom: 0;
       }
 
-      .snrg-pip-request-picker .control-label,
-      .snrg-pip-request-picker label {
-        display: none !important;
+      .snrg-pip-request-popover [data-request-assignee-control] {
+        margin-bottom: 10px;
       }
 
-      .snrg-pip-request-picker .form-control {
-        min-height: 36px;
+      .snrg-pip-request-popover .control-label {
+        margin-bottom: 4px !important;
+        color: #667085 !important;
+        font-size: 11px !important;
+        font-weight: 700 !important;
+        text-transform: uppercase;
+        letter-spacing: .04em;
       }
 
       .snrg-pip-request-production-active {
@@ -365,15 +738,15 @@ function apply_pending_invoice_planning_table_layout(report, datatable) {
   }
 
   target.querySelectorAll(".dt-row, .dt-cell").forEach((element) => {
-    element.style.minHeight = "64px";
+    element.style.minHeight = "92px";
   });
 
   target.querySelectorAll(".dt-cell__content").forEach((element) => {
     element.style.height = "100%";
     element.style.whiteSpace = "normal";
     element.style.lineHeight = "1.25";
-    element.style.paddingTop = "6px";
-    element.style.paddingBottom = "6px";
+    element.style.paddingTop = "8px";
+    element.style.paddingBottom = "8px";
     element.style.overflow = "visible";
     element.style.display = "block";
   });
@@ -395,10 +768,10 @@ function bind_pending_invoice_planning_request_picker_events(report) {
     }
 
     if (
-      picker.popover.is(target) ||
-      picker.popover.has(target).length ||
-      picker.button.is(target) ||
-      picker.button.has(target).length
+      picker.container.is(target) ||
+      picker.container.has(target).length ||
+      picker.target.is(target) ||
+      picker.target.has(target).length
     ) {
       return;
     }
@@ -419,86 +792,119 @@ function bind_pending_invoice_planning_request_picker_events(report) {
     if (!picker) {
       return;
     }
-    position_pending_invoice_planning_request_picker(picker.button, picker.popover);
+    position_pending_invoice_planning_request_picker(picker.target, picker.container);
   });
 }
 
-function toggle_pending_invoice_planning_request_picker(report, button) {
+function toggle_pending_invoice_planning_request_picker(report, button, options = {}) {
   const activePicker = report && report.__snrgPendingInvoicePlanningRequestPicker;
-  if (activePicker && activePicker.button && activePicker.button.get(0) === button.get(0)) {
+  const contextKey = options.contextKey || "default";
+  if (
+    activePicker &&
+    activePicker.target &&
+    activePicker.target.get(0) === button.get(0) &&
+    activePicker.contextKey === contextKey
+  ) {
     close_pending_invoice_planning_request_picker(report);
     return;
   }
 
-  open_pending_invoice_planning_request_picker(report, button);
+  open_pending_invoice_planning_request_picker(report, button, options);
 }
 
-function open_pending_invoice_planning_request_picker(report, button) {
+function open_pending_invoice_planning_request_picker(report, button, options = {}) {
   if (!report || !button || !button.length || button.prop("disabled")) {
     return;
   }
 
   close_pending_invoice_planning_request_picker(report);
 
-  const popover = $(`
-    <div class="snrg-pip-request-picker">
-      <div class="snrg-pip-request-picker-title">${__("Required by")}</div>
+  const assigneeValue = options.assignee || "";
+  const assigneeEditable = !!options.assigneeEditable;
+  const container = $(`
+    <div class="snrg-pip-request-popover">
+      <div class="snrg-pip-request-popover-title">${frappe.utils.escape_html(options.title || __("Create Production Request"))}</div>
+      <div class="snrg-pip-request-popover-help">${frappe.utils.escape_html(options.helpText || __("Pick the required-by date to create this production request."))}</div>
+      <div data-request-assignee-area></div>
       <div data-request-date-control></div>
-      <div class="snrg-pip-request-picker-hint">${__("Pick a date to create this production request.")}</div>
     </div>
   `).appendTo(document.body);
 
+  let assigneeControl = null;
+  if (assigneeEditable) {
+    assigneeControl = frappe.ui.form.make_control({
+      parent: container.find("[data-request-assignee-area]").get(0),
+      df: {
+        fieldname: "assigned_to",
+        fieldtype: "Link",
+        label: __("Assignee"),
+        options: "User",
+        default: assigneeValue,
+      },
+      render_input: true,
+    });
+    assigneeControl.refresh();
+    assigneeControl.set_value(assigneeValue);
+  } else {
+    container.find("[data-request-assignee-area]").html(`
+      <div class="snrg-pip-request-popover-static">
+        <div class="snrg-pip-request-popover-static-label">${__("Assignee")}</div>
+        <div class="snrg-pip-request-popover-static-value">${frappe.utils.escape_html(assigneeValue || __("Not Assigned"))}</div>
+      </div>
+    `);
+  }
+
   let dateControl = null;
   dateControl = frappe.ui.form.make_control({
-    parent: popover.find("[data-request-date-control]").get(0),
+    parent: container.find("[data-request-date-control]").get(0),
     df: {
       fieldname: "required_by_date",
       fieldtype: "Date",
-      placeholder: __("Required by"),
+      label: __("Required By"),
       change: () => {
         const requiredByDate = dateControl && dateControl.get_value ? dateControl.get_value() : "";
         if (!requiredByDate) {
           return;
         }
+        const pickerState = report.__snrgPendingInvoicePlanningRequestPicker;
+        const assignedTo =
+          pickerState && pickerState.assigneeControl && pickerState.assigneeControl.get_value
+            ? pickerState.assigneeControl.get_value()
+            : pickerState?.assignedTo || "";
         close_pending_invoice_planning_request_picker(report);
-        create_production_request_from_button(report, button, requiredByDate);
+        if (pickerState && typeof pickerState.onSelect === "function") {
+          pickerState.onSelect(requiredByDate, { assignedTo });
+        }
       },
     },
     render_input: true,
   });
   dateControl.refresh();
+  if (dateControl.set_value) {
+    dateControl.set_value("");
+  }
 
   report.__snrgPendingInvoicePlanningRequestPicker = {
-    button,
-    popover,
+    target: button,
+    container,
     dateControl,
+    assigneeControl,
+    assignedTo: assigneeValue,
+    contextKey: options.contextKey || "default",
+    onSelect: options.onSelect || null,
   };
 
   button.addClass("snrg-pip-request-production-active");
-  position_pending_invoice_planning_request_picker(button, popover);
+  position_pending_invoice_planning_request_picker(button, container);
 
-  const input = dateControl && dateControl.$input ? dateControl.$input.get(0) : null;
   setTimeout(() => {
-    if (!input || !report.__snrgPendingInvoicePlanningRequestPicker) {
+    if (!dateControl || !dateControl.datepicker || !report.__snrgPendingInvoicePlanningRequestPicker) {
       return;
     }
 
-    if (typeof input.showPicker === "function") {
-      try {
-        input.showPicker();
-        return;
-      } catch (error) {
-        // Fall back to the normal focus / click behavior when the browser blocks showPicker.
-      }
-    }
-
-    if (dateControl.datepicker && typeof dateControl.datepicker.show === "function") {
+    if (typeof dateControl.datepicker.show === "function") {
       dateControl.datepicker.show();
-      return;
     }
-
-    $(input).trigger("focus");
-    $(input).trigger("click");
   }, 0);
 }
 
@@ -508,91 +914,48 @@ function close_pending_invoice_planning_request_picker(report) {
     return;
   }
 
-  if (picker.button && picker.button.length) {
-    picker.button.removeClass("snrg-pip-request-production-active");
+  if (picker.target && picker.target.length) {
+    picker.target.removeClass("snrg-pip-request-production-active");
   }
-  if (picker.popover && picker.popover.length) {
-    picker.popover.remove();
+  if (picker.dateControl && picker.dateControl.datepicker && typeof picker.dateControl.datepicker.hide === "function") {
+    picker.dateControl.datepicker.hide();
+  }
+  if (picker.container && picker.container.length) {
+    picker.container.remove();
   }
 
   report.__snrgPendingInvoicePlanningRequestPicker = null;
 }
 
-function position_pending_invoice_planning_request_picker(button, popover) {
-  if (!button || !button.length || !popover || !popover.length) {
+function position_pending_invoice_planning_request_picker(button, container) {
+  if (!button || !button.length || !container || !container.length) {
     return;
   }
 
   const rect = button.get(0).getBoundingClientRect();
-  const pickerWidth = popover.outerWidth();
-  const pickerHeight = popover.outerHeight();
   const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
   const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
   const scrollX = window.scrollX || window.pageXOffset || 0;
   const scrollY = window.scrollY || window.pageYOffset || 0;
-  const spacing = 8;
   const gutter = 12;
+  const popoverWidth = container.outerWidth() || 280;
+  const popoverHeight = container.outerHeight() || 172;
 
   let left = rect.left + scrollX;
-  if (left + pickerWidth > scrollX + viewportWidth - gutter) {
-    left = rect.right + scrollX - pickerWidth;
+  if (left + popoverWidth > scrollX + viewportWidth - gutter) {
+    left = scrollX + viewportWidth - popoverWidth - gutter;
   }
   left = Math.max(scrollX + gutter, left);
 
-  const canOpenBelow = rect.bottom + pickerHeight + spacing <= viewportHeight - gutter;
-  const top = canOpenBelow
-    ? rect.bottom + scrollY + spacing
-    : Math.max(scrollY + gutter, rect.top + scrollY - pickerHeight - spacing);
+  const spaceBelow = viewportHeight - rect.bottom;
+  const showAbove = spaceBelow < popoverHeight + 18 && rect.top > popoverHeight + 18;
+  const top = showAbove
+    ? rect.top + scrollY - popoverHeight - 8
+    : rect.bottom + scrollY + 8;
 
-  popover.css({
+  container.css({
     left: `${left}px`,
-    top: `${top}px`,
-  });
-}
-
-function create_production_request_from_button(report, button, requiredByDate) {
-  if (!button || !button.length || !requiredByDate) {
-    return;
-  }
-
-  const payload = [{
-    quotation: decodeURIComponent(button.attr("data-quotation") || ""),
-    quotation_date: decodeURIComponent(button.attr("data-quotation-date") || ""),
-    customer: decodeURIComponent(button.attr("data-customer") || ""),
-    customer_name: decodeURIComponent(button.attr("data-customer-name") || ""),
-    company: decodeURIComponent(button.attr("data-company") || ""),
-    item_code: decodeURIComponent(button.attr("data-item-code") || ""),
-    item_name: decodeURIComponent(button.attr("data-item-name") || ""),
-    requested_qty: Number(decodeURIComponent(button.attr("data-requested-qty") || "0")) || 0,
-    required_by_date: requiredByDate,
-  }];
-
-  button.prop("disabled", true).text(__("Creating..."));
-
-  frappe.call({
-    method: "snrg_credit_control.snrg_credit_control.pending_invoice_planning.create_production_requests_from_pending_rows",
-    args: {
-      rows: payload,
-    },
-    freeze: false,
-    callback: ({ message }) => {
-      const result = message || {};
-      frappe.show_alert({
-        message: result.message || __("Production Requests created."),
-        indicator: "green",
-      });
-      button
-        .removeClass("btn-default snrg-pip-request-production-active")
-        .addClass("btn-secondary")
-        .prop("disabled", true)
-        .text(result.updated_count ? __("Updated") : __("Requested"));
-    },
-    error: () => {
-      button
-        .prop("disabled", false)
-        .removeClass("snrg-pip-request-production-active")
-        .text(__("Request"));
-    },
+    top: `${Math.max(scrollY + gutter, top)}px`,
   });
 }
 
@@ -609,9 +972,78 @@ function render_pending_invoice_planning_link({ route, label }) {
   return `<a href="${route}" style="font-weight:600;color:#344054;">${frappe.utils.escape_html(label || "")}</a>`;
 }
 
+function render_pending_invoice_planning_production_status(formatted, status) {
+  const normalized = String(status || "").toLowerCase();
+  if (!normalized || normalized === "not requested") {
+    return `<span style="color:#667085;font-weight:600;">${formatted || __("Not Requested")}</span>`;
+  }
+  if (normalized === "open") {
+    return `<span style="color:#175cd3;font-weight:700;">${formatted}</span>`;
+  }
+  if (normalized === "in progress") {
+    return `<span style="color:#b45309;font-weight:700;">${formatted}</span>`;
+  }
+  if (normalized === "completed") {
+    return `<span style="color:#027a48;font-weight:700;">${formatted}</span>`;
+  }
+  if (normalized === "cancelled") {
+    return `<span style="color:#667085;font-weight:700;">${formatted}</span>`;
+  }
+  return formatted;
+}
+
+function render_pending_invoice_planning_required_by(value) {
+  if (!value) {
+    return `<span style="color:#98a2b3;">${__("Not Set")}</span>`;
+  }
+
+  const formatted = formatPendingInvoicePlanningDate(value);
+  const dueState = getPendingInvoicePlanningDueState(value);
+  if (dueState.overdue) {
+    return `<span style="color:#b42318;font-weight:700;">${frappe.utils.escape_html(formatted)}</span>`;
+  }
+  if (dueState.dueToday || dueState.dueSoon) {
+    return `<span style="color:#b54708;font-weight:700;">${frappe.utils.escape_html(formatted)}</span>`;
+  }
+  return frappe.utils.escape_html(formatted);
+}
+
 function formatPendingInvoicePlanningDate(value) {
   if (!value) {
     return "";
   }
   return frappe.datetime.str_to_user ? frappe.datetime.str_to_user(value) : value;
+}
+
+function getPendingInvoicePlanningDueState(value) {
+  if (!value) {
+    return {
+      overdue: false,
+      dueToday: false,
+      dueSoon: false,
+      daysUntil: null,
+    };
+  }
+
+  const today = frappe.datetime.get_today ? frappe.datetime.get_today() : null;
+  if (!today) {
+    return {
+      overdue: false,
+      dueToday: false,
+      dueSoon: false,
+      daysUntil: null,
+    };
+  }
+
+  const dueDate = new Date(`${value}T00:00:00`);
+  const todayDate = new Date(`${today}T00:00:00`);
+  const millisecondsPerDay = 24 * 60 * 60 * 1000;
+  const daysUntil = Math.round((dueDate - todayDate) / millisecondsPerDay);
+
+  return {
+    overdue: daysUntil < 0,
+    dueToday: daysUntil === 0,
+    dueSoon: daysUntil > 0 && daysUntil <= 2,
+    daysUntil,
+  };
 }

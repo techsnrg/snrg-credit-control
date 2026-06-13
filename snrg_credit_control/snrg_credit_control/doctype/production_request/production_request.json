@@ -21,6 +21,7 @@
   "workflow_section",
   "status",
   "remarks",
+  "assigned_to",
   "requested_by",
   "requested_on",
   "completed_by",
@@ -134,6 +135,13 @@
    "fieldname": "remarks",
    "fieldtype": "Small Text",
    "label": "Remarks"
+  },
+  {
+   "fieldname": "assigned_to",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Assigned To",
+   "options": "User"
   },
   {
    "fieldname": "requested_by",
