@@ -402,8 +402,20 @@ function setup_pending_invoice_planning_actions(report) {
   bind_pending_invoice_planning_request_picker_events(report);
 
   const wrapper = report.page && report.page.wrapper ? report.page.wrapper : $(document.body);
-  wrapper.off("input.snrg_pip_request_qty change.snrg_pip_request_qty blur.snrg_pip_request_qty");
+  wrapper.off(".snrg_pip_request_qty");
+  wrapper.on(
+    "click.snrg_pip_request_qty mousedown.snrg_pip_request_qty mouseup.snrg_pip_request_qty focus.snrg_pip_request_qty keydown.snrg_pip_request_qty keyup.snrg_pip_request_qty",
+    ".snrg-pip-request-qty",
+    (event) => {
+      event.stopPropagation();
+    }
+  );
+  wrapper.on("wheel.snrg_pip_request_qty", ".snrg-pip-request-qty", (event) => {
+    event.currentTarget.blur();
+    event.stopPropagation();
+  });
   wrapper.on("input.snrg_pip_request_qty change.snrg_pip_request_qty", ".snrg-pip-request-qty", (event) => {
+    event.stopPropagation();
     const input = $(event.currentTarget);
     const rowKey = input.attr("data-row-key") || "";
     const rowData = get_pending_invoice_planning_row_by_key(report, rowKey);
@@ -413,6 +425,7 @@ function setup_pending_invoice_planning_actions(report) {
     set_pending_invoice_planning_draft_qty(report, rowData, input.val());
   });
   wrapper.on("blur.snrg_pip_request_qty", ".snrg-pip-request-qty", (event) => {
+    event.stopPropagation();
     const input = $(event.currentTarget);
     const rowKey = input.attr("data-row-key") || "";
     const rowData = get_pending_invoice_planning_row_by_key(report, rowKey);
