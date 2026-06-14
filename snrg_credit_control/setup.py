@@ -28,6 +28,7 @@ def after_install():
     _ensure_sales_tracking_sla_settings()
     _ensure_summer_bonanza_scheme()
     _ensure_credit_control_workspace()
+    _ensure_stock_workspace()
     _ensure_scheme_management_workspace()
     _ensure_demand_notice_default_print_format()
     frappe.db.commit()
@@ -47,6 +48,7 @@ def after_migrate():
     _ensure_sales_tracking_sla_settings()
     _ensure_summer_bonanza_scheme()
     _ensure_credit_control_workspace()
+    _ensure_stock_workspace()
     _ensure_scheme_management_workspace()
     _ensure_demand_notice_default_print_format()
     frappe.db.commit()
@@ -790,6 +792,55 @@ def _ensure_sales_tracking_sla_settings():
 
 
 # ---------------------------------------------------------------------------
+# Workspace helpers
+# ---------------------------------------------------------------------------
+
+def _workspace_upsert_content_block(content_blocks, block):
+    block_id = block.get("id")
+    if not block_id:
+        return content_blocks + [block]
+
+    filtered_blocks = [existing for existing in content_blocks if existing.get("id") != block_id]
+    filtered_blocks.append(block)
+    return filtered_blocks
+
+
+def _workspace_upsert_link(links, link):
+    filtered_links = []
+    for existing in links:
+        same_card_break = (
+            existing.get("type") == "Card Break"
+            and link.get("type") == "Card Break"
+            and existing.get("label") == link.get("label")
+        )
+        same_link = (
+            existing.get("type") == "Link"
+            and link.get("type") == "Link"
+            and existing.get("link_type") == link.get("link_type")
+            and existing.get("link_to") == link.get("link_to")
+        )
+        if same_card_break or same_link:
+            continue
+        filtered_links.append(existing)
+
+    filtered_links.append(link)
+    return filtered_links
+
+
+def _workspace_upsert_shortcut(shortcuts, shortcut):
+    filtered_shortcuts = [
+        existing
+        for existing in shortcuts
+        if not (
+            existing.get("type") == shortcut.get("type")
+            and existing.get("link_to") == shortcut.get("link_to")
+        )
+    ]
+    filtered_shortcuts.append(shortcut)
+    return filtered_shortcuts
+
+
+# ---------------------------------------------------------------------------
 # Credit Control Workspace
 # ---------------------------------------------------------------------------
 
@@ -798,8 +849,6 @@ def _ensure_credit_control_workspace():
     has_demand_notice_settings = frappe.db.exists("DocType", "Demand Notice Settings")
     has_ptp_dashboard_page = frappe.db.exists("Page", "ptp-dashboard")
     has_md_dashboard_page = frappe.db.exists("Page", "managing-director-dashboard")
-    has_pending_invoice_planning_report = frappe.db.exists("Report", "Pending Invoice Planning Report")
-    has_production_planning_page = frappe.db.exists("Page", "production-planning")
     has_sales_tracking_page = frappe.db.exists("Page", "sales-tracking")
     has_sales_tracking_kanban_page = frappe.db.exists("Page", "sales-tracking-kanban")
     has_sales_tracking_sla_settings = frappe.db.exists("DocType", "Sales Tracking SLA Settings")
@@ -869,33 +918,6 @@ def _ensure_credit_control_workspace():
                 "id": "sales_tracking_sla_settings_shortcut",
                 "type": "shortcut",
                 "data": {"shortcut_name": "Sales Tracking SLA Settings", "col": 3},
-            }
-        )
-
-    if has_pending_invoice_planning_report or has_production_planning_page:
-        content_blocks.append(
-            {
-                "id": "production_planning_header",
-                "type": "header",
-                "data": {"text": "Production Planning", "col": 12},
-            }
-        )
-
-    if has_pending_invoice_planning_report:
-        content_blocks.append(
-            {
-                "id": "pending_invoice_planning_shortcut",
-                "type": "shortcut",
-                "data": {"shortcut_name": "Pending Invoice Planning Report", "col": 3},
-            }
-        )
-
-    if has_production_planning_page:
-        content_blocks.append(
-            {
-                "id": "production_planning_page_shortcut",
-                "type": "shortcut",
-                "data": {"shortcut_name": "Production Planning", "col": 3},
             }
         )
 
@@ -999,49 +1021,6 @@ def _ensure_credit_control_workspace():
         },
     ]
 
-    if has_pending_invoice_planning_report or has_production_planning_page:
-        links.append(
-            {
-                "label": "Production Planning",
-                "type": "Card Break",
-                "hidden": 0,
-                "is_query_report": 0,
-                "link_count": 0,
-                "onboard": 0,
-                "dependencies": "",
-            }
-        )
-
-    if has_pending_invoice_planning_report:
-        links.append(
-            {
-                "label": "Pending Invoice Planning Report",
-                "type": "Link",
-                "link_type": "Report",
-                "link_to": "Pending Invoice Planning Report",
-                "hidden": 0,
-                "is_query_report": 0,
-                "link_count": 0,
-                "onboard": 1,
-                "dependencies": "",
-            }
-        )
-
-    if has_production_planning_page:
-        links.append(
-            {
-                "label": "Production Planning",
-                "type": "Link",
-                "link_type": "Page",
-                "link_to": "production-planning",
-                "hidden": 0,
-                "is_query_report": 0,
-                "link_count": 0,
-                "onboard": 1,
-                "dependencies": "",
-            }
-        )
-
     shortcuts = [
         {
             "type": "DocType",
@@ -1135,29 +1114,6 @@ def _ensure_credit_control_workspace():
                 "link_to": "Sales Tracking SLA Settings",
                 "icon": "settings",
                 "color": "Grey",
-            }
-        )
-
-    if has_pending_invoice_planning_report:
-        shortcuts.append(
-            {
-                "type": "Report",
-                "label": "Pending Invoice Planning Report",
-                "link_to": "Pending Invoice Planning Report",
-                "icon": "list",
-                "doc_view": "",
-                "color": "Orange",
-            }
-        )
-
-    if has_production_planning_page:
-        shortcuts.append(
-            {
-                "type": "Page",
-                "label": "Production Planning",
-                "link_to": "production-planning",
-                "icon": "package",
-                "color": "Green",
             }
         )
 
@@ -1287,6 +1243,160 @@ def _ensure_credit_control_workspace():
         return
 
     frappe.get_doc(workspace_values).insert(ignore_permissions=True)
+
+
+# ---------------------------------------------------------------------------
+# Stock Workspace
+# ---------------------------------------------------------------------------
+
+def _ensure_stock_workspace():
+    if not frappe.db.exists("Workspace", "Stock"):
+        return
+
+    has_pending_invoice_planning_report = frappe.db.exists("Report", "Pending Invoice Planning Report")
+    has_production_planning_page = frappe.db.exists("Page", "production-planning")
+    has_production_planning_console_page = frappe.db.exists("Page", "production-planning-console")
+
+    if (
+        not has_pending_invoice_planning_report
+        and not has_production_planning_page
+        and not has_production_planning_console_page
+    ):
+        return
+
+    workspace = frappe.get_doc("Workspace", "Stock")
+    content_blocks = json.loads(workspace.content or "[]")
+    links = [row.as_dict() if hasattr(row, "as_dict") else dict(row) for row in (workspace.links or [])]
+    shortcuts = [row.as_dict() if hasattr(row, "as_dict") else dict(row) for row in (workspace.shortcuts or [])]
+
+    content_blocks = _workspace_upsert_content_block(
+        content_blocks,
+        {
+            "id": "snrg_stock_production_planning_header",
+            "type": "header",
+            "data": {"text": "Production Planning", "col": 12},
+        },
+    )
+    links = _workspace_upsert_link(
+        links,
+        {
+            "label": "Production Planning",
+            "type": "Card Break",
+            "hidden": 0,
+            "is_query_report": 0,
+            "link_count": 0,
+            "onboard": 0,
+            "dependencies": "",
+        },
+    )
+
+    if has_pending_invoice_planning_report:
+        content_blocks = _workspace_upsert_content_block(
+            content_blocks,
+            {
+                "id": "snrg_stock_pending_invoice_planning_shortcut",
+                "type": "shortcut",
+                "data": {"shortcut_name": "Pending Invoice Planning Report", "col": 3},
+            },
+        )
+        links = _workspace_upsert_link(
+            links,
+            {
+                "label": "Pending Invoice Planning Report",
+                "type": "Link",
+                "link_type": "Report",
+                "link_to": "Pending Invoice Planning Report",
+                "hidden": 0,
+                "is_query_report": 0,
+                "link_count": 0,
+                "onboard": 1,
+                "dependencies": "",
+            },
+        )
+        shortcuts = _workspace_upsert_shortcut(
+            shortcuts,
+            {
+                "type": "Report",
+                "label": "Pending Invoice Planning Report",
+                "link_to": "Pending Invoice Planning Report",
+                "icon": "list",
+                "doc_view": "",
+                "color": "Orange",
+            },
+        )
+
+    if has_production_planning_console_page:
+        content_blocks = _workspace_upsert_content_block(
+            content_blocks,
+            {
+                "id": "snrg_stock_production_planning_console_shortcut",
+                "type": "shortcut",
+                "data": {"shortcut_name": "Production Planning Console", "col": 3},
+            },
+        )
+        links = _workspace_upsert_link(
+            links,
+            {
+                "label": "Production Planning Console",
+                "type": "Link",
+                "link_type": "Page",
+                "link_to": "production-planning-console",
+                "hidden": 0,
+                "is_query_report": 0,
+                "link_count": 0,
+                "onboard": 1,
+                "dependencies": "",
+            },
+        )
+        shortcuts = _workspace_upsert_shortcut(
+            shortcuts,
+            {
+                "type": "Page",
+                "label": "Production Planning Console",
+                "link_to": "production-planning-console",
+                "icon": "package",
+                "color": "Blue",
+            },
+        )
+
+    if has_production_planning_page:
+        content_blocks = _workspace_upsert_content_block(
+            content_blocks,
+            {
+                "id": "snrg_stock_production_planning_page_shortcut",
+                "type": "shortcut",
+                "data": {"shortcut_name": "Production Planning", "col": 3},
+            },
+        )
+        links = _workspace_upsert_link(
+            links,
+            {
+                "label": "Production Planning",
+                "type": "Link",
+                "link_type": "Page",
+                "link_to": "production-planning",
+                "hidden": 0,
+                "is_query_report": 0,
+                "link_count": 0,
+                "onboard": 1,
+                "dependencies": "",
+            },
+        )
+        shortcuts = _workspace_upsert_shortcut(
+            shortcuts,
+            {
+                "type": "Page",
+                "label": "Production Planning",
+                "link_to": "production-planning",
+                "icon": "package",
+                "color": "Green",
+            },
+        )
+
+    workspace.content = json.dumps(content_blocks, separators=(",", ":"))
+    workspace.links = links
+    workspace.shortcuts = shortcuts
+    workspace.save(ignore_permissions=True)
 
 
 # ---------------------------------------------------------------------------
