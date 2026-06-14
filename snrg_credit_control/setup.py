@@ -857,6 +857,7 @@ def _ensure_credit_control_workspace():
     has_sales_tracking_page = frappe.db.exists("Page", "sales-tracking")
     has_sales_tracking_kanban_page = frappe.db.exists("Page", "sales-tracking-kanban")
     has_sales_tracking_sla_settings = frappe.db.exists("DocType", "Sales Tracking SLA Settings")
+    has_customer_credit_review_report = frappe.db.exists("Report", "Customer Credit Review")
 
     content_blocks = [
         {
@@ -887,6 +888,15 @@ def _ensure_credit_control_workspace():
                 "id": "ptp_dashboard_page_shortcut",
                 "type": "shortcut",
                 "data": {"shortcut_name": "PTP Dashboard", "col": 3},
+            }
+        )
+
+    if has_customer_credit_review_report:
+        content_blocks.append(
+            {
+                "id": "customer_credit_review_shortcut",
+                "type": "shortcut",
+                "data": {"shortcut_name": "Customer Credit Review", "col": 3},
             }
         )
 
@@ -1026,6 +1036,21 @@ def _ensure_credit_control_workspace():
         },
     ]
 
+    if has_customer_credit_review_report:
+        links.append(
+            {
+                "label": "Customer Credit Review",
+                "type": "Link",
+                "link_type": "Report",
+                "link_to": "Customer Credit Review",
+                "hidden": 0,
+                "is_query_report": 0,
+                "link_count": 0,
+                "onboard": 1,
+                "dependencies": "",
+            }
+        )
+
     shortcuts = [
         {
             "type": "DocType",
@@ -1051,6 +1076,18 @@ def _ensure_credit_control_workspace():
             "color": "Blue",
         },
     ]
+
+    if has_customer_credit_review_report:
+        shortcuts.append(
+            {
+                "type": "Report",
+                "label": "Customer Credit Review",
+                "link_to": "Customer Credit Review",
+                "icon": "list",
+                "doc_view": "",
+                "color": "Blue",
+            }
+        )
 
     if has_ptp_dashboard_page:
         shortcuts.append(

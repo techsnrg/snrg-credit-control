@@ -51,8 +51,8 @@
    "is_query_report": 0,
    "label": "Customer Credit Review",
    "link_count": 0,
-   "link_to": "customer-credit-review",
-   "link_type": "Page",
+   "link_to": "Customer Credit Review",
+   "link_type": "Report",
    "onboard": 1,
    "type": "Link"
   },
@@ -156,8 +156,8 @@
   {
    "color": "Blue",
    "label": "Customer Credit Review",
-   "link_to": "customer-credit-review",
-   "type": "Page"
+   "link_to": "Customer Credit Review",
+   "type": "Report"
   },
   {
    "color": "Teal",
