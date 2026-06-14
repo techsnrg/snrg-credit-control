@@ -28,6 +28,7 @@ class SnrgSalesTrackingPage {
     setup() {
         this.page.set_primary_action("Refresh", () => this.refresh(), "refresh");
         this.page.set_secondary_action("Export", () => this.exportTrackerView(), "download");
+        this.page.add_inner_button("Kanban View", () => frappe.set_route("sales-tracking-kanban"));
         this.render_shell();
         this.make_filters();
         this.bind_events();

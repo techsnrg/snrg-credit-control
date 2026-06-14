@@ -770,6 +770,7 @@ def _ensure_credit_control_workspace():
     has_pending_invoice_planning_report = frappe.db.exists("Report", "Pending Invoice Planning Report")
     has_production_planning_page = frappe.db.exists("Page", "production-planning")
     has_sales_tracking_page = frappe.db.exists("Page", "sales-tracking")
+    has_sales_tracking_kanban_page = frappe.db.exists("Page", "sales-tracking-kanban")
     has_sales_tracking_sla_settings = frappe.db.exists("DocType", "Sales Tracking SLA Settings")
 
     content_blocks = [
@@ -819,6 +820,15 @@ def _ensure_credit_control_workspace():
                 "id": "sales_tracking_page_shortcut",
                 "type": "shortcut",
                 "data": {"shortcut_name": "Sales Tracking", "col": 3},
+            }
+        )
+
+    if has_sales_tracking_kanban_page:
+        content_blocks.append(
+            {
+                "id": "sales_tracking_kanban_page_shortcut",
+                "type": "shortcut",
+                "data": {"shortcut_name": "Sales Tracking Kanban", "col": 3},
             }
         )
 
@@ -1057,6 +1067,32 @@ def _ensure_credit_control_workspace():
                 "link_to": "sales-tracking",
                 "icon": "table",
                 "color": "Blue",
+            }
+        )
+
+    if has_sales_tracking_kanban_page:
+        links.append(
+            {
+                "label": "Sales Tracking Kanban",
+                "type": "Link",
+                "link_type": "Page",
+                "link_to": "sales-tracking-kanban",
+                "hidden": 0,
+                "is_query_report": 0,
+                "link_count": 0,
+                "onboard": 1,
+                "dependencies": "",
+            }
+        )
+
+    if has_sales_tracking_kanban_page:
+        shortcuts.append(
+            {
+                "type": "Page",
+                "label": "Sales Tracking Kanban",
+                "link_to": "sales-tracking-kanban",
+                "icon": "dashboard",
+                "color": "Purple",
             }
         )
 
