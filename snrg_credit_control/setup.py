@@ -840,6 +840,17 @@ def _workspace_upsert_shortcut(shortcuts, shortcut):
     return filtered_shortcuts
 
 
+def _workspace_child_row_dict(row):
+    data = row.as_dict() if hasattr(row, "as_dict") else dict(row)
+
+    # Frappe child documents can expose runtime attributes through as_dict().
+    # Reassigning those keys back as row data can shadow Document methods.
+    for key in ("is_new",):
+        data.pop(key, None)
+
+    return data
+
+
 # ---------------------------------------------------------------------------
 # Credit Control Workspace
 # ---------------------------------------------------------------------------
@@ -1266,8 +1277,8 @@ def _ensure_stock_workspace():
 
     workspace = frappe.get_doc("Workspace", "Stock")
     content_blocks = json.loads(workspace.content or "[]")
-    links = [row.as_dict() if hasattr(row, "as_dict") else dict(row) for row in (workspace.links or [])]
-    shortcuts = [row.as_dict() if hasattr(row, "as_dict") else dict(row) for row in (workspace.shortcuts or [])]
+    links = [_workspace_child_row_dict(row) for row in (workspace.links or [])]
+    shortcuts = [_workspace_child_row_dict(row) for row in (workspace.shortcuts or [])]
 
     content_blocks = _workspace_upsert_content_block(
         content_blocks,
