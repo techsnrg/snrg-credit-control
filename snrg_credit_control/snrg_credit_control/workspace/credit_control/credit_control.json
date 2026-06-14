@@ -1,7 +1,7 @@
 {
  "category": "Modules",
  "charts": [],
- "content": "[{\"id\":\"credit_control_header\",\"type\":\"header\",\"data\":{\"text\":\"Credit Management\",\"col\":12}},{\"id\":\"credit_ptp_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Credit PTP\",\"col\":3}},{\"id\":\"credit_report_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Credit Control Report\",\"col\":3}},{\"id\":\"customer_credit_review_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Customer Credit Review\",\"col\":3}},{\"id\":\"customer_credit_profile_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Customer Credit Profile\",\"col\":3}},{\"id\":\"ptp_dashboard_page_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"PTP Dashboard\",\"col\":3}},{\"id\":\"md_dashboard_page_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Managing Director Dashboard\",\"col\":3}},{\"id\":\"demand_notice_header\",\"type\":\"header\",\"data\":{\"text\":\"Demand Notices\",\"col\":12}},{\"id\":\"demand_notice_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Demand Notice\",\"col\":3}},{\"id\":\"demand_notice_settings_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Demand Notice Settings\",\"col\":3}}]",
+ "content": "[{\"id\":\"credit_control_header\",\"type\":\"header\",\"data\":{\"text\":\"Credit Management\",\"col\":12}},{\"id\":\"credit_ptp_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Credit PTP\",\"col\":3}},{\"id\":\"customer_credit_profile_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Customer Credit Profile\",\"col\":3}},{\"id\":\"ptp_dashboard_page_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"PTP Dashboard\",\"col\":3}},{\"id\":\"md_dashboard_page_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Managing Director Dashboard\",\"col\":3}},{\"id\":\"credit_planning_header\",\"type\":\"header\",\"data\":{\"text\":\"Credit Planning\",\"col\":12}},{\"id\":\"credit_report_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Credit Control Report\",\"col\":3}},{\"id\":\"customer_credit_review_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Customer Credit Review\",\"col\":3}},{\"id\":\"ptp_dashboard_report_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"PTP Dashboard Report\",\"col\":3}},{\"id\":\"sales_person_sales_collection_summary_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Person Sales and Collection Summary\",\"col\":3}},{\"id\":\"minimum_selling_rate_invoice_check_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Minimum Selling Rate Invoice Check\",\"col\":3}},{\"id\":\"pending_invoice_planning_report_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Pending Invoice Planning Report\",\"col\":3}},{\"id\":\"demand_notice_header\",\"type\":\"header\",\"data\":{\"text\":\"Demand Notices\",\"col\":12}},{\"id\":\"demand_notice_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Demand Notice\",\"col\":3}},{\"id\":\"demand_notice_settings_shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Demand Notice Settings\",\"col\":3}}]",
  "creation": "2026-03-28 12:00:00.000000",
  "developer_mode_only": 0,
  "disable_user_customization": 0,
@@ -31,28 +31,6 @@
    "link_count": 0,
    "link_to": "Credit PTP",
    "link_type": "DocType",
-   "onboard": 1,
-   "type": "Link"
-  },
-  {
-   "dependencies": "",
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Credit Control Report",
-   "link_count": 0,
-   "link_to": "Credit Control Report",
-   "link_type": "Report",
-   "onboard": 1,
-   "type": "Link"
-  },
-  {
-   "dependencies": "",
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Customer Credit Review",
-   "link_count": 0,
-   "link_to": "Customer Credit Review",
-   "link_type": "Report",
    "onboard": 1,
    "type": "Link"
   },
@@ -93,11 +71,75 @@
    "dependencies": "",
    "hidden": 0,
    "is_query_report": 0,
+   "label": "Credit Planning",
+   "link_count": 0,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Credit Control Report",
+   "link_count": 0,
+   "link_to": "Credit Control Report",
+   "link_type": "Report",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Customer Credit Review",
+   "link_count": 0,
+   "link_to": "Customer Credit Review",
+   "link_type": "Report",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
    "label": "PTP Dashboard Report",
    "link_count": 0,
    "link_to": "PTP Dashboard",
    "link_type": "Report",
-   "onboard": 0,
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sales Person Sales and Collection Summary",
+   "link_count": 0,
+   "link_to": "Sales Person Sales and Collection Summary",
+   "link_type": "Report",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Minimum Selling Rate Invoice Check",
+   "link_count": 0,
+   "link_to": "Minimum Selling Rate Invoice Check",
+   "link_type": "Report",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Pending Invoice Planning Report",
+   "link_count": 0,
+   "link_to": "Pending Invoice Planning Report",
+   "link_type": "Report",
+   "onboard": 1,
    "type": "Link"
   },
   {
@@ -164,6 +206,30 @@
    "label": "Customer Credit Profile",
    "link_to": "customer-credit-profile",
    "type": "Page"
+  },
+  {
+   "color": "Orange",
+   "label": "PTP Dashboard Report",
+   "link_to": "PTP Dashboard",
+   "type": "Report"
+  },
+  {
+   "color": "Blue",
+   "label": "Sales Person Sales and Collection Summary",
+   "link_to": "Sales Person Sales and Collection Summary",
+   "type": "Report"
+  },
+  {
+   "color": "Purple",
+   "label": "Minimum Selling Rate Invoice Check",
+   "link_to": "Minimum Selling Rate Invoice Check",
+   "type": "Report"
+  },
+  {
+   "color": "Grey",
+   "label": "Pending Invoice Planning Report",
+   "link_to": "Pending Invoice Planning Report",
+   "type": "Report"
   },
   {
    "color": "Orange",

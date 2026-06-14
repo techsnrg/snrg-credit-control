@@ -866,7 +866,35 @@ def _ensure_credit_control_workspace():
     has_sales_tracking_page = frappe.db.exists("Page", "sales-tracking")
     has_sales_tracking_kanban_page = frappe.db.exists("Page", "sales-tracking-kanban")
     has_sales_tracking_sla_settings = frappe.db.exists("DocType", "Sales Tracking SLA Settings")
-    has_customer_credit_review_report = frappe.db.exists("Report", "Customer Credit Review")
+    credit_planning_reports = [
+        ("credit_report_shortcut", "Credit Control Report", "Credit Control Report", "Green", "list"),
+        ("customer_credit_review_shortcut", "Customer Credit Review", "Customer Credit Review", "Blue", "list"),
+        ("ptp_dashboard_report_shortcut", "PTP Dashboard Report", "PTP Dashboard", "Orange", "dashboard"),
+        (
+            "sales_person_sales_collection_summary_shortcut",
+            "Sales Person Sales and Collection Summary",
+            "Sales Person Sales and Collection Summary",
+            "Blue",
+            "chart",
+        ),
+        (
+            "minimum_selling_rate_invoice_check_shortcut",
+            "Minimum Selling Rate Invoice Check",
+            "Minimum Selling Rate Invoice Check",
+            "Purple",
+            "list",
+        ),
+        (
+            "pending_invoice_planning_report_shortcut",
+            "Pending Invoice Planning Report",
+            "Pending Invoice Planning Report",
+            "Grey",
+            "list",
+        ),
+    ]
+    credit_planning_reports = [
+        report for report in credit_planning_reports if frappe.db.exists("Report", report[2])
+    ]
 
     content_blocks = [
         {
@@ -879,16 +907,6 @@ def _ensure_credit_control_workspace():
             "type": "shortcut",
             "data": {"shortcut_name": "Credit PTP", "col": 3},
         },
-        {
-            "id": "credit_report_shortcut",
-            "type": "shortcut",
-            "data": {"shortcut_name": "Credit Control Report", "col": 3},
-        },
-        {
-            "id": "sales_person_sales_collection_summary_shortcut",
-            "type": "shortcut",
-            "data": {"shortcut_name": "Sales Person Sales and Collection Summary", "col": 3},
-        },
     ]
 
     if has_ptp_dashboard_page:
@@ -897,15 +915,6 @@ def _ensure_credit_control_workspace():
                 "id": "ptp_dashboard_page_shortcut",
                 "type": "shortcut",
                 "data": {"shortcut_name": "PTP Dashboard", "col": 3},
-            }
-        )
-
-    if has_customer_credit_review_report:
-        content_blocks.append(
-            {
-                "id": "customer_credit_review_shortcut",
-                "type": "shortcut",
-                "data": {"shortcut_name": "Customer Credit Review", "col": 3},
             }
         )
 
@@ -945,6 +954,23 @@ def _ensure_credit_control_workspace():
             }
         )
 
+    if credit_planning_reports:
+        content_blocks.append(
+            {
+                "id": "credit_planning_header",
+                "type": "header",
+                "data": {"text": "Credit Planning", "col": 12},
+            }
+        )
+        for shortcut_id, label, _report_name, _color, _icon in credit_planning_reports:
+            content_blocks.append(
+                {
+                    "id": shortcut_id,
+                    "type": "shortcut",
+                    "data": {"shortcut_name": label, "col": 3},
+                }
+            )
+
     links = [
         {
             "label": "Credit Management",
@@ -960,28 +986,6 @@ def _ensure_credit_control_workspace():
             "type": "Link",
             "link_type": "DocType",
             "link_to": "Credit PTP",
-            "hidden": 0,
-            "is_query_report": 0,
-            "link_count": 0,
-            "onboard": 1,
-            "dependencies": "",
-        },
-        {
-            "label": "Credit Control Report",
-            "type": "Link",
-            "link_type": "Report",
-            "link_to": "Credit Control Report",
-            "hidden": 0,
-            "is_query_report": 0,
-            "link_count": 0,
-            "onboard": 1,
-            "dependencies": "",
-        },
-        {
-            "label": "Sales Person Sales and Collection Summary",
-            "type": "Link",
-            "link_type": "Report",
-            "link_to": "Sales Person Sales and Collection Summary",
             "hidden": 0,
             "is_query_report": 0,
             "link_count": 0,
@@ -1032,33 +1036,34 @@ def _ensure_credit_control_workspace():
             "onboard": 0,
             "dependencies": "",
         },
-        {
-            "label": "PTP Dashboard Report",
-            "type": "Link",
-            "link_type": "Report",
-            "link_to": "PTP Dashboard",
-            "hidden": 0,
-            "is_query_report": 0,
-            "link_count": 0,
-            "onboard": 0,
-            "dependencies": "",
-        },
     ]
 
-    if has_customer_credit_review_report:
+    if credit_planning_reports:
         links.append(
             {
-                "label": "Customer Credit Review",
-                "type": "Link",
-                "link_type": "Report",
-                "link_to": "Customer Credit Review",
+                "label": "Credit Planning",
+                "type": "Card Break",
                 "hidden": 0,
                 "is_query_report": 0,
                 "link_count": 0,
-                "onboard": 1,
+                "onboard": 0,
                 "dependencies": "",
             }
         )
+        for _shortcut_id, label, report_name, _color, _icon in credit_planning_reports:
+            links.append(
+                {
+                    "label": label,
+                    "type": "Link",
+                    "link_type": "Report",
+                    "link_to": report_name,
+                    "hidden": 0,
+                    "is_query_report": 0,
+                    "link_count": 0,
+                    "onboard": 1,
+                    "dependencies": "",
+                }
+            )
 
     shortcuts = [
         {
@@ -1068,33 +1073,17 @@ def _ensure_credit_control_workspace():
             "icon": "shield",
             "color": "Blue",
         },
-        {
-            "type": "Report",
-            "label": "Credit Control Report",
-            "link_to": "Credit Control Report",
-            "icon": "list",
-            "doc_view": "",
-            "color": "Green",
-        },
-        {
-            "type": "Report",
-            "label": "Sales Person Sales and Collection Summary",
-            "link_to": "Sales Person Sales and Collection Summary",
-            "icon": "chart",
-            "doc_view": "",
-            "color": "Blue",
-        },
     ]
 
-    if has_customer_credit_review_report:
+    for _shortcut_id, label, report_name, color, icon in credit_planning_reports:
         shortcuts.append(
             {
                 "type": "Report",
-                "label": "Customer Credit Review",
-                "link_to": "Customer Credit Review",
-                "icon": "list",
+                "label": label,
+                "link_to": report_name,
+                "icon": icon,
                 "doc_view": "",
-                "color": "Blue",
+                "color": color,
             }
         )
 
