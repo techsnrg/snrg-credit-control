@@ -93,18 +93,12 @@ def _ensure_role():
 
 _CUSTOMER_FIELDS = [
     {
-        "fieldname": "custom_snrg_credit_limit_snapshot_info",
-        "fieldtype": "HTML",
-        "label": "Credit Limit Snapshot Info",
-        "insert_after": "credit_limits",
-    },
-    {
         "fieldname": "custom_credit_lock_days",
         "fieldtype": "Int",
         "label": "Credit Lock Days",
         "description": "Invoices older than this many days with outstanding balance trigger a Credit Hold. Leave blank to use the system default (75 days).",
         "default": "75",
-        "insert_after": "custom_snrg_credit_limit_snapshot_info",
+        "insert_after": "credit_limits",
     },
 ]
 
