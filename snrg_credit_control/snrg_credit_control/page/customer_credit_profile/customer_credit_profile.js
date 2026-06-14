@@ -243,7 +243,7 @@ class SnrgCustomerCreditProfile {
 
         this.render_loading();
         const response = await frappe.call({
-            method: "snrg_credit_control.snrg_credit_control.page.customer_credit_review.customer_credit_review.get_customer_detail",
+            method: "snrg_credit_control.customer_credit_review.get_customer_detail",
             args: { company, customer },
         });
         this.data = response.message || null;

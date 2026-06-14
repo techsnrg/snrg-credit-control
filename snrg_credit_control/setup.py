@@ -27,6 +27,7 @@ def after_install():
     _ensure_demand_notice_settings()
     _ensure_sales_tracking_sla_settings()
     _ensure_summer_bonanza_scheme()
+    _remove_legacy_customer_credit_review_page()
     _ensure_credit_control_workspace()
     _ensure_stock_workspace()
     _ensure_scheme_management_workspace()
@@ -47,6 +48,7 @@ def after_migrate():
     _ensure_demand_notice_settings()
     _ensure_sales_tracking_sla_settings()
     _ensure_summer_bonanza_scheme()
+    _remove_legacy_customer_credit_review_page()
     _ensure_credit_control_workspace()
     _ensure_stock_workspace()
     _ensure_scheme_management_workspace()
@@ -68,6 +70,13 @@ def _ensure_module():
             "app_name": "snrg_credit_control",
         }
     ).insert(ignore_permissions=True)
+
+
+def _remove_legacy_customer_credit_review_page():
+    if not frappe.db.exists("Page", "customer-credit-review"):
+        return
+
+    frappe.delete_doc("Page", "customer-credit-review", ignore_permissions=True, force=True)
 
 
 # ---------------------------------------------------------------------------
