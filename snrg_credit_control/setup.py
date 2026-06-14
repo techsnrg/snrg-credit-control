@@ -530,6 +530,11 @@ def _ensure_report():
             "extra_roles": ["Sales User"],
         },
         {
+            "report_name": "Pending Invoice Planning Item Summary",
+            "ref_doctype": "Quotation",
+            "extra_roles": ["Sales User"],
+        },
+        {
             "report_name": "Sales Person Sales and Collection Summary",
             "ref_doctype": "Sales Invoice",
             "extra_roles": ["Sales User"],
@@ -866,10 +871,8 @@ def _ensure_credit_control_workspace():
     has_sales_tracking_page = frappe.db.exists("Page", "sales-tracking")
     has_sales_tracking_kanban_page = frappe.db.exists("Page", "sales-tracking-kanban")
     has_sales_tracking_sla_settings = frappe.db.exists("DocType", "Sales Tracking SLA Settings")
-    credit_planning_reports = [
-        ("credit_report_shortcut", "Credit Control Report", "Credit Control Report", "Green", "list"),
-        ("customer_credit_review_shortcut", "Customer Credit Review", "Customer Credit Review", "Blue", "list"),
-        ("ptp_dashboard_report_shortcut", "PTP Dashboard Report", "PTP Dashboard", "Orange", "dashboard"),
+    has_production_planning_page = frappe.db.exists("Page", "production-planning")
+    sales_tracking_reports = [
         (
             "sales_person_sales_collection_summary_shortcut",
             "Sales Person Sales and Collection Summary",
@@ -877,6 +880,20 @@ def _ensure_credit_control_workspace():
             "Blue",
             "chart",
         ),
+    ]
+    sales_tracking_reports = [
+        report for report in sales_tracking_reports if frappe.db.exists("Report", report[2])
+    ]
+    has_sales_tracking_section = (
+        has_sales_tracking_page
+        or has_sales_tracking_kanban_page
+        or has_sales_tracking_sla_settings
+        or bool(sales_tracking_reports)
+    )
+    credit_planning_reports = [
+        ("credit_report_shortcut", "Credit Control Report", "Credit Control Report", "Green", "list"),
+        ("customer_credit_review_shortcut", "Customer Credit Review", "Customer Credit Review", "Blue", "list"),
+        ("ptp_dashboard_report_shortcut", "PTP Dashboard Report", "PTP Dashboard", "Orange", "dashboard"),
         (
             "minimum_selling_rate_invoice_check_shortcut",
             "Minimum Selling Rate Invoice Check",
@@ -884,17 +901,42 @@ def _ensure_credit_control_workspace():
             "Purple",
             "list",
         ),
-        (
-            "pending_invoice_planning_report_shortcut",
-            "Pending Invoice Planning Report",
-            "Pending Invoice Planning Report",
-            "Grey",
-            "list",
-        ),
     ]
     credit_planning_reports = [
         report for report in credit_planning_reports if frappe.db.exists("Report", report[2])
     ]
+    production_planning_items = [
+        (
+            "pending_invoice_planning_report_shortcut",
+            "Pending Invoice Planning Report",
+            "Pending Invoice Planning Report",
+            "Report",
+            "Grey",
+            "list",
+        ),
+        (
+            "pending_invoice_planning_item_summary_shortcut",
+            "Pending Invoice Planning Item Summary",
+            "Pending Invoice Planning Item Summary",
+            "Report",
+            "Blue",
+            "list",
+        ),
+    ]
+    production_planning_items = [
+        item for item in production_planning_items if frappe.db.exists("Report", item[2])
+    ]
+    if has_production_planning_page:
+        production_planning_items.append(
+            (
+                "production_planning_page_shortcut",
+                "Production Planning",
+                "production-planning",
+                "Page",
+                "Green",
+                "dashboard",
+            )
+        )
 
     content_blocks = [
         {
@@ -927,6 +969,15 @@ def _ensure_credit_control_workspace():
             }
         )
 
+    if has_sales_tracking_section:
+        content_blocks.append(
+            {
+                "id": "sales_tracking_header",
+                "type": "header",
+                "data": {"text": "Sales Tracking", "col": 12},
+            }
+        )
+
     if has_sales_tracking_page:
         content_blocks.append(
             {
@@ -942,6 +993,15 @@ def _ensure_credit_control_workspace():
                 "id": "sales_tracking_kanban_page_shortcut",
                 "type": "shortcut",
                 "data": {"shortcut_name": "Sales Tracking Kanban", "col": 3},
+            }
+        )
+
+    for shortcut_id, label, _report_name, _color, _icon in sales_tracking_reports:
+        content_blocks.append(
+            {
+                "id": shortcut_id,
+                "type": "shortcut",
+                "data": {"shortcut_name": label, "col": 3},
             }
         )
 
@@ -963,6 +1023,23 @@ def _ensure_credit_control_workspace():
             }
         )
         for shortcut_id, label, _report_name, _color, _icon in credit_planning_reports:
+            content_blocks.append(
+                {
+                    "id": shortcut_id,
+                    "type": "shortcut",
+                    "data": {"shortcut_name": label, "col": 3},
+                }
+            )
+
+    if production_planning_items:
+        content_blocks.append(
+            {
+                "id": "production_planning_header",
+                "type": "header",
+                "data": {"text": "Production Planning", "col": 12},
+            }
+        )
+        for shortcut_id, label, _link_to, _link_type, _color, _icon in production_planning_items:
             content_blocks.append(
                 {
                     "id": shortcut_id,
@@ -1014,29 +1091,80 @@ def _ensure_credit_control_workspace():
             "onboard": 1,
             "dependencies": "",
         },
-        {
-            "label": "Sales Tracking",
-            "type": "Link",
-            "link_type": "Page",
-            "link_to": "sales-tracking",
-            "hidden": 0,
-            "is_query_report": 0,
-            "link_count": 0,
-            "onboard": 1,
-            "dependencies": "",
-        },
-        {
-            "label": "Sales Tracking SLA Settings",
-            "type": "Link",
-            "link_type": "DocType",
-            "link_to": "Sales Tracking SLA Settings",
-            "hidden": 0,
-            "is_query_report": 0,
-            "link_count": 0,
-            "onboard": 0,
-            "dependencies": "",
-        },
     ]
+
+    if has_sales_tracking_section:
+        links.append(
+            {
+                "label": "Sales Tracking",
+                "type": "Card Break",
+                "hidden": 0,
+                "is_query_report": 0,
+                "link_count": 0,
+                "onboard": 0,
+                "dependencies": "",
+            }
+        )
+
+    if has_sales_tracking_page:
+        links.append(
+            {
+                "label": "Sales Tracking",
+                "type": "Link",
+                "link_type": "Page",
+                "link_to": "sales-tracking",
+                "hidden": 0,
+                "is_query_report": 0,
+                "link_count": 0,
+                "onboard": 1,
+                "dependencies": "",
+            }
+        )
+
+    if has_sales_tracking_kanban_page:
+        links.append(
+            {
+                "label": "Sales Tracking Kanban",
+                "type": "Link",
+                "link_type": "Page",
+                "link_to": "sales-tracking-kanban",
+                "hidden": 0,
+                "is_query_report": 0,
+                "link_count": 0,
+                "onboard": 1,
+                "dependencies": "",
+            }
+        )
+
+    for _shortcut_id, label, report_name, _color, _icon in sales_tracking_reports:
+        links.append(
+            {
+                "label": label,
+                "type": "Link",
+                "link_type": "Report",
+                "link_to": report_name,
+                "hidden": 0,
+                "is_query_report": 0,
+                "link_count": 0,
+                "onboard": 1,
+                "dependencies": "",
+            }
+        )
+
+    if has_sales_tracking_sla_settings:
+        links.append(
+            {
+                "label": "Sales Tracking SLA Settings",
+                "type": "Link",
+                "link_type": "DocType",
+                "link_to": "Sales Tracking SLA Settings",
+                "hidden": 0,
+                "is_query_report": 0,
+                "link_count": 0,
+                "onboard": 0,
+                "dependencies": "",
+            }
+        )
 
     if credit_planning_reports:
         links.append(
@@ -1057,6 +1185,33 @@ def _ensure_credit_control_workspace():
                     "type": "Link",
                     "link_type": "Report",
                     "link_to": report_name,
+                    "hidden": 0,
+                    "is_query_report": 0,
+                    "link_count": 0,
+                    "onboard": 1,
+                    "dependencies": "",
+                }
+            )
+
+    if production_planning_items:
+        links.append(
+            {
+                "label": "Production Planning",
+                "type": "Card Break",
+                "hidden": 0,
+                "is_query_report": 0,
+                "link_count": 0,
+                "onboard": 0,
+                "dependencies": "",
+            }
+        )
+        for _shortcut_id, label, link_to, link_type, _color, _icon in production_planning_items:
+            links.append(
+                {
+                    "label": label,
+                    "type": "Link",
+                    "link_type": link_type,
+                    "link_to": link_to,
                     "hidden": 0,
                     "is_query_report": 0,
                     "link_count": 0,
@@ -1086,6 +1241,18 @@ def _ensure_credit_control_workspace():
                 "color": color,
             }
         )
+
+    for _shortcut_id, label, link_to, link_type, color, icon in production_planning_items:
+        shortcut = {
+            "type": link_type,
+            "label": label,
+            "link_to": link_to,
+            "icon": icon,
+            "color": color,
+        }
+        if link_type == "Report":
+            shortcut["doc_view"] = ""
+        shortcuts.append(shortcut)
 
     if has_ptp_dashboard_page:
         shortcuts.append(

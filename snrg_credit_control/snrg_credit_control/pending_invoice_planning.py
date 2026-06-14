@@ -235,6 +235,7 @@ def _get_pending_invoice_production_status(request_list):
 
 
 def get_pending_invoice_planning_item_summary_rows(filters=None):
+    filters = frappe._dict(filters or {})
     detail_rows = get_pending_invoice_planning_rows(filters=filters, pending_only=True)
     grouped = {}
 
@@ -264,36 +265,95 @@ def get_pending_invoice_planning_item_summary_rows(filters=None):
                 "invoiced_value": 0,
                 "total_uninvoiced_qty": 0,
                 "total_uninvoiced_value": 0,
+                "production_requested_qty": 0,
+                "production_active_requested_qty": 0,
+                "remaining_requestable_qty": 0,
+                "warehouse_stock_qty": 0,
+                "shortage_qty": 0,
+                "remaining_to_request_qty": 0,
+                "stock_after_pending_qty": 0,
                 "_quotation_names": set(),
                 "_customer_names": set(),
                 "_sales_order_names": set(),
+                "_production_statuses": set(),
             }
 
         group = grouped[key]
         _sum_planning_fields(group, row)
+        group["production_requested_qty"] += flt(row.get("production_requested_qty"))
+        group["production_active_requested_qty"] += flt(row.get("production_active_requested_qty"))
+        group["remaining_requestable_qty"] += flt(row.get("remaining_requestable_qty"))
         group["_quotation_names"].add(row.get("quotation") or "")
         group["_customer_names"].add(row.get("customer") or "")
         group["_sales_order_names"].update(row.get("sales_order_names") or [])
+        group["_production_statuses"].add(row.get("production_request_status") or "Not Requested")
         _capture_latest_reference(group, "latest_sales_order", "latest_sales_order_date", row.get("latest_sales_order"), row.get("latest_sales_order_date"))
         _capture_latest_reference(group, None, "latest_quotation_date", row.get("quotation"), row.get("quotation_date"))
         _capture_latest_reference(group, None, "latest_invoice_date", None, row.get("latest_invoice_date"))
+
+    warehouse_stock_by_item = _get_item_warehouse_stock(
+        item_codes=[key[0] for key in grouped],
+        warehouse=filters.get("default_warehouse") or filters.get("warehouse"),
+    )
 
     rows = []
     for group in grouped.values():
         group["quotation_count"] = len([value for value in group.pop("_quotation_names") if value])
         group["customer_count"] = len([value for value in group.pop("_customer_names") if value])
         group["sales_order_count"] = len([value for value in group.pop("_sales_order_names") if value])
+        group["production_status_summary"] = _build_production_status_summary(group.pop("_production_statuses"))
+        group["warehouse_stock_qty"] = flt(warehouse_stock_by_item.get(group.get("item_code")))
+        group["shortage_qty"] = max(flt(group.get("total_uninvoiced_qty")) - flt(group.get("warehouse_stock_qty")), 0)
+        group["remaining_to_request_qty"] = max(
+            flt(group.get("shortage_qty")) - flt(group.get("production_active_requested_qty")),
+            0,
+        )
+        group["stock_after_pending_qty"] = flt(group.get("warehouse_stock_qty")) - flt(group.get("total_uninvoiced_qty"))
+        group["planning_stage_summary"] = _build_planning_stage_summary(
+            quotation_open_qty=flt(group.get("quotation_open_qty")),
+            draft_so_qty=flt(group.get("draft_so_qty")),
+            submitted_so_uninvoiced_qty=flt(group.get("submitted_so_uninvoiced_qty")),
+            invoiced_qty=flt(group.get("invoiced_qty")),
+        )
         group.pop("latest_sales_order_date", None)
         rows.append(group)
 
     rows.sort(
         key=lambda row: (
-            -flt(row.get("total_uninvoiced_value")),
+            -flt(row.get("remaining_to_request_qty")),
+            -flt(row.get("shortage_qty")),
+            -flt(row.get("total_uninvoiced_qty")),
             row.get("item_code", ""),
             row.get("item_name", ""),
         )
     )
     return rows
+
+
+def _get_item_warehouse_stock(item_codes=None, warehouse=None):
+    item_codes = sorted({item_code for item_code in (item_codes or []) if item_code})
+    warehouse = (warehouse or "").strip()
+    if not item_codes or not warehouse:
+        return {}
+
+    rows = frappe.get_all(
+        "Bin",
+        filters={
+            "item_code": ["in", item_codes],
+            "warehouse": warehouse,
+        },
+        fields=["item_code", "actual_qty"],
+        limit_page_length=len(item_codes),
+    )
+    return {row.item_code: flt(row.actual_qty) for row in rows}
+
+
+def _build_production_status_summary(statuses):
+    statuses = {status for status in (statuses or set()) if status}
+    if not statuses:
+        return "Not Requested"
+    ordered_statuses = ["Not Requested", "Open", "In Progress", "Completed", "Cancelled"]
+    return ", ".join([status for status in ordered_statuses if status in statuses])
 
 
 def get_pending_invoice_planning_customer_summary_rows(filters=None):
