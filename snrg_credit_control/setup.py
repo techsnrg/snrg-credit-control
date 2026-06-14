@@ -1297,12 +1297,10 @@ def _ensure_stock_workspace():
 
     has_pending_invoice_planning_report = frappe.db.exists("Report", "Pending Invoice Planning Report")
     has_production_planning_page = frappe.db.exists("Page", "production-planning")
-    has_production_planning_console_page = frappe.db.exists("Page", "production-planning-console")
 
     if (
         not has_pending_invoice_planning_report
         and not has_production_planning_page
-        and not has_production_planning_console_page
     ):
         return
 
@@ -1325,16 +1323,6 @@ def _ensure_stock_workspace():
                 "id": "snrg_stock_pending_invoice_planning_shortcut",
                 "type": "shortcut",
                 "data": {"shortcut_name": "Pending Invoice Planning Report", "col": 3},
-            },
-        )
-
-    if has_production_planning_console_page:
-        content_blocks = _workspace_upsert_content_block(
-            content_blocks,
-            {
-                "id": "snrg_stock_production_planning_console_shortcut",
-                "type": "shortcut",
-                "data": {"shortcut_name": "Production Planning Console", "col": 3},
             },
         )
 

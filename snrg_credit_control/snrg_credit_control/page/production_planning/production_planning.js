@@ -23,16 +23,10 @@ class SnrgProductionPlanning {
   }
 
   setup() {
-    this.page.set_primary_action(__("Open Production Planning Console"), () => {
-      frappe.route_options = {
-        company: this.controls.company?.get_value() || frappe.defaults.get_user_default("Company") || "",
-      };
-      frappe.set_route("production-planning-console");
-    });
-    this.page.set_secondary_action(__("Refresh"), () => this.refresh(), "refresh");
-    this.page.add_inner_button(__("Open Pending Invoice Planning Report"), () => {
+    this.page.set_primary_action(__("Open Pending Invoice Planning Report"), () => {
       frappe.set_route("query-report", "Pending Invoice Planning Report");
     });
+    this.page.set_secondary_action(__("Refresh"), () => this.refresh(), "refresh");
     this.set_breadcrumb();
     this.render_shell();
     this.make_filters();

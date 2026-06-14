@@ -390,13 +390,13 @@ function setup_pending_invoice_planning_actions(report) {
 
   report.__snrgPendingInvoicePlanningActionsSetup = true;
   ensure_pending_invoice_planning_report_styles(report);
-  report.page.set_primary_action(__("Open Production Planning Console"), () => {
+  report.page.set_primary_action(__("Open Production Planning"), () => {
     frappe.route_options = {
       company: report.get_filter_value("company") || "",
       default_assignee: report.get_filter_value("default_assignee") || "",
       show_values: report.get_filter_value("show_values") ? 1 : 0,
     };
-    frappe.set_route("production-planning-console");
+    frappe.set_route("production-planning");
   });
   ensure_pending_invoice_planning_bulk_button(report);
   bind_pending_invoice_planning_request_picker_events(report);
@@ -690,6 +690,14 @@ function ensure_pending_invoice_planning_report_styles(report) {
         height: 26px;
         text-align: right;
         padding: 2px 7px;
+        -moz-appearance: textfield;
+        appearance: textfield;
+      }
+
+      .snrg-pip-production-cell .snrg-pip-request-qty::-webkit-outer-spin-button,
+      .snrg-pip-production-cell .snrg-pip-request-qty::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
       }
 
       .snrg-pip-production-meta {
