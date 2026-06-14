@@ -1288,21 +1288,6 @@ def _ensure_credit_control_workspace():
         )
 
     if has_sales_tracking_kanban_page:
-        links.append(
-            {
-                "label": "Sales Tracking Kanban",
-                "type": "Link",
-                "link_type": "Page",
-                "link_to": "sales-tracking-kanban",
-                "hidden": 0,
-                "is_query_report": 0,
-                "link_count": 0,
-                "onboard": 1,
-                "dependencies": "",
-            }
-        )
-
-    if has_sales_tracking_kanban_page:
         shortcuts.append(
             {
                 "type": "Page",
@@ -1310,6 +1295,18 @@ def _ensure_credit_control_workspace():
                 "link_to": "sales-tracking-kanban",
                 "icon": "dashboard",
                 "color": "Purple",
+            }
+        )
+
+    for _shortcut_id, label, report_name, color, icon in sales_tracking_reports:
+        shortcuts.append(
+            {
+                "type": "Report",
+                "label": label,
+                "link_to": report_name,
+                "icon": icon,
+                "doc_view": "",
+                "color": color,
             }
         )
 
