@@ -14,4 +14,16 @@ def get_context(context):
 
 @frappe.whitelist()
 def get_kanban_data(**kwargs):
-    return get_tracker_data(**kwargs)
+    allowed_args = {
+        "company",
+        "from_date",
+        "to_date",
+        "order_month",
+        "territory",
+        "customer",
+        "search",
+        "credit_status",
+        "delivery_status",
+        "limit",
+    }
+    return get_tracker_data(**{key: value for key, value in kwargs.items() if key in allowed_args})
