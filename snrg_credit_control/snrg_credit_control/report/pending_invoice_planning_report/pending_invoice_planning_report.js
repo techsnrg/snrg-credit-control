@@ -112,7 +112,7 @@ frappe.query_reports["Pending Invoice Planning Report"] = {
 
   get_datatable_options(options) {
     return Object.assign(options || {}, {
-      cellHeight: 92,
+      cellHeight: 64,
       checkboxColumn: true,
     });
   },
@@ -136,14 +136,17 @@ frappe.query_reports["Pending Invoice Planning Report"] = {
         const statusParts = [requestName, requiredBy ? `${__("Required by")}: ${requiredBy}` : ""].filter(Boolean);
         const title = statusParts.join(" | ");
         return `
-          <button
-            type="button"
-            class="btn btn-xs btn-secondary"
-            disabled
-            title="${frappe.utils.escape_html(title)}"
-          >
-            ${__("Requested")}
-          </button>
+          <div class="snrg-pip-production-cell snrg-pip-production-cell-stack">
+            <button
+              type="button"
+              class="btn btn-xs btn-secondary"
+              disabled
+              title="${frappe.utils.escape_html(title)}"
+            >
+              ${__("Requested")}
+            </button>
+            ${requiredBy ? `<div class="snrg-pip-production-meta">${__("Required by")}: ${frappe.utils.escape_html(requiredBy)}</div>` : ""}
+          </div>
         `;
       }
 
@@ -151,23 +154,26 @@ frappe.query_reports["Pending Invoice Planning Report"] = {
       const draftQty = get_pending_invoice_planning_draft_qty(report, data);
       const buttonLabel = requestedQty > 0 ? __("Request More") : __("Request");
       return `
-        <div class="snrg-pip-production-cell">
-          <input
-            type="number"
-            class="form-control input-xs snrg-pip-request-qty"
-            data-row-key="${frappe.utils.escape_html(rowKey)}"
-            data-max-qty="${frappe.utils.escape_html(String(remainingQty))}"
-            min="0.01"
-            step="0.01"
-            value="${frappe.utils.escape_html(format_pending_invoice_planning_qty_input(draftQty))}"
-          />
-          <button
-            type="button"
-            class="btn btn-xs btn-default snrg-pip-request-production"
-            data-row-key="${frappe.utils.escape_html(rowKey)}"
-          >
-            ${buttonLabel}
-          </button>
+        <div class="snrg-pip-production-cell snrg-pip-production-cell-stack">
+          <div class="snrg-pip-production-cell">
+            <input
+              type="number"
+              class="form-control input-xs snrg-pip-request-qty"
+              data-row-key="${frappe.utils.escape_html(rowKey)}"
+              data-max-qty="${frappe.utils.escape_html(String(remainingQty))}"
+              min="0.01"
+              step="0.01"
+              value="${frappe.utils.escape_html(format_pending_invoice_planning_qty_input(draftQty))}"
+            />
+            <button
+              type="button"
+              class="btn btn-xs btn-default snrg-pip-request-production"
+              data-row-key="${frappe.utils.escape_html(rowKey)}"
+            >
+              ${buttonLabel}
+            </button>
+          </div>
+          ${data.production_required_by_date ? `<div class="snrg-pip-production-meta">${__("Required by")}: ${frappe.utils.escape_html(formatPendingInvoicePlanningDate(data.production_required_by_date))}</div>` : ""}
         </div>
       `;
     }
@@ -197,10 +203,6 @@ frappe.query_reports["Pending Invoice Planning Report"] = {
 
     if (column.fieldname === "item_name" && data) {
       return `<div class="snrg-pip-item-name-cell">${frappe.utils.escape_html(data.item_name || "")}</div>`;
-    }
-
-    if (column.fieldname === "production_required_by_date" && data) {
-      return render_pending_invoice_planning_required_by(data.production_required_by_date);
     }
 
     const formatted = default_formatter(value, row, column, data);
@@ -414,8 +416,7 @@ function setup_pending_invoice_planning_actions(report) {
       contextKey: `row:${rowKey}`,
       assignee: report.get_filter_value("default_assignee") || rowData.production_assigned_to || "",
       assigneeEditable: true,
-      title: __("Create Production Request"),
-      helpText: __("Pick the required-by date to create this production request."),
+      title: __("Create Request"),
       onSelect: (requiredByDate, meta = {}) => {
         const payloadRow = build_pending_invoice_planning_payload_from_row(
           report,
@@ -478,8 +479,7 @@ function ensure_pending_invoice_planning_bulk_button(report) {
       contextKey: `bulk:${requestableRows.map((row) => `${row.quotation}:${row.item_code}`).join("|")}`,
       assignee: defaultAssignee,
       assigneeEditable: false,
-      title: __("Create Bulk Production Requests"),
-      helpText: __("Pick one required-by date for all selected rows."),
+      title: __("Bulk Request"),
       onSelect: (requiredByDate, meta = {}) => {
         const payloadRows = requestableRows
           .map((row) => build_pending_invoice_planning_payload_from_row(report, row, requiredByDate, meta.assignedTo || defaultAssignee))
@@ -603,15 +603,15 @@ function ensure_pending_invoice_planning_report_styles(report) {
     <style id="snrg-pip-report-style">
       .snrg-pip-report-page .dt-scrollable .dt-row,
       .snrg-pip-report-page .dt-scrollable .dt-cell {
-        min-height: 92px;
+        min-height: 64px;
       }
 
       .snrg-pip-report-page .dt-scrollable .dt-cell__content {
         height: 100% !important;
         white-space: normal !important;
-        line-height: 1.25;
-        padding-top: 8px;
-        padding-bottom: 8px;
+        line-height: 1.18;
+        padding-top: 5px;
+        padding-bottom: 5px;
         overflow: visible;
         display: block;
       }
@@ -635,7 +635,7 @@ function ensure_pending_invoice_planning_report_styles(report) {
       .snrg-pip-report-page .snrg-pip-item-name-cell {
         white-space: normal;
         overflow-wrap: anywhere;
-        line-height: 1.25;
+        line-height: 1.18;
         display: -webkit-box;
         -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;
@@ -644,44 +644,57 @@ function ensure_pending_invoice_planning_report_styles(report) {
       .snrg-pip-production-cell {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
+      }
+
+      .snrg-pip-production-cell-stack {
+        display: grid;
+        gap: 2px;
+        align-items: start;
       }
 
       .snrg-pip-production-cell .snrg-pip-request-qty {
-        width: 82px;
-        min-width: 82px;
+        width: 72px;
+        min-width: 72px;
+        height: 26px;
         text-align: right;
-        padding-right: 8px;
+        padding: 2px 7px;
+      }
+
+      .snrg-pip-production-meta {
+        color: #667085;
+        font-size: 11px;
+        line-height: 1.2;
       }
 
       .snrg-pip-request-popover {
         position: absolute;
         z-index: 30;
-        width: 280px;
-        max-width: min(280px, calc(100vw - 24px));
-        padding: 12px;
+        width: 236px;
+        max-width: min(236px, calc(100vw - 18px));
+        padding: 10px;
         border: 1px solid #dfe5ef;
-        border-radius: 12px;
+        border-radius: 10px;
         background: #ffffff;
         box-shadow: 0 18px 42px rgba(15, 23, 42, 0.16);
       }
 
       .snrg-pip-request-popover-title {
         color: #101828;
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 700;
-        margin-bottom: 6px;
+        margin-bottom: 4px;
       }
 
       .snrg-pip-request-popover-help {
         color: #667085;
-        font-size: 12px;
-        line-height: 1.4;
-        margin-bottom: 10px;
+        font-size: 11px;
+        line-height: 1.3;
+        margin-bottom: 8px;
       }
 
       .snrg-pip-request-popover-static {
-        margin-bottom: 10px;
+        margin-bottom: 8px;
       }
 
       .snrg-pip-request-popover-static-label {
@@ -708,11 +721,11 @@ function ensure_pending_invoice_planning_report_styles(report) {
       }
 
       .snrg-pip-request-popover [data-request-assignee-control] {
-        margin-bottom: 10px;
+        margin-bottom: 8px;
       }
 
       .snrg-pip-request-popover .control-label {
-        margin-bottom: 4px !important;
+        margin-bottom: 2px !important;
         color: #667085 !important;
         font-size: 11px !important;
         font-weight: 700 !important;
@@ -738,15 +751,15 @@ function apply_pending_invoice_planning_table_layout(report, datatable) {
   }
 
   target.querySelectorAll(".dt-row, .dt-cell").forEach((element) => {
-    element.style.minHeight = "92px";
+    element.style.minHeight = "64px";
   });
 
   target.querySelectorAll(".dt-cell__content").forEach((element) => {
     element.style.height = "100%";
     element.style.whiteSpace = "normal";
-    element.style.lineHeight = "1.25";
-    element.style.paddingTop = "8px";
-    element.style.paddingBottom = "8px";
+    element.style.lineHeight = "1.18";
+    element.style.paddingTop = "5px";
+    element.style.paddingBottom = "5px";
     element.style.overflow = "visible";
     element.style.display = "block";
   });
@@ -821,10 +834,11 @@ function open_pending_invoice_planning_request_picker(report, button, options = 
 
   const assigneeValue = options.assignee || "";
   const assigneeEditable = !!options.assigneeEditable;
+  const helpText = options.helpText || "";
   const container = $(`
     <div class="snrg-pip-request-popover">
       <div class="snrg-pip-request-popover-title">${frappe.utils.escape_html(options.title || __("Create Production Request"))}</div>
-      <div class="snrg-pip-request-popover-help">${frappe.utils.escape_html(options.helpText || __("Pick the required-by date to create this production request."))}</div>
+      ${helpText ? `<div class="snrg-pip-request-popover-help">${frappe.utils.escape_html(helpText)}</div>` : ""}
       <div data-request-assignee-area></div>
       <div data-request-date-control></div>
     </div>
@@ -938,8 +952,9 @@ function position_pending_invoice_planning_request_picker(button, container) {
   const scrollX = window.scrollX || window.pageXOffset || 0;
   const scrollY = window.scrollY || window.pageYOffset || 0;
   const gutter = 12;
-  const popoverWidth = container.outerWidth() || 280;
-  const popoverHeight = container.outerHeight() || 172;
+  const popoverWidth = Math.max(container.outerWidth() || 236, 290);
+  const estimatedCalendarHeight = 340;
+  const popoverHeight = Math.max(container.outerHeight() || 150, 150) + estimatedCalendarHeight;
 
   let left = rect.left + scrollX;
   if (left + popoverWidth > scrollX + viewportWidth - gutter) {

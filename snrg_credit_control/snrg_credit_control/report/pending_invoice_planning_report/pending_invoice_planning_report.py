@@ -88,12 +88,6 @@ def get_columns(filters=None):
             "width": 140,
         },
         {
-            "label": "Required By",
-            "fieldname": "production_required_by_date",
-            "fieldtype": "Date",
-            "width": 115,
-        },
-        {
             "label": "Production",
             "fieldname": "production_request_action",
             "fieldtype": "HTML",

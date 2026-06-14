@@ -610,6 +610,7 @@ class SnrgProductionPlanning {
 
       const name = target.attr("data-name") || "";
       const assignedTo = target.attr("data-assigned-to") || "";
+      target.attr("data-saved-assigned-to", assignedTo);
       let isBootstrapping = true;
       const control = frappe.ui.form.make_control({
         parent: target.get(0),
@@ -624,7 +625,12 @@ class SnrgProductionPlanning {
             if (isBootstrapping) {
               return;
             }
-            this.setAssignee(name, control.get_value(), control);
+            const nextValue = String(control.get_value() || "").trim();
+            const savedValue = String(target.attr("data-saved-assigned-to") || "").trim();
+            if (nextValue === savedValue || target.attr("data-assignee-updating") === "1") {
+              return;
+            }
+            this.setAssignee(name, nextValue, control, target);
           },
         },
         render_input: true,
@@ -772,12 +778,13 @@ class SnrgProductionPlanning {
     });
   }
 
-  setAssignee(name, assignedTo, control) {
-    if (!name || !control) {
+  setAssignee(name, assignedTo, control, target) {
+    if (!name || !control || !target) {
       return;
     }
 
     const input = control.$input;
+    target.attr("data-assignee-updating", "1");
     if (input && input.length) {
       input.prop("disabled", true);
     }
@@ -790,16 +797,24 @@ class SnrgProductionPlanning {
       },
       freeze: false,
       callback: ({ message }) => {
+        const updatedAssignedTo = String((message && message.assigned_to) || assignedTo || "").trim();
+        target.attr("data-assigned-to", updatedAssignedTo);
+        target.attr("data-saved-assigned-to", updatedAssignedTo);
+        target.attr("data-assignee-updating", "0");
+        if (input && input.length) {
+          input.prop("disabled", false);
+        }
         frappe.show_alert({
           message: (message && message.message) || __("Production Request assignee updated."),
           indicator: "green",
         });
-        this.refresh();
       },
       error: () => {
+        target.attr("data-assignee-updating", "0");
         if (input && input.length) {
           input.prop("disabled", false);
         }
+        control.set_value(target.attr("data-saved-assigned-to") || "");
       },
     });
   }
