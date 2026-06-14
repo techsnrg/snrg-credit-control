@@ -1277,8 +1277,6 @@ def _ensure_stock_workspace():
 
     workspace = frappe.get_doc("Workspace", "Stock")
     content_blocks = json.loads(workspace.content or "[]")
-    links = [_workspace_child_row_dict(row) for row in (workspace.links or [])]
-    shortcuts = [_workspace_child_row_dict(row) for row in (workspace.shortcuts or [])]
 
     content_blocks = _workspace_upsert_content_block(
         content_blocks,
@@ -1286,18 +1284,6 @@ def _ensure_stock_workspace():
             "id": "snrg_stock_production_planning_header",
             "type": "header",
             "data": {"text": "Production Planning", "col": 12},
-        },
-    )
-    links = _workspace_upsert_link(
-        links,
-        {
-            "label": "Production Planning",
-            "type": "Card Break",
-            "hidden": 0,
-            "is_query_report": 0,
-            "link_count": 0,
-            "onboard": 0,
-            "dependencies": "",
         },
     )
 
@@ -1310,31 +1296,6 @@ def _ensure_stock_workspace():
                 "data": {"shortcut_name": "Pending Invoice Planning Report", "col": 3},
             },
         )
-        links = _workspace_upsert_link(
-            links,
-            {
-                "label": "Pending Invoice Planning Report",
-                "type": "Link",
-                "link_type": "Report",
-                "link_to": "Pending Invoice Planning Report",
-                "hidden": 0,
-                "is_query_report": 0,
-                "link_count": 0,
-                "onboard": 1,
-                "dependencies": "",
-            },
-        )
-        shortcuts = _workspace_upsert_shortcut(
-            shortcuts,
-            {
-                "type": "Report",
-                "label": "Pending Invoice Planning Report",
-                "link_to": "Pending Invoice Planning Report",
-                "icon": "list",
-                "doc_view": "",
-                "color": "Orange",
-            },
-        )
 
     if has_production_planning_console_page:
         content_blocks = _workspace_upsert_content_block(
@@ -1343,30 +1304,6 @@ def _ensure_stock_workspace():
                 "id": "snrg_stock_production_planning_console_shortcut",
                 "type": "shortcut",
                 "data": {"shortcut_name": "Production Planning Console", "col": 3},
-            },
-        )
-        links = _workspace_upsert_link(
-            links,
-            {
-                "label": "Production Planning Console",
-                "type": "Link",
-                "link_type": "Page",
-                "link_to": "production-planning-console",
-                "hidden": 0,
-                "is_query_report": 0,
-                "link_count": 0,
-                "onboard": 1,
-                "dependencies": "",
-            },
-        )
-        shortcuts = _workspace_upsert_shortcut(
-            shortcuts,
-            {
-                "type": "Page",
-                "label": "Production Planning Console",
-                "link_to": "production-planning-console",
-                "icon": "package",
-                "color": "Blue",
             },
         )
 
@@ -1379,35 +1316,18 @@ def _ensure_stock_workspace():
                 "data": {"shortcut_name": "Production Planning", "col": 3},
             },
         )
-        links = _workspace_upsert_link(
-            links,
-            {
-                "label": "Production Planning",
-                "type": "Link",
-                "link_type": "Page",
-                "link_to": "production-planning",
-                "hidden": 0,
-                "is_query_report": 0,
-                "link_count": 0,
-                "onboard": 1,
-                "dependencies": "",
-            },
-        )
-        shortcuts = _workspace_upsert_shortcut(
-            shortcuts,
-            {
-                "type": "Page",
-                "label": "Production Planning",
-                "link_to": "production-planning",
-                "icon": "package",
-                "color": "Green",
-            },
-        )
 
-    workspace.content = json.dumps(content_blocks, separators=(",", ":"))
-    workspace.links = links
-    workspace.shortcuts = shortcuts
-    workspace.save(ignore_permissions=True)
+    # Saving the stock Workspace can fail on some Frappe Cloud builds when
+    # existing Workspace child rows carry framework runtime fields. Updating
+    # the content JSON directly keeps migrate safe while still exposing the
+    # shortcuts from the workspace content blocks.
+    frappe.db.set_value(
+        "Workspace",
+        "Stock",
+        "content",
+        json.dumps(content_blocks, separators=(",", ":")),
+        update_modified=False,
+    )
 
 
 # ---------------------------------------------------------------------------
