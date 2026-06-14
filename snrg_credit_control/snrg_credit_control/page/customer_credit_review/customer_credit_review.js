@@ -14,9 +14,8 @@ class SnrgCustomerCreditReview {
         this.wrapper = $(wrapper);
         this.data = { columns: [], rows: [], summary: [] };
         this.controls = {};
-        this.visibleColumns = new Set();
         this.searchText = "";
-        this.storageKey = "snrg-customer-credit-review-columns";
+        this.searchTimer = null;
 
         this.setup();
     }
@@ -87,9 +86,16 @@ class SnrgCustomerCreditReview {
                 }
                 .snrg-ccr-filter-row {
                     display: grid;
-                    grid-template-columns: minmax(220px, 280px) minmax(220px, 320px) auto;
+                    grid-template-columns: minmax(220px, 280px) auto;
                     gap: 12px;
                     align-items: end;
+                }
+                .snrg-ccr-table-toolbar {
+                    display: grid;
+                    grid-template-columns: minmax(260px, 420px) auto;
+                    gap: 12px;
+                    align-items: end;
+                    margin-bottom: 14px;
                 }
                 .snrg-ccr-summary {
                     display: grid;
@@ -124,10 +130,7 @@ class SnrgCustomerCreditReview {
                     color: #0f172a;
                 }
                 .snrg-ccr-layout {
-                    display: grid;
-                    grid-template-columns: 320px minmax(0, 1fr);
-                    gap: 14px;
-                    align-items: start;
+                    display: block;
                 }
                 .snrg-ccr-panel {
                     border-radius: 24px;
@@ -154,51 +157,6 @@ class SnrgCustomerCreditReview {
                 .snrg-ccr-panel-title span {
                     font-size: 12px;
                     color: #64748b;
-                }
-                .snrg-ccr-column-actions {
-                    display: flex;
-                    gap: 8px;
-                    margin-bottom: 12px;
-                }
-                .snrg-ccr-column-btn {
-                    border: 1px solid #dbe3ef;
-                    border-radius: 999px;
-                    padding: 8px 12px;
-                    background: #f8fafc;
-                    color: #334155;
-                    font-size: 12px;
-                    font-weight: 700;
-                    cursor: pointer;
-                }
-                .snrg-ccr-columns {
-                    display: grid;
-                    gap: 10px;
-                    max-height: 680px;
-                    overflow: auto;
-                    padding-right: 4px;
-                }
-                .snrg-ccr-checkbox {
-                    display: flex;
-                    gap: 10px;
-                    align-items: flex-start;
-                    padding: 10px 12px;
-                    border-radius: 16px;
-                    border: 1px solid #e2e8f0;
-                    background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
-                }
-                .snrg-ccr-checkbox label {
-                    margin: 0;
-                    font-size: 13px;
-                    line-height: 1.45;
-                    color: #334155;
-                    font-weight: 700;
-                    cursor: pointer;
-                }
-                .snrg-ccr-checkbox small {
-                    display: block;
-                    margin-top: 3px;
-                    color: #64748b;
-                    font-weight: 500;
                 }
                 .snrg-ccr-table-shell {
                     overflow: auto;
@@ -295,12 +253,12 @@ class SnrgCustomerCreditReview {
                 }
                 @media (max-width: 1280px) {
                     .snrg-ccr-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-                    .snrg-ccr-layout { grid-template-columns: 1fr; }
                 }
                 @media (max-width: 768px) {
                     .snrg-ccr-hero { padding: 20px 18px; border-radius: 24px; }
                     .snrg-ccr-hero h2 { font-size: 24px; }
-                    .snrg-ccr-filter-row { grid-template-columns: 1fr; }
+                    .snrg-ccr-filter-row,
+                    .snrg-ccr-table-toolbar { grid-template-columns: 1fr; }
                     .snrg-ccr-summary { grid-template-columns: 1fr; }
                 }
             </style>
@@ -313,7 +271,6 @@ class SnrgCustomerCreditReview {
                 </section>
                 <section class="snrg-ccr-filter-row">
                     <div class="snrg-ccr-company-filter"></div>
-                    <div class="snrg-ccr-search-filter"></div>
                     <div></div>
                 </section>
                 <section class="snrg-ccr-summary"></section>
@@ -321,21 +278,12 @@ class SnrgCustomerCreditReview {
                     <div class="snrg-ccr-panel">
                         <div class="snrg-ccr-panel-body">
                             <div class="snrg-ccr-panel-title">
-                                <h3>Visible Columns</h3>
-                                <span>Use checkmarks to shape the view</span>
-                            </div>
-                            <div class="snrg-ccr-column-actions">
-                                <button class="snrg-ccr-column-btn" data-column-action="select-all">Select All</button>
-                                <button class="snrg-ccr-column-btn" data-column-action="clear-all">Clear All</button>
-                            </div>
-                            <div class="snrg-ccr-columns"></div>
-                        </div>
-                    </div>
-                    <div class="snrg-ccr-panel">
-                        <div class="snrg-ccr-panel-body">
-                            <div class="snrg-ccr-panel-title">
                                 <h3>Customer Table</h3>
                                 <span class="snrg-ccr-table-meta">Waiting for company selection</span>
+                            </div>
+                            <div class="snrg-ccr-table-toolbar">
+                                <div class="snrg-ccr-table-search"></div>
+                                <div></div>
                             </div>
                             <div class="snrg-ccr-table-region"></div>
                         </div>
@@ -367,7 +315,17 @@ class SnrgCustomerCreditReview {
                 this.render_table();
             },
         });
-        $(this.controls.search.wrapper).appendTo(this.wrapper.find(".snrg-ccr-search-filter"));
+        $(this.controls.search.wrapper).appendTo(this.wrapper.find(".snrg-ccr-table-search"));
+        $(this.controls.search.wrapper)
+            .find("input")
+            .off("input.ccr")
+            .on("input.ccr", () => {
+                clearTimeout(this.searchTimer);
+                this.searchTimer = setTimeout(() => {
+                    this.searchText = (this.controls.search.get_value() || "").trim().toLowerCase();
+                    this.render_table();
+                }, 120);
+            });
 
         if (this.controls.company.get_value()) {
             this.refresh();
@@ -375,29 +333,6 @@ class SnrgCustomerCreditReview {
     }
 
     bind_events() {
-        this.wrapper.on("change", ".snrg-ccr-column-toggle", (event) => {
-            const fieldname = $(event.currentTarget).data("fieldname");
-            if (event.currentTarget.checked) {
-                this.visibleColumns.add(fieldname);
-            } else {
-                this.visibleColumns.delete(fieldname);
-            }
-            this.persistVisibleColumns();
-            this.render_table();
-        });
-
-        this.wrapper.on("click", "[data-column-action]", (event) => {
-            const action = $(event.currentTarget).data("column-action");
-            if (action === "select-all") {
-                this.visibleColumns = new Set(this.data.columns.map((column) => column.fieldname));
-            } else {
-                this.visibleColumns = new Set();
-            }
-            this.persistVisibleColumns();
-            this.render_column_picker();
-            this.render_table();
-        });
-
         this.wrapper.on("click", ".snrg-ccr-action", (event) => {
             const button = $(event.currentTarget);
             const action = button.data("action");
@@ -435,45 +370,18 @@ class SnrgCustomerCreditReview {
             args: { company },
         });
         this.data = response.message || { columns: [], rows: [], summary: [] };
-        this.initializeVisibleColumns();
         this.render();
-    }
-
-    initializeVisibleColumns() {
-        const stored = this.getStoredVisibleColumns();
-        if (stored.length) {
-            const valid = stored.filter((fieldname) => this.data.columns.some((column) => column.fieldname === fieldname));
-            this.visibleColumns = new Set(valid);
-        }
-
-        if (!this.visibleColumns.size) {
-            this.visibleColumns = new Set(this.data.columns.map((column) => column.fieldname));
-        }
-    }
-
-    getStoredVisibleColumns() {
-        try {
-            return JSON.parse(localStorage.getItem(this.storageKey) || "[]");
-        } catch (error) {
-            return [];
-        }
-    }
-
-    persistVisibleColumns() {
-        localStorage.setItem(this.storageKey, JSON.stringify(Array.from(this.visibleColumns)));
     }
 
     render_loading() {
         const skeletons = Array.from({ length: 6 }, () => `<div class="snrg-ccr-skeleton"></div>`).join("");
         this.wrapper.find(".snrg-ccr-summary").html(skeletons);
-        this.wrapper.find(".snrg-ccr-columns").html(`<div class="snrg-ccr-empty">Loading columns…</div>`);
         this.wrapper.find(".snrg-ccr-table-region").html(`<div class="snrg-ccr-empty">Loading customer data…</div>`);
     }
 
     render() {
         this.render_meta();
         this.render_summary();
-        this.render_column_picker();
         this.render_table();
     }
 
@@ -498,27 +406,8 @@ class SnrgCustomerCreditReview {
         this.wrapper.find(".snrg-ccr-summary").html(cards || `<div class="snrg-ccr-empty">No summary data available.</div>`);
     }
 
-    render_column_picker() {
-        const html = (this.data.columns || []).map((column) => `
-            <div class="snrg-ccr-checkbox">
-                <input
-                    class="snrg-ccr-column-toggle"
-                    id="snrg-ccr-col-${frappe.scrub(column.fieldname)}"
-                    type="checkbox"
-                    data-fieldname="${frappe.utils.escape_html(column.fieldname)}"
-                    ${this.visibleColumns.has(column.fieldname) ? "checked" : ""}
-                >
-                <label for="snrg-ccr-col-${frappe.scrub(column.fieldname)}">
-                    ${frappe.utils.escape_html(column.label)}
-                    <small>${frappe.utils.escape_html(column.fieldtype || "Data")}</small>
-                </label>
-            </div>
-        `).join("");
-        this.wrapper.find(".snrg-ccr-columns").html(html || `<div class="snrg-ccr-empty">No columns available.</div>`);
-    }
-
     render_table() {
-        const visibleColumns = (this.data.columns || []).filter((column) => this.visibleColumns.has(column.fieldname));
+        const visibleColumns = this.data.columns || [];
         const rows = this.getFilteredRows();
 
         this.wrapper.find(".snrg-ccr-table-meta").text(`${rows.length} customer${rows.length === 1 ? "" : "s"} shown`);
