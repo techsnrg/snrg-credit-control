@@ -7,6 +7,7 @@ from frappe.utils import flt, getdate
 
 INVOICE_AMOUNT_SLAB = "Invoice Amount Slab"
 PERIOD_CUMULATIVE_AMOUNT_SLAB = "Period Cumulative Amount Slab"
+CATEGORY_TARGET_SLAB = "Period Cumulative Category Target Slab"
 LEGACY_SINGLE_INVOICE_AMOUNT_SLAB = "Single Invoice Amount Slab"
 GST_EXCLUDED = "Excluded"
 GST_INCLUDED = "Included"
@@ -114,16 +115,28 @@ def get_scheme_customer_progress(
             + [row.item_code for row in quotation_rows if row.item_code]
         )
         group_bounds = _get_item_group_bounds([scheme_config], item_map)
-        customer_rows = _evaluate_scheme_customers(
-            scheme_config,
-            rows,
-            quotation_rows,
-            item_map,
-            group_bounds,
-            as_on_date,
-            period_from,
-            period_upto,
-        )
+        if scheme_config.scheme_type == CATEGORY_TARGET_SLAB:
+            customer_rows = _evaluate_category_scheme_customers(
+                scheme_config,
+                rows,
+                quotation_rows,
+                item_map,
+                group_bounds,
+                as_on_date,
+                period_from,
+                period_upto,
+            )
+        else:
+            customer_rows = _evaluate_scheme_customers(
+                scheme_config,
+                rows,
+                quotation_rows,
+                item_map,
+                group_bounds,
+                as_on_date,
+                period_from,
+                period_upto,
+            )
 
         if not customer_rows:
             continue
@@ -132,6 +145,7 @@ def get_scheme_customer_progress(
             {
                 "scheme_code": scheme_config.name,
                 "scheme_name": scheme_config.scheme_name,
+                "scheme_type": scheme_config.scheme_type,
                 "valid_from": str(scheme_config.valid_from),
                 "valid_upto": str(scheme_config.valid_upto),
                 "period_from": str(period_from),
@@ -140,6 +154,7 @@ def get_scheme_customer_progress(
                 "eligible_amount": sum(flt(row.get("eligible_amount")) for row in customer_rows),
                 "quotation_amount": sum(flt(row.get("quotation_amount")) for row in customer_rows),
                 "projected_amount": sum(flt(row.get("projected_amount")) for row in customer_rows),
+                "categories": scheme_config.categories,
                 "customers": customer_rows,
             }
         )
@@ -362,6 +377,205 @@ def _evaluate_scheme_customers(
     return results
 
 
+def _evaluate_category_scheme_customers(
+    scheme,
+    rows,
+    quotation_rows,
+    item_map,
+    group_bounds,
+    as_on_date,
+    period_from,
+    period_upto,
+):
+    customer_rows = {}
+
+    for row in rows:
+        item = item_map.get(row.get("item_code")) or {}
+        category = _get_scheme_row_category(row, item, scheme, group_bounds)
+        if not category:
+            continue
+
+        customer = row.get("customer")
+        if not customer:
+            continue
+
+        customer_rows.setdefault(
+            customer,
+            {
+                "customer": customer,
+                "customer_name": row.get("customer_name"),
+                "rows": [],
+                "quotation_rows": [],
+            },
+        )["rows"].append((row, category))
+
+    for row in quotation_rows:
+        item = item_map.get(row.get("item_code")) or {}
+        category = _get_scheme_row_category(row, item, scheme, group_bounds)
+        if not category:
+            continue
+
+        customer = row.get("customer")
+        if not customer:
+            continue
+
+        customer_rows.setdefault(
+            customer,
+            {
+                "customer": customer,
+                "customer_name": row.get("customer_name"),
+                "rows": [],
+                "quotation_rows": [],
+            },
+        )
+        customer_rows[customer]["customer_name"] = customer_rows[customer].get("customer_name") or row.get("customer_name")
+        customer_rows[customer]["quotation_rows"].append((row, category))
+
+    results = []
+    for customer, data in customer_rows.items():
+        result = evaluate_customer_category_scheme(
+            scheme,
+            data["rows"],
+            data["quotation_rows"],
+            item_map,
+            as_on_date,
+            period_from,
+            period_upto,
+        )
+        if flt(result.get("projected_amount")) <= 0:
+            continue
+
+        result["customer"] = customer
+        result["customer_name"] = data.get("customer_name")
+        results.append(result)
+
+    results.sort(key=lambda row: flt(row.get("projected_amount")), reverse=True)
+    return results
+
+
+def evaluate_customer_category_scheme(
+    scheme,
+    rows_with_category,
+    quotation_rows_with_category,
+    item_map,
+    as_on_date,
+    period_from,
+    period_upto,
+):
+    eligible_rows = []
+    quotation_eligible_rows = []
+    category_amounts = {category: 0 for category in scheme.categories}
+    quotation_category_amounts = {category: 0 for category in scheme.categories}
+    invoice_names = set()
+    quotation_names = set()
+
+    for row, category in rows_with_category:
+        item = item_map.get(row.get("item_code")) or {}
+        amount = _get_scheme_amount(row, scheme.gst_treatment)
+        category_amounts[category] = flt(category_amounts.get(category)) + amount
+        invoice_names.add(row.get("sales_invoice"))
+        eligible_rows.append(_build_scheme_detail_row(row, item, amount, category=category))
+
+    for row, category in quotation_rows_with_category:
+        item = item_map.get(row.get("item_code")) or {}
+        amount = _get_scheme_amount(row, scheme.gst_treatment)
+        quotation_category_amounts[category] = flt(quotation_category_amounts.get(category)) + amount
+        quotation_names.add(row.get("quotation"))
+        quotation_eligible_rows.append(_build_scheme_detail_row(row, item, amount, category=category, is_quotation=True))
+
+    projected_category_amounts = {
+        category: flt(category_amounts.get(category)) + flt(quotation_category_amounts.get(category))
+        for category in scheme.categories
+    }
+    eligible_amount = sum(flt(value) for value in category_amounts.values())
+    quotation_amount = sum(flt(value) for value in quotation_category_amounts.values())
+    projected_amount = eligible_amount + quotation_amount
+    achieved_slabs, next_slab = _get_category_slab_progress(scheme.category_slabs, category_amounts, eligible_amount)
+    projected_slabs, projected_next_slab = _get_category_slab_progress(
+        scheme.category_slabs,
+        projected_category_amounts,
+        projected_amount,
+    )
+
+    achieved_rewards = [slab["reward"] for slab in achieved_slabs]
+    projected_rewards = [slab["reward"] for slab in projected_slabs]
+
+    return {
+        "scheme_code": scheme.name,
+        "scheme_name": scheme.scheme_name,
+        "scheme_type": scheme.scheme_type,
+        "valid_from": str(scheme.valid_from),
+        "valid_upto": str(scheme.valid_upto),
+        "period_from": str(period_from),
+        "period_upto": str(period_upto),
+        "gst_treatment": scheme.gst_treatment,
+        "posting_date": str(as_on_date),
+        "eligible_amount": eligible_amount,
+        "invoice_amount": eligible_amount,
+        "quotation_amount": quotation_amount,
+        "projected_amount": projected_amount,
+        "category_amounts": category_amounts,
+        "quotation_category_amounts": quotation_category_amounts,
+        "projected_category_amounts": projected_category_amounts,
+        "category_count": _count_categories_for_slab(category_amounts, achieved_slabs[-1] if achieved_slabs else None),
+        "projected_category_count": _count_categories_for_slab(projected_category_amounts, projected_slabs[-1] if projected_slabs else None),
+        "eligible_invoice_count": len(invoice_names),
+        "eligible_quotation_count": len(quotation_names),
+        "eligible_rows": eligible_rows,
+        "quotation_rows": quotation_eligible_rows,
+        "top_items": _summarize_eligible_items(eligible_rows),
+        "projected_top_items": _summarize_eligible_items(eligible_rows + quotation_eligible_rows),
+        "invoice_details": _summarize_eligible_invoices(eligible_rows),
+        "quotation_details": _summarize_eligible_quotations(quotation_eligible_rows),
+        "payment_summary": _summarize_scheme_payments(eligible_rows),
+        "achieved_slabs": achieved_slabs,
+        "achieved_slab": achieved_slabs[-1] if achieved_slabs else None,
+        "achieved_rewards": achieved_rewards,
+        "next_slab": next_slab,
+        "shortfall_amount": _get_category_total_shortfall(next_slab, eligible_amount),
+        "category_shortfalls": _get_category_shortfalls(next_slab, category_amounts),
+        "projected_slabs": projected_slabs,
+        "projected_slab": projected_slabs[-1] if projected_slabs else None,
+        "projected_rewards": projected_rewards,
+        "projected_next_slab": projected_next_slab,
+        "projected_shortfall_amount": _get_category_total_shortfall(projected_next_slab, projected_amount),
+        "projected_category_shortfalls": _get_category_shortfalls(projected_next_slab, projected_category_amounts),
+        "notes": _get_scheme_notes(scheme),
+    }
+
+
+def _build_scheme_detail_row(row, item, amount, category=None, is_quotation=False):
+    detail = {
+        "item_code": row.get("item_code"),
+        "item_name": row.get("item_name") or item.get("item_name"),
+        "uom": row.get("uom"),
+        "qty": flt(row.get("qty")),
+        "rate": _get_pre_gst_rate(row),
+        "amount": amount,
+        "category": category,
+    }
+    if is_quotation:
+        detail.update(
+            {
+                "quotation": row.get("quotation"),
+                "transaction_date": str(row.get("transaction_date") or ""),
+                "quotation_status": _get_quotation_status(row.get("quotation_docstatus")),
+                "customer": row.get("customer"),
+                "customer_name": row.get("customer_name"),
+            }
+        )
+    else:
+        detail.update(
+            {
+                "sales_invoice": row.get("sales_invoice"),
+                "posting_date": str(row.get("posting_date") or ""),
+                "invoice_grand_total": flt(row.get("invoice_grand_total")),
+                "invoice_outstanding_amount": flt(row.get("invoice_outstanding_amount")),
+            }
+        )
+    return detail
+
+
 def evaluate_single_invoice_amount_scheme(scheme, invoice, item_map, group_bounds, posting_date):
     eligible_rows = []
     eligible_amount = 0
@@ -465,11 +679,29 @@ def _get_scheme_config(name):
         if flt(row.slab_amount) > 0 and row.reward
     ]
     slabs.sort(key=lambda row: row["amount"])
+    categories = ("Cube", "Switchgear", "Non Modular and Essentials")
+    category_slabs = [
+        {
+            "amount": flt(row.total_target),
+            "total_target": flt(row.total_target),
+            "targets": {
+                "Cube": flt(row.cube_target),
+                "Switchgear": flt(row.switchgear_target),
+                "Non Modular and Essentials": flt(row.non_modular_essentials_target),
+            },
+            "minimum_categories_required": int(flt(row.minimum_categories_required) or 2),
+            "reward": row.reward,
+        }
+        for row in doc.get("category_slabs", [])
+        if flt(row.total_target) > 0 and row.reward
+    ]
+    category_slabs.sort(key=lambda row: row["total_target"])
 
     return frappe._dict(
         name=doc.name,
         company=doc.company,
         scheme_name=doc.scheme_name,
+        scheme_type=doc.scheme_type,
         valid_from=doc.valid_from,
         valid_upto=doc.valid_upto,
         gst_treatment=_normalize_gst_treatment(doc.calculation_basis),
@@ -486,6 +718,20 @@ def _get_scheme_config(name):
         ],
         excluded_items={row.item_code for row in doc.excluded_items if row.item_code},
         slabs=slabs,
+        categories=list(categories),
+        category_rules=[
+            frappe._dict(
+                category=row.category,
+                apply_on=row.apply_on,
+                item_code=row.item_code,
+                item_group=row.item_group,
+                uom=row.uom,
+                exclude=frappe.utils.cint(row.exclude),
+            )
+            for row in doc.get("category_rules", [])
+            if row.category
+        ],
+        category_slabs=category_slabs,
     )
 
 
@@ -787,6 +1033,12 @@ def _get_item_group_bounds(schemes, item_map):
         if row.item_group
     }
     group_names.update(
+        row.item_group
+        for scheme in schemes
+        for row in getattr(scheme, "category_rules", [])
+        if row.get("apply_on") == "Item Group" and row.get("item_group")
+    )
+    group_names.update(
         item.get("item_group")
         for item in item_map.values()
         if item.get("item_group")
@@ -823,6 +1075,84 @@ def _is_eligible_scheme_row(row, item, scheme, group_bounds):
         return True
 
     return False
+
+
+def _get_scheme_row_category(row, item, scheme, group_bounds):
+    item_code = row.get("item_code")
+    if not item_code or item_code in scheme.excluded_items:
+        return None
+
+    row_uom = row.get("uom")
+    item_group = item.get("item_group")
+
+    for rule in scheme.category_rules:
+        if not rule.exclude:
+            continue
+        if _matches_category_rule(rule, item_code, item_group, row_uom, group_bounds):
+            return None
+
+    for rule in scheme.category_rules:
+        if rule.exclude:
+            continue
+        if _matches_category_rule(rule, item_code, item_group, row_uom, group_bounds):
+            return rule.category
+
+    return None
+
+
+def _matches_category_rule(rule, item_code, item_group, row_uom, group_bounds):
+    if rule.uom and row_uom and rule.uom != row_uom:
+        return False
+    if rule.apply_on == "Item Code":
+        return rule.item_code == item_code
+    if rule.apply_on == "Item Group" and item_group:
+        return _matches_item_group_rule(rule, item_group, row_uom, group_bounds)
+    return False
+
+
+def _get_category_slab_progress(slabs, category_amounts, total_amount):
+    achieved = []
+    next_slab = None
+
+    for slab in slabs:
+        qualified_categories = _count_categories_for_slab(category_amounts, slab)
+        qualifies = (
+            flt(total_amount) >= flt(slab["total_target"])
+            and qualified_categories >= int(slab.get("minimum_categories_required") or 0)
+        )
+        enriched = dict(slab)
+        enriched["qualified_categories"] = qualified_categories
+        if qualifies:
+            achieved.append(enriched)
+        elif next_slab is None:
+            next_slab = enriched
+
+    return achieved, next_slab
+
+
+def _count_categories_for_slab(category_amounts, slab):
+    if not slab:
+        return 0
+    return sum(
+        1
+        for category, target in (slab.get("targets") or {}).items()
+        if flt(target) > 0 and flt(category_amounts.get(category)) >= flt(target)
+    )
+
+
+def _get_category_total_shortfall(slab, total_amount):
+    if not slab:
+        return 0
+    return max(flt(slab.get("total_target")) - flt(total_amount), 0)
+
+
+def _get_category_shortfalls(slab, category_amounts):
+    if not slab:
+        return {}
+    return {
+        category: max(flt(target) - flt(category_amounts.get(category)), 0)
+        for category, target in (slab.get("targets") or {}).items()
+    }
 
 
 def _matches_item_rule(rule, item_code, row_uom):

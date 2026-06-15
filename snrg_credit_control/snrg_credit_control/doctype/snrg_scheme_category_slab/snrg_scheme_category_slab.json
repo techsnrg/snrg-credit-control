@@ -1,0 +1,68 @@
+{
+ "actions": [],
+ "creation": "2026-06-15 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "cube_target",
+  "switchgear_target",
+  "non_modular_essentials_target",
+  "total_target",
+  "minimum_categories_required",
+  "reward"
+ ],
+ "fields": [
+  {
+   "fieldname": "cube_target",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Cube Target"
+  },
+  {
+   "fieldname": "switchgear_target",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Switchgear Target"
+  },
+  {
+   "fieldname": "non_modular_essentials_target",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Non Modular and Essentials Target"
+  },
+  {
+   "fieldname": "total_target",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Total Target",
+   "reqd": 1
+  },
+  {
+   "default": "2",
+   "fieldname": "minimum_categories_required",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Minimum Categories Required",
+   "reqd": 1
+  },
+  {
+   "fieldname": "reward",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Reward",
+   "reqd": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-06-15 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Snrg Credit Control",
+ "name": "SNRG Scheme Category Slab",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC"
+}

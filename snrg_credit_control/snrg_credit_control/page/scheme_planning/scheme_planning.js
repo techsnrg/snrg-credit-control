@@ -465,7 +465,9 @@ class SnrgSchemePlanning {
           <div class="snrg-scheme-pill">${format_number(scheme.customer_count || 0)} Customers</div>
         </div>
         <div class="snrg-scheme-metrics">
-          ${this.render_metric("Invoice Eligible Value", format_currency(scheme.eligible_amount))}
+          ${scheme.scheme_type === "Period Cumulative Category Target Slab"
+            ? this.render_metric("Invoice Category Value", format_currency(scheme.eligible_amount))
+            : this.render_metric("Invoice Eligible Value", format_currency(scheme.eligible_amount))}
           ${this.render_metric("Quotation Eligible Value", format_currency(scheme.quotation_amount || 0))}
           ${this.render_metric("Projected Eligible Value", format_currency(scheme.projected_amount || scheme.eligible_amount || 0))}
           ${this.render_metric("Customers", format_number(scheme.customer_count || 0))}
@@ -490,6 +492,10 @@ class SnrgSchemePlanning {
     const rows = scheme.customers || [];
     if (!rows.length) {
       return `<div class="snrg-scheme-empty">No eligible customer sales found.</div>`;
+    }
+
+    if (scheme.scheme_type === "Period Cumulative Category Target Slab") {
+      return this.render_category_customer_table(scheme, tableKey);
     }
 
     return `
@@ -524,6 +530,48 @@ class SnrgSchemePlanning {
             ${this.render_filter_cell(tableKey, "projected_slab", "Search projected slab")}
             ${this.render_filter_cell(tableKey, "projected_amount", "Search projected", true)}
             ${this.render_filter_cell(tableKey, "projected_shortfall_amount", "Search projected shortfall", true)}
+            <th></th>
+          </tr>
+        </thead>
+        <tbody data-customer-body="${frappe.utils.escape_html(tableKey)}">
+          ${this.render_customer_rows(scheme, tableKey)}
+        </tbody>
+      </table>
+    `;
+  }
+
+  render_category_customer_table(scheme, tableKey) {
+    return `
+      <table class="snrg-scheme-table">
+        <thead>
+          <tr class="snrg-scheme-group-row">
+            <th></th>
+            <th colspan="4" class="snrg-scheme-group-achieved">Invoice Achievement</th>
+            <th colspan="3" class="snrg-scheme-group-projected">Projected</th>
+            <th></th>
+          </tr>
+          <tr>
+            ${this.render_sort_header(tableKey, "customer_name", "Customer")}
+            ${this.render_sort_header(tableKey, "cube_amount", "Cube", true)}
+            ${this.render_sort_header(tableKey, "switchgear_amount", "Switchgear", true)}
+            ${this.render_sort_header(tableKey, "non_modular_amount", "Non Modular / Essentials", true)}
+            ${this.render_sort_header(tableKey, "eligible_amount", "Invoice Total", true)}
+            ${this.render_sort_header(tableKey, "achieved_rewards", "Rewards Achieved")}
+            ${this.render_sort_header(tableKey, "projected_amount", "Projected Total", true)}
+            ${this.render_sort_header(tableKey, "projected_rewards", "Projected Rewards")}
+            ${this.render_sort_header(tableKey, "projected_shortfall_amount", "Next Gap", true)}
+            <th></th>
+          </tr>
+          <tr>
+            ${this.render_filter_cell(tableKey, "customer", "Search customer")}
+            ${this.render_filter_cell(tableKey, "cube_amount", "Search cube", true)}
+            ${this.render_filter_cell(tableKey, "switchgear_amount", "Search switchgear", true)}
+            ${this.render_filter_cell(tableKey, "non_modular_amount", "Search non modular", true)}
+            ${this.render_filter_cell(tableKey, "eligible_amount", "Search invoice", true)}
+            ${this.render_filter_cell(tableKey, "achieved_rewards", "Search rewards")}
+            ${this.render_filter_cell(tableKey, "projected_amount", "Search projected", true)}
+            ${this.render_filter_cell(tableKey, "projected_rewards", "Search projected rewards")}
+            ${this.render_filter_cell(tableKey, "projected_shortfall_amount", "Search gap", true)}
             <th></th>
           </tr>
         </thead>
@@ -576,7 +624,11 @@ class SnrgSchemePlanning {
       return `<tr><td colspan="10" class="snrg-scheme-empty">No rows match the current search.</td></tr>`;
     }
 
-    return rows.map((row, index) => this.render_customer_row(scheme, row, index)).join("");
+    return rows.map((row, index) => (
+      scheme.scheme_type === "Period Cumulative Category Target Slab"
+        ? this.render_category_customer_row(scheme, row, index)
+        : this.render_customer_row(scheme, row, index)
+    )).join("");
   }
 
   get_visible_customer_rows(scheme, tableKey) {
@@ -621,6 +673,22 @@ class SnrgSchemePlanning {
     if (field === "next_slab") {
       return this.format_slab(row.next_slab, "Highest slab achieved");
     }
+    if (field === "achieved_rewards") {
+      return (row.achieved_rewards || []).join(", ");
+    }
+    if (field === "projected_rewards") {
+      return (row.projected_rewards || []).join(", ");
+    }
+    if (field === "cube_amount") {
+      return `${format_currency(row.category_amounts?.Cube || 0)} ${row.category_amounts?.Cube || 0}`;
+    }
+    if (field === "switchgear_amount") {
+      return `${format_currency(row.category_amounts?.Switchgear || 0)} ${row.category_amounts?.Switchgear || 0}`;
+    }
+    if (field === "non_modular_amount") {
+      const value = row.category_amounts?.["Non Modular and Essentials"] || 0;
+      return `${format_currency(value)} ${value}`;
+    }
     if (
       field === "eligible_amount"
       || field === "quotation_amount"
@@ -636,6 +704,11 @@ class SnrgSchemePlanning {
 
   get_sort_value(row, field) {
     if (field === "customer_name") return row.customer_name || row.customer || "";
+    if (field === "cube_amount") return Number(row.category_amounts?.Cube || 0);
+    if (field === "switchgear_amount") return Number(row.category_amounts?.Switchgear || 0);
+    if (field === "non_modular_amount") return Number(row.category_amounts?.["Non Modular and Essentials"] || 0);
+    if (field === "achieved_rewards") return (row.achieved_rewards || []).join(", ");
+    if (field === "projected_rewards") return (row.projected_rewards || []).join(", ");
     if (field === "achieved_slab") return row.achieved_slab ? row.achieved_slab.amount || 0 : 0;
     if (field === "projected_slab") return row.projected_slab ? row.projected_slab.amount || 0 : 0;
     if (field === "next_slab") return row.next_slab ? row.next_slab.amount || 0 : Infinity;
@@ -676,6 +749,34 @@ class SnrgSchemePlanning {
     `;
   }
 
+  render_category_customer_row(scheme, row, index) {
+    const key = `row-${this.detailKeyCounter++}`;
+    this.customerIndex[key] = { scheme, row };
+    const cube = row.category_amounts?.Cube || 0;
+    const switchgear = row.category_amounts?.Switchgear || 0;
+    const nonModular = row.category_amounts?.["Non Modular and Essentials"] || 0;
+
+    return `
+      <tr>
+        <td>
+          ${frappe.utils.escape_html(row.customer_name || row.customer || "")}
+          <div class="snrg-scheme-subtitle">${frappe.utils.escape_html(row.customer || "")}</div>
+        </td>
+        <td class="snrg-scheme-right">${format_currency(cube)}</td>
+        <td class="snrg-scheme-right">${format_currency(switchgear)}</td>
+        <td class="snrg-scheme-right">${format_currency(nonModular)}</td>
+        <td class="snrg-scheme-right">${format_currency(row.eligible_amount || 0)}</td>
+        <td>${frappe.utils.escape_html((row.achieved_rewards || []).join(", ") || "None")}</td>
+        <td class="snrg-scheme-right">${format_currency(row.projected_amount || 0)}</td>
+        <td>${frappe.utils.escape_html((row.projected_rewards || []).join(", ") || "None")}</td>
+        <td class="snrg-scheme-right">${row.projected_next_slab ? format_currency(row.projected_shortfall_amount || 0) : "0"}</td>
+        <td class="snrg-scheme-right">
+          <button class="snrg-scheme-detail-btn" data-show-details="${frappe.utils.escape_html(key)}">Details</button>
+        </td>
+      </tr>
+    `;
+  }
+
   format_slab(slab, fallback) {
     if (!slab) return fallback;
     return `${format_currency(slab.amount || 0)} - ${slab.reward || ""}`;
@@ -695,24 +796,42 @@ class SnrgSchemePlanning {
     if (!entry) return;
 
     const { scheme, row } = entry;
+    const summaryCards = scheme.scheme_type === "Period Cumulative Category Target Slab"
+      ? `
+          ${this.render_detail_card("Cube", format_currency(row.category_amounts?.Cube || 0))}
+          ${this.render_detail_card("Switchgear", format_currency(row.category_amounts?.Switchgear || 0))}
+          ${this.render_detail_card("Non Modular / Essentials", format_currency(row.category_amounts?.["Non Modular and Essentials"] || 0))}
+          ${this.render_detail_card("Invoice Total", format_currency(row.eligible_amount || 0))}
+          ${this.render_detail_card("Rewards Achieved", (row.achieved_rewards || []).join(", ") || "None")}
+          ${this.render_detail_card("Projected Rewards", (row.projected_rewards || []).join(", ") || "None")}
+          ${this.render_detail_card("Projected Total", format_currency(row.projected_amount || 0))}
+          ${this.render_detail_card("Next Gap", row.projected_next_slab ? format_currency(row.projected_shortfall_amount || 0) : "0")}
+          ${this.render_detail_card("Invoices", format_number(row.eligible_invoice_count || 0))}
+          ${this.render_detail_card("Quotations", format_number(row.eligible_quotation_count || 0))}
+          ${this.render_detail_card("Paid", format_currency(row.payment_summary?.paid_amount || 0))}
+          ${this.render_detail_card("Outstanding", format_currency(row.payment_summary?.outstanding_amount || 0))}
+        `
+      : `
+          ${this.render_detail_card("Invoice Eligible", format_currency(row.eligible_amount || 0))}
+          ${this.render_detail_card("Quotation Eligible", format_currency(row.quotation_amount || 0))}
+          ${this.render_detail_card("Projected Eligible", format_currency(row.projected_amount || row.eligible_amount || 0))}
+          ${this.render_detail_card("Shortfall", row.next_slab ? format_currency(row.shortfall_amount || 0) : "0")}
+          ${this.render_detail_card("Slab Achieved", this.format_slab(row.achieved_slab, "None"))}
+          ${this.render_detail_card("Projected Slab", this.format_slab(row.projected_slab, "None"))}
+          ${this.render_detail_card("Next Slab", this.format_slab(row.next_slab, "Highest slab achieved"))}
+          ${this.render_detail_card("Payment Status", row.payment_summary?.payment_status || "")}
+          ${this.render_detail_card("Invoices", format_number(row.eligible_invoice_count || 0))}
+          ${this.render_detail_card("Quotations", format_number(row.eligible_quotation_count || 0))}
+          ${this.render_detail_card("Paid", format_currency(row.payment_summary?.paid_amount || 0))}
+          ${this.render_detail_card("Outstanding", format_currency(row.payment_summary?.outstanding_amount || 0))}
+        `;
     const dialog = frappe.msgprint({
       title: `${row.customer_name || row.customer} - ${scheme.scheme_name}`,
       wide: true,
       message: `
         <div class="snrg-scheme-detail-shell">
           <div class="snrg-scheme-detail-summary">
-            ${this.render_detail_card("Invoice Eligible", format_currency(row.eligible_amount || 0))}
-            ${this.render_detail_card("Quotation Eligible", format_currency(row.quotation_amount || 0))}
-            ${this.render_detail_card("Projected Eligible", format_currency(row.projected_amount || row.eligible_amount || 0))}
-            ${this.render_detail_card("Shortfall", row.next_slab ? format_currency(row.shortfall_amount || 0) : "0")}
-            ${this.render_detail_card("Slab Achieved", this.format_slab(row.achieved_slab, "None"))}
-            ${this.render_detail_card("Projected Slab", this.format_slab(row.projected_slab, "None"))}
-            ${this.render_detail_card("Next Slab", this.format_slab(row.next_slab, "Highest slab achieved"))}
-            ${this.render_detail_card("Payment Status", row.payment_summary?.payment_status || "")}
-            ${this.render_detail_card("Invoices", format_number(row.eligible_invoice_count || 0))}
-            ${this.render_detail_card("Quotations", format_number(row.eligible_quotation_count || 0))}
-            ${this.render_detail_card("Paid", format_currency(row.payment_summary?.paid_amount || 0))}
-            ${this.render_detail_card("Outstanding", format_currency(row.payment_summary?.outstanding_amount || 0))}
+            ${summaryCards}
           </div>
           <div class="snrg-scheme-detail-grid">
             <div class="snrg-scheme-detail-section">
