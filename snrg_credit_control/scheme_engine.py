@@ -1098,6 +1098,10 @@ def _get_scheme_row_category(row, item, scheme, group_bounds):
     row_uom = row.get("uom")
     item_group = item.get("item_group")
 
+    has_scheme_item_filters = bool(scheme.eligible_items or scheme.eligible_item_groups)
+    if has_scheme_item_filters and not _is_eligible_scheme_row(row, item, scheme, group_bounds):
+        return None
+
     for rule in scheme.category_rules:
         if not rule.exclude:
             continue
