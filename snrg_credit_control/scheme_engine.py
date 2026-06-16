@@ -679,23 +679,36 @@ def _get_scheme_config(name):
         if flt(row.slab_amount) > 0 and row.reward
     ]
     slabs.sort(key=lambda row: row["amount"])
-    categories = ("Cube", "Switchgear", "Non Modular and Essentials")
-    category_slabs = [
-        {
-            "amount": flt(row.total_target),
-            "total_target": flt(row.total_target),
-            "targets": {
-                "Cube": flt(row.cube_target),
-                "Switchgear": flt(row.switchgear_target),
-                "Non Modular and Essentials": flt(row.non_modular_essentials_target),
+    categories = []
+
+    def add_category(category):
+        category = (category or "").strip()
+        if category and category not in categories:
+            categories.append(category)
+        return category
+
+    for row in doc.get("category_rules", []):
+        add_category(row.category)
+
+    category_slab_groups = {}
+    for row in doc.get("category_slabs", []):
+        category = add_category(row.category)
+        if not category or not row.slab_id or flt(row.total_target) <= 0 or not row.reward:
+            continue
+
+        slab = category_slab_groups.setdefault(
+            row.slab_id,
+            {
+                "amount": flt(row.total_target),
+                "total_target": flt(row.total_target),
+                "targets": {},
+                "minimum_categories_required": int(flt(row.minimum_categories_required) or 2),
+                "reward": row.reward,
             },
-            "minimum_categories_required": int(flt(row.minimum_categories_required) or 2),
-            "reward": row.reward,
-        }
-        for row in doc.get("category_slabs", [])
-        if flt(row.total_target) > 0 and row.reward
-    ]
-    category_slabs.sort(key=lambda row: row["total_target"])
+        )
+        slab["targets"][category] = flt(row.category_target)
+
+    category_slabs = sorted(category_slab_groups.values(), key=lambda row: row["total_target"])
 
     return frappe._dict(
         name=doc.name,
@@ -718,10 +731,10 @@ def _get_scheme_config(name):
         ],
         excluded_items={row.item_code for row in doc.excluded_items if row.item_code},
         slabs=slabs,
-        categories=list(categories),
+        categories=categories,
         category_rules=[
             frappe._dict(
-                category=row.category,
+                category=(row.category or "").strip(),
                 apply_on=row.apply_on,
                 item_code=row.item_code,
                 item_group=row.item_group,

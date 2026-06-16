@@ -15,10 +15,9 @@
  "fields": [
   {
    "fieldname": "category",
-   "fieldtype": "Select",
+   "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Category",
-   "options": "Cube\nSwitchgear\nNon Modular and Essentials",
    "reqd": 1
   },
   {

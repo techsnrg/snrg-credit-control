@@ -90,17 +90,48 @@ class SNRGScheme(Document):
                 frappe.throw(_("Duplicate category rule in row {0}.").format(row.idx))
             seen_rules.add(key)
 
-        previous_total = 0
+        slabs = {}
+        seen_targets = set()
         for row in self.category_slabs:
+            if not row.slab_id:
+                frappe.throw(_("Slab ID is required in category slab row {0}.").format(row.idx))
+            if not row.category:
+                frappe.throw(_("Category is required in category slab row {0}.").format(row.idx))
+            if flt(row.category_target) <= 0:
+                frappe.throw(_("Category Target must be greater than zero in category slab row {0}.").format(row.idx))
             if flt(row.total_target) <= 0:
                 frappe.throw(_("Total Target must be greater than zero in category slab row {0}.").format(row.idx))
-            if flt(row.total_target) <= previous_total:
-                frappe.throw(_("Total Targets must be in increasing order. Check row {0}.").format(row.idx))
             if flt(row.minimum_categories_required) <= 0:
                 frappe.throw(_("Minimum Categories Required must be greater than zero in row {0}.").format(row.idx))
             if not row.reward:
                 frappe.throw(_("Reward is required in category slab row {0}.").format(row.idx))
-            previous_total = flt(row.total_target)
+
+            key = (row.slab_id, row.category)
+            if key in seen_targets:
+                frappe.throw(_("Duplicate category target for Slab ID {0} and Category {1}.").format(row.slab_id, row.category))
+            seen_targets.add(key)
+
+            slab = slabs.setdefault(
+                row.slab_id,
+                {
+                    "total_target": flt(row.total_target),
+                    "minimum_categories_required": flt(row.minimum_categories_required),
+                    "reward": row.reward,
+                    "idx": row.idx,
+                },
+            )
+            if slab["total_target"] != flt(row.total_target):
+                frappe.throw(_("Rows with Slab ID {0} must have the same Total Target.").format(row.slab_id))
+            if slab["minimum_categories_required"] != flt(row.minimum_categories_required):
+                frappe.throw(_("Rows with Slab ID {0} must have the same Minimum Categories Required.").format(row.slab_id))
+            if slab["reward"] != row.reward:
+                frappe.throw(_("Rows with Slab ID {0} must have the same Reward.").format(row.slab_id))
+
+        previous_total = 0
+        for slab in sorted(slabs.values(), key=lambda value: value["total_target"]):
+            if slab["total_target"] <= previous_total:
+                frappe.throw(_("Total Targets must be in increasing order. Check row {0}.").format(slab["idx"]))
+            previous_total = slab["total_target"]
 
 
 def _throw_duplicate_rows(rows, fieldname, label):

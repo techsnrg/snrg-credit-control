@@ -5,31 +5,34 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "cube_target",
-  "switchgear_target",
-  "non_modular_essentials_target",
+  "slab_id",
+  "category",
+  "category_target",
   "total_target",
   "minimum_categories_required",
   "reward"
  ],
  "fields": [
   {
-   "fieldname": "cube_target",
-   "fieldtype": "Currency",
+   "fieldname": "slab_id",
+   "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Cube Target"
+   "label": "Slab ID",
+   "reqd": 1
   },
   {
-   "fieldname": "switchgear_target",
-   "fieldtype": "Currency",
+   "fieldname": "category",
+   "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Switchgear Target"
+   "label": "Category",
+   "reqd": 1
   },
   {
-   "fieldname": "non_modular_essentials_target",
+   "fieldname": "category_target",
    "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "Non Modular and Essentials Target"
+   "label": "Category Target",
+   "reqd": 1
   },
   {
    "fieldname": "total_target",

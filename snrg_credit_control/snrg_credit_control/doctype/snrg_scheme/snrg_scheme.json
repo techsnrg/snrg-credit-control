@@ -149,7 +149,7 @@
    "depends_on": "eval:doc.scheme_type=='Period Cumulative Category Target Slab'",
    "fieldname": "category_rules",
    "fieldtype": "Table",
-   "label": "Category Item Rules",
+   "label": "Category Item / Item Group Rules",
    "options": "SNRG Scheme Category Rule"
   },
   {

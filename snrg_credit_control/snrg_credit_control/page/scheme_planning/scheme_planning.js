@@ -541,20 +541,27 @@ class SnrgSchemePlanning {
   }
 
   render_category_customer_table(scheme, tableKey) {
+    const categories = this.get_scheme_categories(scheme);
+    const categoryHeaders = categories.map((category) => (
+      this.render_sort_header(tableKey, this.get_category_field(category), category, true)
+    )).join("");
+    const categoryFilters = categories.map((category) => (
+      this.render_filter_cell(tableKey, this.get_category_field(category), `Search ${category}`, true)
+    )).join("");
+    const invoiceColspan = categories.length + 2;
+
     return `
       <table class="snrg-scheme-table">
         <thead>
           <tr class="snrg-scheme-group-row">
             <th></th>
-            <th colspan="4" class="snrg-scheme-group-achieved">Invoice Achievement</th>
+            <th colspan="${invoiceColspan}" class="snrg-scheme-group-achieved">Invoice Achievement</th>
             <th colspan="3" class="snrg-scheme-group-projected">Projected</th>
             <th></th>
           </tr>
           <tr>
             ${this.render_sort_header(tableKey, "customer_name", "Customer")}
-            ${this.render_sort_header(tableKey, "cube_amount", "Cube", true)}
-            ${this.render_sort_header(tableKey, "switchgear_amount", "Switchgear", true)}
-            ${this.render_sort_header(tableKey, "non_modular_amount", "Non Modular / Essentials", true)}
+            ${categoryHeaders}
             ${this.render_sort_header(tableKey, "eligible_amount", "Invoice Total", true)}
             ${this.render_sort_header(tableKey, "achieved_rewards", "Rewards Achieved")}
             ${this.render_sort_header(tableKey, "projected_amount", "Projected Total", true)}
@@ -564,9 +571,7 @@ class SnrgSchemePlanning {
           </tr>
           <tr>
             ${this.render_filter_cell(tableKey, "customer", "Search customer")}
-            ${this.render_filter_cell(tableKey, "cube_amount", "Search cube", true)}
-            ${this.render_filter_cell(tableKey, "switchgear_amount", "Search switchgear", true)}
-            ${this.render_filter_cell(tableKey, "non_modular_amount", "Search non modular", true)}
+            ${categoryFilters}
             ${this.render_filter_cell(tableKey, "eligible_amount", "Search invoice", true)}
             ${this.render_filter_cell(tableKey, "achieved_rewards", "Search rewards")}
             ${this.render_filter_cell(tableKey, "projected_amount", "Search projected", true)}
@@ -580,6 +585,18 @@ class SnrgSchemePlanning {
         </tbody>
       </table>
     `;
+  }
+
+  get_scheme_categories(scheme) {
+    return (scheme.categories || []).filter(Boolean);
+  }
+
+  get_category_field(category) {
+    return `category:${category}`;
+  }
+
+  get_field_category(field) {
+    return String(field || "").startsWith("category:") ? String(field).slice(9) : null;
   }
 
   render_sort_header(tableKey, field, label, right = false) {
@@ -621,7 +638,10 @@ class SnrgSchemePlanning {
   render_customer_rows(scheme, tableKey) {
     const rows = this.get_visible_customer_rows(scheme, tableKey);
     if (!rows.length) {
-      return `<tr><td colspan="10" class="snrg-scheme-empty">No rows match the current search.</td></tr>`;
+      const colspan = scheme.scheme_type === "Period Cumulative Category Target Slab"
+        ? this.get_scheme_categories(scheme).length + 6
+        : 10;
+      return `<tr><td colspan="${colspan}" class="snrg-scheme-empty">No rows match the current search.</td></tr>`;
     }
 
     return rows.map((row, index) => (
@@ -661,6 +681,11 @@ class SnrgSchemePlanning {
   }
 
   get_filter_value(row, field) {
+    const category = this.get_field_category(field);
+    if (category) {
+      const value = row.category_amounts?.[category] || 0;
+      return `${format_currency(value)} ${value}`;
+    }
     if (field === "customer") {
       return `${row.customer_name || ""} ${row.customer || ""}`;
     }
@@ -679,16 +704,6 @@ class SnrgSchemePlanning {
     if (field === "projected_rewards") {
       return (row.projected_rewards || []).join(", ");
     }
-    if (field === "cube_amount") {
-      return `${format_currency(row.category_amounts?.Cube || 0)} ${row.category_amounts?.Cube || 0}`;
-    }
-    if (field === "switchgear_amount") {
-      return `${format_currency(row.category_amounts?.Switchgear || 0)} ${row.category_amounts?.Switchgear || 0}`;
-    }
-    if (field === "non_modular_amount") {
-      const value = row.category_amounts?.["Non Modular and Essentials"] || 0;
-      return `${format_currency(value)} ${value}`;
-    }
     if (
       field === "eligible_amount"
       || field === "quotation_amount"
@@ -703,10 +718,9 @@ class SnrgSchemePlanning {
   }
 
   get_sort_value(row, field) {
+    const category = this.get_field_category(field);
+    if (category) return Number(row.category_amounts?.[category] || 0);
     if (field === "customer_name") return row.customer_name || row.customer || "";
-    if (field === "cube_amount") return Number(row.category_amounts?.Cube || 0);
-    if (field === "switchgear_amount") return Number(row.category_amounts?.Switchgear || 0);
-    if (field === "non_modular_amount") return Number(row.category_amounts?.["Non Modular and Essentials"] || 0);
     if (field === "achieved_rewards") return (row.achieved_rewards || []).join(", ");
     if (field === "projected_rewards") return (row.projected_rewards || []).join(", ");
     if (field === "achieved_slab") return row.achieved_slab ? row.achieved_slab.amount || 0 : 0;
@@ -752,9 +766,9 @@ class SnrgSchemePlanning {
   render_category_customer_row(scheme, row, index) {
     const key = `row-${this.detailKeyCounter++}`;
     this.customerIndex[key] = { scheme, row };
-    const cube = row.category_amounts?.Cube || 0;
-    const switchgear = row.category_amounts?.Switchgear || 0;
-    const nonModular = row.category_amounts?.["Non Modular and Essentials"] || 0;
+    const categoryCells = this.get_scheme_categories(scheme).map((category) => `
+      <td class="snrg-scheme-right">${format_currency(row.category_amounts?.[category] || 0)}</td>
+    `).join("");
 
     return `
       <tr>
@@ -762,9 +776,7 @@ class SnrgSchemePlanning {
           ${frappe.utils.escape_html(row.customer_name || row.customer || "")}
           <div class="snrg-scheme-subtitle">${frappe.utils.escape_html(row.customer || "")}</div>
         </td>
-        <td class="snrg-scheme-right">${format_currency(cube)}</td>
-        <td class="snrg-scheme-right">${format_currency(switchgear)}</td>
-        <td class="snrg-scheme-right">${format_currency(nonModular)}</td>
+        ${categoryCells}
         <td class="snrg-scheme-right">${format_currency(row.eligible_amount || 0)}</td>
         <td>${frappe.utils.escape_html((row.achieved_rewards || []).join(", ") || "None")}</td>
         <td class="snrg-scheme-right">${format_currency(row.projected_amount || 0)}</td>
@@ -796,11 +808,12 @@ class SnrgSchemePlanning {
     if (!entry) return;
 
     const { scheme, row } = entry;
+    const categoryCards = this.get_scheme_categories(scheme).map((category) => (
+      this.render_detail_card(category, format_currency(row.category_amounts?.[category] || 0))
+    )).join("");
     const summaryCards = scheme.scheme_type === "Period Cumulative Category Target Slab"
       ? `
-          ${this.render_detail_card("Cube", format_currency(row.category_amounts?.Cube || 0))}
-          ${this.render_detail_card("Switchgear", format_currency(row.category_amounts?.Switchgear || 0))}
-          ${this.render_detail_card("Non Modular / Essentials", format_currency(row.category_amounts?.["Non Modular and Essentials"] || 0))}
+          ${categoryCards}
           ${this.render_detail_card("Invoice Total", format_currency(row.eligible_amount || 0))}
           ${this.render_detail_card("Rewards Achieved", (row.achieved_rewards || []).join(", ") || "None")}
           ${this.render_detail_card("Projected Rewards", (row.projected_rewards || []).join(", ") || "None")}
