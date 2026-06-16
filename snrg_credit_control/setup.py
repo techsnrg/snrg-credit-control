@@ -27,6 +27,7 @@ def after_install():
     _ensure_demand_notice_settings()
     _ensure_sales_tracking_sla_settings()
     _ensure_summer_bonanza_scheme()
+    _ensure_gold_business_scheme()
     _remove_legacy_customer_credit_review_page()
     _ensure_credit_control_workspace()
     _ensure_stock_workspace()
@@ -48,6 +49,7 @@ def after_migrate():
     _ensure_demand_notice_settings()
     _ensure_sales_tracking_sla_settings()
     _ensure_summer_bonanza_scheme()
+    _ensure_gold_business_scheme()
     _remove_legacy_customer_credit_review_page()
     _ensure_credit_control_workspace()
     _ensure_stock_workspace()
@@ -654,6 +656,117 @@ def _ensure_summer_bonanza_scheme():
             ),
         }
     ).insert(ignore_permissions=True)
+
+
+def _ensure_gold_business_scheme():
+    if not frappe.db.exists("DocType", "SNRG Scheme"):
+        return
+
+    scheme_name = "Gold Business Scheme"
+    scheme_data = {
+        "scheme_name": scheme_name,
+        "scheme_type": "Period Cumulative Category Target Slab",
+        "calculation_basis": "Excluded",
+        "valid_from": "2026-04-01",
+        "valid_upto": "2026-08-31",
+        "eligible_item_groups": [
+            {"item_group": "GC Cube Range"},
+            {"item_group": "Switchgear"},
+            {"item_group": "Non Modular Switches"},
+            {"item_group": "Essential Range"},
+        ],
+        "excluded_items": [
+            {"item_code": "10105-WH"},
+            {"item_code": "10126-WH"},
+            {"item_code": "10132-WH"},
+            {"item_code": "10138-WH"},
+            {"item_code": "2101-WH"},
+            {"item_code": "2101-BR"},
+            {"item_code": "2104-WH"},
+            {"item_code": "2104-BR"},
+            {"item_code": "2112-WH"},
+            {"item_code": "2112-BR"},
+        ],
+        "category_rules": [
+            {"category": "Cube", "apply_on": "Item Group", "item_group": "GC Cube Range"},
+            {"category": "Switchgear", "apply_on": "Item Group", "item_group": "Switchgear"},
+            {
+                "category": "Non Modular and Essentials",
+                "apply_on": "Item Group",
+                "item_group": "Non Modular Switches",
+            },
+            {
+                "category": "Non Modular and Essentials",
+                "apply_on": "Item Group",
+                "item_group": "Essential Range",
+            },
+            {"category": "Excluded", "apply_on": "Item Group", "item_group": "PVC Tapes", "exclude": 1},
+            {"category": "Excluded", "apply_on": "Item Group", "item_group": "Wires & Cables", "exclude": 1},
+            {"category": "Excluded", "apply_on": "Item Group", "item_group": "Conduit Pipes", "exclude": 1},
+        ],
+        "category_slabs": _get_gold_business_category_slabs(),
+        "notes": (
+            "Minimum 2 category achievement is mandatory for qualification. "
+            "Multiple slab qualification benefits are cumulative. "
+            "Rewards are non-exchangeable and subject to availability. "
+            "Participants must clear all outstanding dues within 60 days to be eligible."
+        ),
+    }
+
+    if frappe.db.exists("SNRG Scheme", scheme_name):
+        doc = frappe.get_doc("SNRG Scheme", scheme_name)
+        doc.update(scheme_data)
+        doc.set("eligible_items", [])
+        doc.set("slabs", [])
+        doc.set("eligible_item_groups", scheme_data["eligible_item_groups"])
+        doc.set("excluded_items", scheme_data["excluded_items"])
+        doc.set("category_rules", scheme_data["category_rules"])
+        doc.set("category_slabs", scheme_data["category_slabs"])
+        doc.flags.ignore_links = True
+        doc.save(ignore_permissions=True)
+        return
+
+    doc = frappe.get_doc({"doctype": "SNRG Scheme", **scheme_data})
+    doc.flags.ignore_links = True
+    doc.insert(ignore_permissions=True, ignore_links=True)
+
+
+def _get_gold_business_category_slabs():
+    slabs = [
+        ("1", 60000, 30000, 60000, 150000, "Silver Benefit Voucher Worth INR 3,000"),
+        ("2", 100000, 50000, 100000, 250000, "Silver Voucher Worth INR 7,500"),
+        ("3", 160000, 80000, 160000, 400000, "Smartphone Worth INR 16,000"),
+        ("4", 240000, 120000, 240000, 600000, "1 Trip to Bangkok (Ex-Delhi)"),
+        ("5", 320000, 160000, 320000, 800000, "1 Trip to Bangkok (Ex-Delhi) + Gold Voucher Worth INR 24,000"),
+        ("6", 400000, 200000, 400000, 1000000, "2 Pax Trip to Bangkok (Ex-Delhi)"),
+    ]
+    rows = []
+    for slab_id, cube, switchgear, essentials, total, reward in slabs:
+        rows.extend(
+            [
+                _get_gold_business_category_slab_row(slab_id, "Cube", cube, total, reward),
+                _get_gold_business_category_slab_row(slab_id, "Switchgear", switchgear, total, reward),
+                _get_gold_business_category_slab_row(
+                    slab_id,
+                    "Non Modular and Essentials",
+                    essentials,
+                    total,
+                    reward,
+                ),
+            ]
+        )
+    return rows
+
+
+def _get_gold_business_category_slab_row(slab_id, category, target, total, reward):
+    return {
+        "slab_id": slab_id,
+        "category": category,
+        "category_target": target,
+        "total_target": total,
+        "minimum_categories_required": 2,
+        "reward": reward,
+    }
 
 
 # ---------------------------------------------------------------------------
