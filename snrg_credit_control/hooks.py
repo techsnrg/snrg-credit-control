@@ -11,6 +11,7 @@ after_migrate = "snrg_credit_control.setup.after_migrate"
 # Inject JS into the Sales Order form
 doctype_js = {
     "Customer": "public/js/customer.js",
+    "Journal Entry": "public/js/journal_entry.js",
     "Sales Order": "public/js/sales_order.js",
     "Sales Invoice": "public/js/sales_invoice.js",
     "Quotation": "public/js/quotation.js",
@@ -25,6 +26,15 @@ doctype_list_js = {
 override_doctype_class = {
     "Journal Entry": "snrg_credit_control.overrides.journal_entry.CustomJournalEntry",
     "Sales Invoice": "snrg_credit_control.overrides.sales_invoice.CustomSalesInvoice",
+}
+
+override_whitelisted_methods = {
+    "erpnext.accounts.doctype.journal_entry.journal_entry.get_outstanding": (
+        "snrg_credit_control.overrides.journal_entry.get_outstanding"
+    ),
+    "erpnext.accounts.doctype.payment_entry.payment_entry.get_outstanding_reference_documents": (
+        "snrg_credit_control.overrides.payment_entry.get_outstanding_reference_documents"
+    ),
 }
 
 # Python event hooks for Sales Order
