@@ -1,3 +1,5 @@
+import inspect
+
 import frappe
 from frappe.utils import flt
 
@@ -10,8 +12,19 @@ VALUE_EPSILON = 0.01
 
 @frappe.whitelist()
 def get_outstanding_reference_documents(args, validate=False):
-    rows = erpnext_get_outstanding_reference_documents(args, validate=validate) or []
+    rows = _call_erpnext_get_outstanding_reference_documents(args, validate=validate)
+    if rows is None:
+        return rows
+
     return _sync_invoice_outstanding(rows)
+
+
+def _call_erpnext_get_outstanding_reference_documents(args, validate=False):
+    signature = inspect.signature(erpnext_get_outstanding_reference_documents)
+    if "validate" in signature.parameters:
+        return erpnext_get_outstanding_reference_documents(args, validate=validate)
+
+    return erpnext_get_outstanding_reference_documents(args)
 
 
 def _sync_invoice_outstanding(rows):
@@ -64,24 +77,33 @@ def _get_invoice_details(invoice_names):
     details = {}
 
     for doctype, names in invoice_names.items():
+        fields = _get_existing_fields(
+            doctype,
+            [
+                "name",
+                "company",
+                "currency",
+                "conversion_rate",
+                "party_account_currency",
+                "outstanding_amount",
+            ],
+        )
         details[doctype] = {
             row.name: row
             for row in frappe.get_all(
                 doctype,
                 filters={"name": ["in", list(names)]},
-                fields=[
-                    "name",
-                    "company",
-                    "currency",
-                    "conversion_rate",
-                    "party_account_currency",
-                    "outstanding_amount",
-                ],
+                fields=fields,
                 limit_page_length=len(names),
             )
         }
 
     return details
+
+
+def _get_existing_fields(doctype, fieldnames):
+    meta = frappe.get_meta(doctype)
+    return [fieldname for fieldname in fieldnames if fieldname == "name" or meta.has_field(fieldname)]
 
 
 def _get_payment_schedule(invoice_names):
@@ -114,15 +136,17 @@ def _get_current_outstanding(row, invoice, payment_schedule):
         return flt(invoice.outstanding_amount)
 
     company_currency = frappe.get_cached_value("Company", invoice.company, "default_currency")
+    invoice_currency = invoice.get("currency") or company_currency
+    party_account_currency = invoice.get("party_account_currency") or company_currency
     is_multi_currency_account = (
-        invoice.currency != company_currency
-        and invoice.party_account_currency != company_currency
+        invoice_currency != company_currency
+        and party_account_currency != company_currency
     )
 
     if is_multi_currency_account:
         return flt(term_outstanding)
 
-    return flt(term_outstanding) * flt(invoice.conversion_rate)
+    return flt(term_outstanding) * flt(invoice.get("conversion_rate") or 1)
 
 
 def _cap_allocated_amount(row, outstanding_amount):

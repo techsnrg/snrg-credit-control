@@ -661,6 +661,7 @@ def _ensure_summer_bonanza_scheme():
 # ---------------------------------------------------------------------------
 
 def _ensure_custom_field(doctype, field_def):
+    field_def = _resolve_custom_field_layout_anchor(doctype, field_def)
     fieldname = field_def["fieldname"]
     custom_field_name = f"{doctype}-{fieldname}"
     if frappe.db.exists("Custom Field", custom_field_name):
@@ -670,6 +671,22 @@ def _ensure_custom_field(doctype, field_def):
     doc = {"doctype": "Custom Field", "dt": doctype}
     doc.update(field_def)
     frappe.get_doc(doc).insert(ignore_permissions=True)
+
+
+def _resolve_custom_field_layout_anchor(doctype, field_def):
+    field_def = dict(field_def)
+    anchor = field_def.get("insert_after")
+    if not anchor:
+        return field_def
+
+    if frappe.get_meta(doctype).has_field(anchor):
+        return field_def
+
+    if frappe.db.exists("Custom Field", f"{doctype}-{anchor}"):
+        return field_def
+
+    field_def.pop("insert_after", None)
+    return field_def
 
 
 def _pick_last_existing_field(meta, fieldnames):

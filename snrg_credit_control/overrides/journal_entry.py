@@ -1,5 +1,5 @@
 import frappe
-from frappe import _
+from frappe import _, scrub
 from frappe.utils import flt
 
 import erpnext
@@ -66,7 +66,7 @@ def get_outstanding(args):
         frappe.throw(_("No Permission"), frappe.PermissionError)
 
     party_type = "Customer" if args.get("doctype") == "Sales Invoice" else "Supplier"
-    party_field = party_type.lower()
+    party_field = scrub(party_type)
     invoice = frappe.db.get_value(
         args.get("doctype"),
         args.get("docname"),
