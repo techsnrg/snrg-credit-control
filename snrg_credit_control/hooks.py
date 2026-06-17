@@ -4,7 +4,6 @@ app_publisher = "SNRG India"
 app_description = "Credit Control workflow for Sales Orders"
 app_email = "nikhil@snrgindia.com"
 app_license = "MIT"
-app_version = ">=15.0.0 <17.0.0"
 
 after_install = "snrg_credit_control.setup.after_install"
 after_migrate = "snrg_credit_control.setup.after_migrate"
