@@ -11,7 +11,9 @@ const SNRG_FULFILLMENT_FIELDS = [
 const SNRG_FULFILLMENT_ROLE = "Fulfillment User";
 const SNRG_SYSTEM_MANAGER_ROLE = "System Manager";
 
-function snrg_show_minimum_rate_check() {
+function snrg_show_minimum_rate_check(frm) {
+  if (frm && Number(frm.doc.is_return || 0) === 1) return;
+
   frappe.show_alert({
     message: "Checking minimum selling rates...",
     indicator: "blue",
@@ -32,14 +34,14 @@ frappe.ui.form.on("Sales Invoice", {
       open_fulfillment_update_dialog(frm);
     });
   },
-  before_save() {
-    snrg_show_minimum_rate_check();
+  before_save(frm) {
+    snrg_show_minimum_rate_check(frm);
   },
   after_save() {
     snrg_hide_minimum_rate_check();
   },
-  before_submit() {
-    snrg_show_minimum_rate_check();
+  before_submit(frm) {
+    snrg_show_minimum_rate_check(frm);
   },
   on_submit() {
     snrg_hide_minimum_rate_check();

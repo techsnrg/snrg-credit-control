@@ -9,6 +9,9 @@ INVALID_MINIMUM_RATE = object()
 
 def validate_minimum_selling_rates(doc):
     """Block negative rates and stock item rates below the controlled minimum price list."""
+    if flt(doc.get("is_return")):
+        return
+
     items = [row for row in (doc.get("items") or []) if row.get("item_code")]
     if not items:
         return
