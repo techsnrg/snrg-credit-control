@@ -30,7 +30,7 @@ def get_customer_scheme_suggestions(customer, company=None, scheme=None, as_on_d
         {"company": company},
         as_on_date,
         scheme_name=scheme,
-        scheme_types=(PERIOD_CUMULATIVE_AMOUNT_SLAB, CATEGORY_TARGET_SLAB),
+        scheme_types=(PERIOD_CUMULATIVE_AMOUNT_SLAB,),
     )
     suggestions = []
 
@@ -91,7 +91,7 @@ def get_scheme_customer_progress(
         {"company": company},
         as_on_date,
         scheme_name=scheme,
-        scheme_types=(PERIOD_CUMULATIVE_AMOUNT_SLAB, CATEGORY_TARGET_SLAB),
+        scheme_types=(PERIOD_CUMULATIVE_AMOUNT_SLAB,),
     )
     scheme_results = []
 
