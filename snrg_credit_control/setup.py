@@ -1630,9 +1630,10 @@ def _ensure_stock_workspace():
 
 def _ensure_scheme_management_workspace():
     has_snrg_scheme = frappe.db.exists("DocType", "SNRG Scheme")
-    has_scheme_planning_page = frappe.db.exists("Page", "scheme-planning")
+    has_amount_scheme_planning_page = frappe.db.exists("Page", "scheme-planning")
+    has_category_scheme_planning_page = frappe.db.exists("Page", "category-scheme-planning")
 
-    if not has_snrg_scheme and not has_scheme_planning_page:
+    if not has_snrg_scheme and not has_amount_scheme_planning_page and not has_category_scheme_planning_page:
         return
 
     content_blocks = [
@@ -1657,17 +1658,17 @@ def _ensure_scheme_management_workspace():
 
     shortcuts = []
 
-    if has_scheme_planning_page:
+    if has_amount_scheme_planning_page:
         content_blocks.append(
             {
-                "id": "scheme_planning_shortcut",
+                "id": "amount_scheme_planning_shortcut",
                 "type": "shortcut",
-                "data": {"shortcut_name": "Scheme Planning", "col": 3},
+                "data": {"shortcut_name": "Amount Scheme Planning", "col": 3},
             }
         )
         links.append(
             {
-                "label": "Scheme Planning",
+                "label": "Amount Scheme Planning",
                 "type": "Link",
                 "link_type": "Page",
                 "link_to": "scheme-planning",
@@ -1681,10 +1682,41 @@ def _ensure_scheme_management_workspace():
         shortcuts.append(
             {
                 "type": "Page",
-                "label": "Scheme Planning",
+                "label": "Amount Scheme Planning",
                 "link_to": "scheme-planning",
                 "icon": "search",
                 "color": "Blue",
+            }
+        )
+
+    if has_category_scheme_planning_page:
+        content_blocks.append(
+            {
+                "id": "category_scheme_planning_shortcut",
+                "type": "shortcut",
+                "data": {"shortcut_name": "Category Scheme Planning", "col": 3},
+            }
+        )
+        links.append(
+            {
+                "label": "Category Scheme Planning",
+                "type": "Link",
+                "link_type": "Page",
+                "link_to": "category-scheme-planning",
+                "hidden": 0,
+                "is_query_report": 0,
+                "link_count": 0,
+                "onboard": 1,
+                "dependencies": "",
+            }
+        )
+        shortcuts.append(
+            {
+                "type": "Page",
+                "label": "Category Scheme Planning",
+                "link_to": "category-scheme-planning",
+                "icon": "organization",
+                "color": "Green",
             }
         )
 

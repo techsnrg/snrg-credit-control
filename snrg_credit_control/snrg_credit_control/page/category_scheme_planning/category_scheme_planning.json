@@ -1,16 +1,16 @@
 {
  "content": null,
- "creation": "2026-06-06 00:00:00.000000",
+ "creation": "2026-06-21 00:00:00.000000",
  "docstatus": 0,
  "doctype": "Page",
- "icon": "octicon octicon-gift",
+ "icon": "octicon octicon-organization",
  "idx": 0,
- "modified": "2026-06-06 00:00:00.000000",
+ "modified": "2026-06-21 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Snrg Credit Control",
- "name": "scheme-planning",
+ "name": "category-scheme-planning",
  "owner": "Administrator",
- "page_name": "scheme-planning",
+ "page_name": "category-scheme-planning",
  "roles": [
   {
    "role": "System Manager"
@@ -28,5 +28,5 @@
  "script": null,
  "standard": "Yes",
  "style": null,
- "title": "Amount Scheme Planning"
+ "title": "Category Scheme Planning"
 }

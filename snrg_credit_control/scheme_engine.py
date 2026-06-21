@@ -82,6 +82,59 @@ def get_scheme_customer_progress(
     include_draft_quotations=0,
     include_submitted_quotations=0,
 ):
+    return get_amount_scheme_customer_progress(
+        company=company,
+        scheme=scheme,
+        as_on_date=as_on_date,
+        include_draft_quotations=include_draft_quotations,
+        include_submitted_quotations=include_submitted_quotations,
+    )
+
+
+@frappe.whitelist()
+def get_amount_scheme_customer_progress(
+    company=None,
+    scheme=None,
+    as_on_date=None,
+    include_draft_quotations=0,
+    include_submitted_quotations=0,
+):
+    return _get_scheme_customer_progress_by_type(
+        company=company,
+        scheme=scheme,
+        as_on_date=as_on_date,
+        include_draft_quotations=include_draft_quotations,
+        include_submitted_quotations=include_submitted_quotations,
+        scheme_types=(PERIOD_CUMULATIVE_AMOUNT_SLAB,),
+    )
+
+
+@frappe.whitelist()
+def get_category_scheme_customer_progress(
+    company=None,
+    scheme=None,
+    as_on_date=None,
+    include_draft_quotations=0,
+    include_submitted_quotations=0,
+):
+    return _get_scheme_customer_progress_by_type(
+        company=company,
+        scheme=scheme,
+        as_on_date=as_on_date,
+        include_draft_quotations=include_draft_quotations,
+        include_submitted_quotations=include_submitted_quotations,
+        scheme_types=(CATEGORY_TARGET_SLAB,),
+    )
+
+
+def _get_scheme_customer_progress_by_type(
+    company=None,
+    scheme=None,
+    as_on_date=None,
+    include_draft_quotations=0,
+    include_submitted_quotations=0,
+    scheme_types=None,
+):
     as_on_date = getdate(as_on_date or getdate())
     quotation_docstatuses = _get_selected_quotation_docstatuses(
         include_draft_quotations,
@@ -91,7 +144,7 @@ def get_scheme_customer_progress(
         {"company": company},
         as_on_date,
         scheme_name=scheme,
-        scheme_types=(PERIOD_CUMULATIVE_AMOUNT_SLAB, CATEGORY_TARGET_SLAB),
+        scheme_types=scheme_types or (PERIOD_CUMULATIVE_AMOUNT_SLAB,),
     )
     scheme_results = []
 
