@@ -1,4 +1,6 @@
 import json
+import mimetypes
+from urllib.parse import quote
 
 import frappe
 from frappe import _
@@ -82,6 +84,7 @@ def update_fulfillment_details(name, values=None):
 
     _validate_fulfillment_dates(doc, updates)
     frappe.db.set_value("Sales Invoice", doc.name, updates, update_modified=True)
+    _link_pod_attachment(doc.name, updates)
     doc.reload()
     doc.add_comment("Comment", _build_fulfillment_audit_comment(changes))
     doc.notify_update()
@@ -91,6 +94,66 @@ def update_fulfillment_details(name, values=None):
         "message": _("Fulfillment details updated successfully."),
         "values": {fieldname: doc.get(fieldname) for fieldname in FULFILLMENT_FIELDS},
     }
+
+
+@frappe.whitelist()
+def get_pod_preview(name):
+    if not name:
+        frappe.throw(_("Sales Invoice is required."))
+
+    doc = frappe.get_doc("Sales Invoice", name)
+    if not doc.has_permission("read"):
+        frappe.throw(_("Not permitted."), frappe.PermissionError)
+
+    file_doc = _get_pod_file(doc)
+    if not file_doc:
+        frappe.throw(_("No POD attachment is available on this Sales Invoice."))
+
+    mime_type = mimetypes.guess_type(file_doc.file_name or file_doc.file_url or "")[0] or ""
+    lower_mime = mime_type.lower()
+    extension = (file_doc.file_type or "").strip().lower()
+
+    preview_kind = "browser"
+    if lower_mime.startswith("image/") or extension in {"png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"}:
+        preview_kind = "image"
+    elif lower_mime == "application/pdf" or extension == "pdf":
+        preview_kind = "pdf"
+
+    return {
+        "file_name": file_doc.file_name or file_doc.file_url,
+        "file_url": file_doc.file_url,
+        "preview_url": f"/api/method/snrg_credit_control.overrides.sales_invoice.preview_pod_file?name={quote(doc.name, safe='')}",
+        "preview_kind": preview_kind,
+        "mime_type": mime_type,
+        "is_private": cint_or_none(file_doc.is_private) or 0,
+    }
+
+
+@frappe.whitelist()
+def preview_pod_file(name):
+    if not name:
+        frappe.throw(_("Sales Invoice is required."))
+
+    doc = frappe.get_doc("Sales Invoice", name)
+    if not doc.has_permission("read"):
+        frappe.throw(_("Not permitted."), frappe.PermissionError)
+
+    file_doc = _get_pod_file(doc)
+    if not file_doc:
+        frappe.throw(_("No POD attachment is available on this Sales Invoice."))
+
+    content = file_doc.get_content()
+    if isinstance(content, str):
+        content = content.encode()
+
+    frappe.local.response["filename"] = file_doc.file_name or "pod"
+    frappe.local.response["filecontent"] = content
+    frappe.local.response["type"] = "download"
+    frappe.local.response["display_content_as"] = "inline"
+    frappe.local.response["content_type"] = (
+        mimetypes.guess_type(file_doc.file_name or file_doc.file_url or "")[0]
+        or "application/octet-stream"
+    )
 
 
 def _ensure_can_update_fulfillment(doc):
@@ -160,6 +223,66 @@ def _validate_delivery_status(values, meta):
 
     if status and status not in allowed:
         frappe.throw(_("Invalid Delivery Status: {0}").format(frappe.bold(status)))
+
+
+def _get_pod_file(doc):
+    if not doc.custom_pod_attachment:
+        return None
+
+    return _find_file_by_url(doc.name, doc.custom_pod_attachment)
+
+
+def _find_file_by_url(docname, file_url):
+    if not file_url:
+        return None
+
+    file_name = frappe.db.get_value(
+        "File",
+        {
+            "attached_to_doctype": "Sales Invoice",
+            "attached_to_name": docname,
+            "file_url": file_url,
+        },
+        "name",
+        order_by="creation desc",
+    )
+
+    if not file_name:
+        file_name = frappe.db.get_value(
+            "File",
+            {"file_url": file_url},
+            "name",
+            order_by="creation desc",
+        )
+
+    if not file_name:
+        return None
+
+    return frappe.get_doc("File", file_name)
+
+
+def _link_pod_attachment(docname, updates):
+    if "custom_pod_attachment" not in updates:
+        return
+
+    file_url = updates.get("custom_pod_attachment")
+    if not file_url:
+        return
+
+    file_doc = _find_file_by_url(docname, file_url)
+    if not file_doc:
+        return
+
+    values = {}
+    if file_doc.attached_to_doctype != "Sales Invoice":
+        values["attached_to_doctype"] = "Sales Invoice"
+    if file_doc.attached_to_name != docname:
+        values["attached_to_name"] = docname
+    if getattr(file_doc, "attached_to_field", None) != "custom_pod_attachment":
+        values["attached_to_field"] = "custom_pod_attachment"
+
+    if values:
+        frappe.db.set_value("File", file_doc.name, values, update_modified=True)
 
 
 def _validate_fulfillment_dates(doc, updates):

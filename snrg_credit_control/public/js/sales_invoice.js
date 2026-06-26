@@ -27,6 +27,7 @@ function snrg_hide_minimum_rate_check() {
 frappe.ui.form.on("Sales Invoice", {
   refresh(frm) {
     toggle_fulfillment_fields_read_only(frm);
+    render_pod_attachment_link(frm);
     if (frm.doc.docstatus !== 1) return;
     if (!can_use_fulfillment_update()) return;
 
@@ -162,4 +163,69 @@ function get_delivery_status_options(frm) {
     || frappe.meta.get_docfield(frm.doctype, "custom_delivery_status", frm.doc.name)?.options
     || "\nPending\nIn Transit\nDelivered\nPartially Delivered\nReturned\nHold"
   );
+}
+
+async function render_pod_attachment_link(frm) {
+  remove_pod_attachment_link(frm);
+
+  if (!frm.doc.custom_pod_attachment) return;
+  if (!frm.attachments?.parent) return;
+  if (has_native_pod_attachment(frm)) return;
+
+  try {
+    const { message } = await frappe.call({
+      method: "snrg_credit_control.overrides.sales_invoice.get_pod_preview",
+      args: { name: frm.doc.name },
+    });
+
+    if (!message?.preview_url) return;
+
+    insert_pod_attachment_link(frm, message);
+  } catch (error) {
+    console.warn("[SNRG POD] Unable to render POD attachment link", error);
+  }
+}
+
+function remove_pod_attachment_link(frm) {
+  frm.attachments?.parent?.find(".snrg-pod-attachment-row").remove();
+}
+
+function has_native_pod_attachment(frm) {
+  const targetUrl = normalize_attachment_url(frm.doc.custom_pod_attachment);
+  if (!targetUrl) return false;
+
+  return (frm.get_docinfo()?.attachments || []).some((attachment) => {
+    return normalize_attachment_url(attachment.file_url) === targetUrl;
+  });
+}
+
+function normalize_attachment_url(url) {
+  return encodeURI((url || "").trim());
+}
+
+function insert_pod_attachment_link(frm, preview) {
+  const fileName = preview.file_name || "POD Attachment";
+  const fileUrl = frappe.utils.escape_html(preview.preview_url || "");
+  const icon = `
+    <a href="${fileUrl}" target="_blank" rel="noopener noreferrer" class="attachment-icon">
+      ${frappe.utils.icon(preview.is_private ? "es-line-lock" : "es-line-unlock", "sm ml-0")}
+    </a>
+  `;
+  const fileLabel = `
+    <a href="${fileUrl}" target="_blank" rel="noopener noreferrer" title="${frappe.utils.escape_html(fileName)}"
+      class="ellipsis attachment-file-label ellipsis-width"
+    >
+      <span>${frappe.utils.xss_sanitise(fileName)}</span>
+    </a>
+  `;
+  const $row = $('<div class="attachment-row snrg-pod-attachment-row"></div>')
+    .append(frappe.get_data_pill(fileLabel, `snrg-pod-${frm.doc.name}`, null, icon));
+  const $rows = frm.attachments.parent.find(".attachment-row");
+
+  if ($rows.length) {
+    $row.insertAfter($rows.last());
+    return;
+  }
+
+  $row.insertAfter(frm.attachments.add_attachment_wrapper);
 }
