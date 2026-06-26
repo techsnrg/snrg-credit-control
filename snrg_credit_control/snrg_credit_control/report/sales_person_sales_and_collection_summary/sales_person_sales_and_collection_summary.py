@@ -13,13 +13,14 @@ def execute(filters=None):
     filters = frappe._dict(filters or {})
     validate_filters(filters)
 
-    employees = get_sales_employees(filters)
+    salespeople = get_salespeople(filters)
+    employee_salesperson_map = get_employee_salesperson_map()
     totals = defaultdict(make_total_bucket)
 
     add_sales_totals(totals, filters)
-    add_collection_totals(totals, filters)
+    add_collection_totals(totals, filters, employee_salesperson_map)
 
-    rows = build_rows(employees, totals, filters)
+    rows = build_rows(salespeople, totals, filters)
     return get_columns(), rows
 
 
@@ -43,30 +44,57 @@ def validate_filters(filters):
         frappe.throw(_("Required fields are missing: {0}").format(", ".join(missing)))
 
 
-def get_sales_employees(filters):
-    conditions = ["sp.enabled = 1", "sp.is_group = 0", "IFNULL(sp.employee, '') != ''"]
+def get_salespeople(filters):
+    conditions = ["sp.enabled = 1", "sp.is_group = 0"]
     values = {}
 
-    if filters.get("employee"):
-        conditions.append("sp.employee = %(employee)s")
-        values["employee"] = filters.employee
+    if filters.get("sales_person"):
+        conditions.append("sp.name = %(sales_person)s")
+        values["sales_person"] = filters.sales_person
 
     rows = frappe.db.sql(
         """
         SELECT
+            sp.name AS sales_person,
+            sp.sales_person_name,
             sp.employee,
-            MAX(e.employee_name) AS employee_name,
-            MAX(e.custom_headquarter) AS headquarter
+            e.employee_name,
+            e.custom_headquarter AS headquarter
         FROM `tabSales Person` sp
-        INNER JOIN `tabEmployee` e ON e.name = sp.employee
+        LEFT JOIN `tabEmployee` e ON e.name = sp.employee
         WHERE {conditions}
-        GROUP BY sp.employee
-        ORDER BY employee_name ASC, sp.employee ASC
+        ORDER BY sp.sales_person_name ASC, sp.name ASC
         """.format(conditions=" AND ".join(conditions)),
         values,
         as_dict=True,
     )
-    return {row.employee: row for row in rows}
+    return {row.sales_person: row for row in rows}
+
+
+def get_employee_salesperson_map():
+    rows = frappe.db.sql(
+        """
+        SELECT
+            sp.employee,
+            sp.name AS sales_person
+        FROM `tabSales Person` sp
+        WHERE sp.enabled = 1
+          AND sp.is_group = 0
+          AND IFNULL(sp.employee, '') != ''
+        ORDER BY sp.sales_person_name ASC, sp.name ASC
+        """,
+        as_dict=True,
+    )
+
+    grouped = defaultdict(list)
+    for row in rows:
+        grouped[row.employee].append(row.sales_person)
+
+    return {
+        employee: salespeople[0]
+        for employee, salespeople in grouped.items()
+        if len(salespeople) == 1
+    }
 
 
 def add_sales_totals(totals, filters):
@@ -77,14 +105,13 @@ def add_sales_totals(totals, filters):
             si.customer,
             si.customer_name,
             si.base_net_total,
-            sp.employee,
+            st.sales_person,
             st.allocated_percentage
         FROM `tabSales Invoice` si
         LEFT JOIN `tabSales Team` st
             ON st.parent = si.name
             AND st.parenttype = 'Sales Invoice'
             AND st.parentfield = 'sales_team'
-        LEFT JOIN `tabSales Person` sp ON sp.name = st.sales_person
         WHERE si.docstatus = 1
           AND si.company = %(company)s
           AND si.posting_date BETWEEN %(from_date)s AND %(to_date)s
@@ -103,8 +130,8 @@ def add_sales_totals(totals, filters):
         customer = allocations[0].customer
         customer_name = allocations[0].customer_name
         for allocation in allocations:
-            if allocation.employee:
-                key = allocation.employee
+            if allocation.sales_person:
+                key = allocation.sales_person
                 percentage = flt(allocation.allocated_percentage)
             else:
                 key = UNASSIGNED_KEY
@@ -114,7 +141,7 @@ def add_sales_totals(totals, filters):
             add_customer_amount(totals[key], customer, customer_name, sales=sales_amount)
 
 
-def add_collection_totals(totals, filters):
+def add_collection_totals(totals, filters, employee_salesperson_map):
     rows = frappe.db.sql(
         """
         SELECT
@@ -137,49 +164,84 @@ def add_collection_totals(totals, filters):
 
     for row in rows:
         collection_amount = flt(row.collection)
-        key = row.employee or UNASSIGNED_KEY
+        key = employee_salesperson_map.get(row.employee) if row.employee else UNASSIGNED_KEY
+        key = key or UNASSIGNED_KEY
         totals[key]["collection"] += collection_amount
         add_customer_amount(totals[key], row.customer, row.customer_name, collection=collection_amount)
 
 
-def build_rows(employees, totals, filters):
+def build_rows(salespeople, totals, filters):
     date_label = _("{0} to {1}").format(
         formatdate(filters.date_range[0], "d MMMM yyyy"),
         formatdate(filters.date_range[1], "d MMMM yyyy"),
     )
-    employee_filter = filters.get("employee")
-    keys = list(employees)
+    sales_person_filter = filters.get("sales_person")
+    keys = list(salespeople)
 
     for key in totals:
-        if key != UNASSIGNED_KEY and key not in employees and (not employee_filter or employee_filter == key):
-            employee = frappe.db.get_value(
-                "Employee",
+        if key != UNASSIGNED_KEY and key not in salespeople and (not sales_person_filter or sales_person_filter == key):
+            sales_person = frappe.db.get_value(
+                "Sales Person",
                 key,
-                ["employee_name", "custom_headquarter"],
+                ["name", "sales_person_name", "employee"],
                 as_dict=True,
             )
-            employees[key] = frappe._dict(
-                {
-                    "employee": key,
-                    "employee_name": employee.employee_name if employee else key,
-                    "headquarter": employee.custom_headquarter if employee else "",
-                }
-            )
+            salespeople[key] = get_salesperson_display_row(sales_person, key)
             keys.append(key)
 
-    keys.sort(key=lambda key: ((employees[key].employee_name or key).lower(), key))
-    rows = [make_row(key, employees[key], totals[key], date_label) for key in keys]
+    keys.sort(key=lambda key: ((salespeople[key].sales_person_name or key).lower(), key))
+    rows = [make_row(key, salespeople[key], totals[key], date_label) for key in keys]
 
-    if not employee_filter and (totals[UNASSIGNED_KEY]["sales"] or totals[UNASSIGNED_KEY]["collection"]):
+    if not sales_person_filter and (totals[UNASSIGNED_KEY]["sales"] or totals[UNASSIGNED_KEY]["collection"]):
         rows.append(
             make_row(
                 UNASSIGNED_KEY,
-                frappe._dict({"employee": "", "employee_name": _("Unassigned"), "headquarter": _("Not Set")}),
+                frappe._dict(
+                    {
+                        "sales_person": "",
+                        "sales_person_name": _("Unassigned"),
+                        "employee": "",
+                        "employee_name": "",
+                        "headquarter": _("Not Set"),
+                    }
+                ),
                 totals[UNASSIGNED_KEY],
                 date_label,
             )
         )
     return rows
+
+
+def get_salesperson_display_row(sales_person, fallback):
+    if not sales_person:
+        return frappe._dict(
+            {
+                "sales_person": fallback,
+                "sales_person_name": fallback,
+                "employee": "",
+                "employee_name": "",
+                "headquarter": "",
+            }
+        )
+
+    employee = None
+    if sales_person.employee:
+        employee = frappe.db.get_value(
+            "Employee",
+            sales_person.employee,
+            ["employee_name", "custom_headquarter"],
+            as_dict=True,
+        )
+
+    return frappe._dict(
+        {
+            "sales_person": sales_person.name,
+            "sales_person_name": sales_person.sales_person_name or sales_person.name,
+            "employee": sales_person.employee or "",
+            "employee_name": employee.employee_name if employee else "",
+            "headquarter": employee.custom_headquarter if employee else "",
+        }
+    )
 
 
 def make_total_bucket():
@@ -208,21 +270,23 @@ def add_customer_amount(bucket, customer, customer_name, sales=0.0, collection=0
     customer_bucket["collection"] += flt(collection)
 
 
-def make_row(key, employee, totals, date_label):
+def make_row(key, sales_person, totals, date_label):
     sales = flt(totals["sales"], 2)
     collection = flt(totals["collection"], 2)
-    employee_name = employee.employee_name or employee.employee or _("Not Set")
-    headquarter = employee.headquarter or _("Not Set")
+    sales_person_name = sales_person.sales_person_name or sales_person.sales_person or _("Not Set")
+    headquarter = sales_person.headquarter or _("Not Set")
 
     return {
-        "employee": employee.employee if key != UNASSIGNED_KEY else "",
-        "employee_name": employee_name,
+        "sales_person": sales_person.sales_person if key != UNASSIGNED_KEY else "",
+        "sales_person_name": sales_person_name,
+        "employee": sales_person.employee if key != UNASSIGNED_KEY else "",
+        "employee_name": sales_person.employee_name if key != UNASSIGNED_KEY else "",
         "headquarter": headquarter,
         "sales": sales,
         "collection": collection,
         "whatsapp_message": "\n".join(
             [
-                _("Name: {0}").format(employee_name),
+                _("Name: {0}").format(sales_person_name),
                 _("Headquarter: {0}").format(headquarter),
                 _("Period: {0}").format(date_label),
                 _("Sales: {0}").format(format_indian_currency(sales)),
@@ -230,7 +294,7 @@ def make_row(key, employee, totals, date_label):
             ]
         ),
         "detailed_whatsapp_message": build_detailed_message(
-            employee_name,
+            sales_person_name,
             headquarter,
             date_label,
             sales,
@@ -302,13 +366,14 @@ def get_query_values(filters):
 def get_columns():
     return [
         {
-            "label": _("Employee"),
-            "fieldname": "employee",
+            "label": _("Sales Person"),
+            "fieldname": "sales_person",
             "fieldtype": "Link",
-            "options": "Employee",
-            "width": 150,
+            "options": "Sales Person",
+            "width": 180,
         },
-        {"label": _("Name"), "fieldname": "employee_name", "fieldtype": "Data", "width": 180},
+        {"label": _("Name"), "fieldname": "sales_person_name", "fieldtype": "Data", "width": 180},
+        {"label": _("Employee"), "fieldname": "employee", "fieldtype": "Link", "options": "Employee", "width": 150},
         {"label": _("Headquarter"), "fieldname": "headquarter", "fieldtype": "Data", "width": 150},
         {"label": _("Sales"), "fieldname": "sales", "fieldtype": "Currency", "width": 140},
         {"label": _("Collection"), "fieldname": "collection", "fieldtype": "Currency", "width": 140},

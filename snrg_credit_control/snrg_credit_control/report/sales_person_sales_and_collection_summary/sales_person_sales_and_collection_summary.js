@@ -16,10 +16,10 @@ frappe.query_reports["Sales Person Sales and Collection Summary"] = {
       reqd: 1,
     },
     {
-      fieldname: "employee",
-      label: __("Employee"),
+      fieldname: "sales_person",
+      label: __("Sales Person"),
       fieldtype: "Link",
-      options: "Employee",
+      options: "Sales Person",
     },
   ],
 
