@@ -304,6 +304,12 @@ def make_row(key, sales_person, totals, date_label):
             collection,
             totals["customers"],
         ),
+        "detailed_table_message": build_detailed_table_message(
+            sales_person_name,
+            headquarter,
+            date_label,
+            totals["customers"],
+        ),
     }
 
 
@@ -318,17 +324,7 @@ def build_detailed_message(employee_name, headquarter, date_label, sales, collec
         _("Customer Wise:"),
     ]
 
-    customer_rows = [
-        row
-        for row in customers.values()
-        if flt(row["sales"]) or flt(row["collection"])
-    ]
-    customer_rows.sort(
-        key=lambda row: (
-            -(abs(flt(row["sales"])) + abs(flt(row["collection"]))),
-            (row["customer_name"] or row["customer"] or "").lower(),
-        )
-    )
+    customer_rows = get_sorted_customer_rows(customers)
 
     if not customer_rows:
         lines.append(_("No customer-wise sales or collection."))
@@ -341,6 +337,56 @@ def build_detailed_message(employee_name, headquarter, date_label, sales, collec
         lines.append("")
 
     return "\n".join(lines).rstrip()
+
+
+def build_detailed_table_message(sales_person_name, headquarter, date_label, customers):
+    rows = [
+        [
+            _("Period"),
+            _("Sales Person"),
+            _("Headquarter"),
+            _("Customer"),
+            _("Sales"),
+            _("Collection"),
+        ]
+    ]
+
+    customer_rows = get_sorted_customer_rows(customers)
+    if not customer_rows:
+        rows.append([date_label, sales_person_name, headquarter, _("No customer-wise sales or collection."), 0, 0])
+    else:
+        for row in customer_rows:
+            rows.append(
+                [
+                    date_label,
+                    sales_person_name,
+                    headquarter,
+                    row["customer_name"] or row["customer"] or _("Unassigned Customer"),
+                    flt(row["sales"], 2),
+                    flt(row["collection"], 2),
+                ]
+            )
+
+    return "\n".join("\t".join(clean_table_cell(cell)) for cell in rows)
+
+
+def get_sorted_customer_rows(customers):
+    customer_rows = [
+        row
+        for row in customers.values()
+        if flt(row["sales"]) or flt(row["collection"])
+    ]
+    customer_rows.sort(
+        key=lambda row: (
+            -(abs(flt(row["sales"])) + abs(flt(row["collection"]))),
+            (row["customer_name"] or row["customer"] or "").lower(),
+        )
+    )
+    return customer_rows
+
+
+def clean_table_cell(value):
+    return str(value or "").replace("\t", " ").replace("\r", " ").replace("\n", " ")
 
 
 def format_indian_currency(value):
@@ -386,5 +432,11 @@ def get_columns():
             "fieldname": "copy_detailed_message",
             "fieldtype": "Data",
             "width": 150,
+        },
+        {
+            "label": _("Excel Table"),
+            "fieldname": "copy_table_message",
+            "fieldtype": "Data",
+            "width": 120,
         },
     ]

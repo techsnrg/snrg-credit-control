@@ -37,6 +37,13 @@ frappe.query_reports["Sales Person Sales and Collection Summary"] = {
         .filter(Boolean);
       copyReportText(messages.join("\n\n"));
     });
+
+    report.page.add_action_item(__("Copy All Excel Tables"), () => {
+      const messages = (report.data || [])
+        .map((row) => row.detailed_table_message)
+        .filter(Boolean);
+      copyReportText(joinTableMessages(messages), __("Excel table copied."));
+    });
   },
 
   formatter(value, row, column, data, default_formatter) {
@@ -52,22 +59,37 @@ frappe.query_reports["Sales Person Sales and Collection Summary"] = {
         "Copy Detailed"
       )}</button>`;
     }
+    if (column.fieldname === "copy_table_message" && data && data.detailed_table_message) {
+      const encoded = encodeURIComponent(data.detailed_table_message).replace(/'/g, "%27");
+      return `<button class="btn btn-xs btn-default" onclick="window.copySalesCollectionMessage('${encoded}', '${__(
+        "Excel table copied."
+      )}')">${__("Copy Table")}</button>`;
+    }
     return default_formatter(value, row, column, data);
   },
 };
 
-window.copySalesCollectionMessage = function copySalesCollectionMessage(encodedMessage) {
-  copyReportText(decodeURIComponent(encodedMessage));
+window.copySalesCollectionMessage = function copySalesCollectionMessage(encodedMessage, successMessage) {
+  copyReportText(decodeURIComponent(encodedMessage), successMessage);
 };
 
-function copyReportText(text) {
+function copyReportText(text, successMessage) {
   if (!text) {
     frappe.show_alert({ message: __("No messages to copy."), indicator: "orange" });
     return;
   }
 
   frappe.utils.copy_to_clipboard(text);
-  frappe.show_alert({ message: __("WhatsApp message copied."), indicator: "green" });
+  frappe.show_alert({ message: successMessage || __("WhatsApp message copied."), indicator: "green" });
+}
+
+function joinTableMessages(messages) {
+  const rows = [];
+  messages.forEach((message, index) => {
+    const messageRows = message.split("\n").filter(Boolean);
+    rows.push(...(index === 0 ? messageRows : messageRows.slice(1)));
+  });
+  return rows.join("\n");
 }
 
 function getDefaultDateRange() {
