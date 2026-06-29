@@ -112,9 +112,11 @@ def add_sales_totals(totals, filters):
             ON st.parent = si.name
             AND st.parenttype = 'Sales Invoice'
             AND st.parentfield = 'sales_team'
+        LEFT JOIN `tabCustomer` c ON c.name = si.customer
         WHERE si.docstatus = 1
           AND si.company = %(company)s
           AND si.posting_date BETWEEN %(from_date)s AND %(to_date)s
+          AND LOWER(IFNULL(c.customer_group, '')) NOT IN ('vendor', 'vendors')
         ORDER BY si.name ASC, st.idx ASC
         """,
         get_query_values(filters),
@@ -156,6 +158,7 @@ def add_collection_totals(totals, filters, employee_salesperson_map):
           AND pe.party_type = 'Customer'
           AND pe.company = %(company)s
           AND pe.posting_date BETWEEN %(from_date)s AND %(to_date)s
+          AND LOWER(IFNULL(c.customer_group, '')) NOT IN ('vendor', 'vendors')
         GROUP BY pe.custom_incentive_sales_person_name, pe.party
         """,
         get_query_values(filters),
