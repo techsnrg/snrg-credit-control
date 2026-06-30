@@ -59,8 +59,8 @@ frappe.query_reports["Sales Person Sales and Collection Summary"] = {
         "Copy Detailed"
       )}</button>`;
     }
-    if (column.fieldname === "copy_table_message" && data && data.detailed_table_message) {
-      const encoded = encodeURIComponent(data.detailed_table_message).replace(/'/g, "%27");
+    if (column.fieldname === "detailed_table_message" && value) {
+      const encoded = encodeURIComponent(value).replace(/'/g, "%27");
       return `<button class="btn btn-xs btn-default" onclick="window.copySalesCollectionMessage('${encoded}', '${__(
         "Excel table copied."
       )}')">${__("Copy Table")}</button>`;

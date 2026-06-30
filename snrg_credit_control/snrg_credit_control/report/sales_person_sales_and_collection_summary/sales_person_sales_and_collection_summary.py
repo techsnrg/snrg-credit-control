@@ -287,6 +287,8 @@ def make_row(key, sales_person, totals, date_label):
         "headquarter": headquarter,
         "sales": sales,
         "collection": collection,
+        "copy_message": _("Copy Message"),
+        "copy_detailed_message": _("Copy Detailed"),
         "whatsapp_message": "\n".join(
             [
                 _("Name: {0}").format(sales_person_name),
@@ -421,8 +423,6 @@ def get_columns():
             "options": "Sales Person",
             "width": 180,
         },
-        {"label": _("Name"), "fieldname": "sales_person_name", "fieldtype": "Data", "width": 180},
-        {"label": _("Employee"), "fieldname": "employee", "fieldtype": "Link", "options": "Employee", "width": 150},
         {"label": _("Headquarter"), "fieldname": "headquarter", "fieldtype": "Data", "width": 150},
         {"label": _("Sales"), "fieldname": "sales", "fieldtype": "Currency", "width": 140},
         {"label": _("Collection"), "fieldname": "collection", "fieldtype": "Currency", "width": 140},
@@ -435,7 +435,7 @@ def get_columns():
         },
         {
             "label": _("Excel Table"),
-            "fieldname": "copy_table_message",
+            "fieldname": "detailed_table_message",
             "fieldtype": "Data",
             "width": 120,
         },
