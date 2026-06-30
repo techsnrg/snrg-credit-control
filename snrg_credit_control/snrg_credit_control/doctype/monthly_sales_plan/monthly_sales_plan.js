@@ -38,6 +38,10 @@ frappe.ui.form.on("Monthly Sales Plan Customer", {
       frappe.model.set_value(cdt, cdn, "territory", customer.territory || "");
     });
   },
+
+  planned_amount(frm, cdt, cdn) {
+    updateMinimumPayment(cdt, cdn);
+  },
 });
 
 function normalizePlanMonth(frm) {
@@ -102,7 +106,15 @@ function mergeCustomerRows(frm, customers) {
     row.customer_name = customer.customer_name || customer.customer;
     row.customer_group = customer.customer_group || "";
     row.territory = customer.territory || "";
+    row.last_month_sales = customer.last_month_sales || 0;
+    row.current_credit_limit = customer.current_credit_limit || 0;
+    row.credit_limit_available = customer.credit_limit_available || 0;
     row.planned_amount = plannedByCustomer[customer.customer] || 0;
+    row.minimum_payment_required = Math.max(
+      Number(row.planned_amount || 0) - Number(row.credit_limit_available || 0),
+      0
+    );
+    row.projected_75_plus_outstanding = customer.projected_75_plus_outstanding || 0;
     row.remarks = remarksByCustomer[customer.customer] || "";
   });
 
@@ -110,6 +122,7 @@ function mergeCustomerRows(frm, customers) {
     const row = frm.add_child("customers");
     row.customer_name = manualRow.customer_name || "";
     row.planned_amount = manualRow.planned_amount || 0;
+    row.minimum_payment_required = 0;
     row.remarks = manualRow.remarks || "";
   });
 
@@ -118,6 +131,12 @@ function mergeCustomerRows(frm, customers) {
     message: __("Fetched {0} customers. Manual lead rows preserved.", [customers.length]),
     indicator: "green",
   });
+}
+
+function updateMinimumPayment(cdt, cdn) {
+  const row = locals[cdt][cdn];
+  const required = Math.max(Number(row.planned_amount || 0) - Number(row.credit_limit_available || 0), 0);
+  frappe.model.set_value(cdt, cdn, "minimum_payment_required", required);
 }
 
 function createRevision(frm) {

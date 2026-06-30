@@ -9,7 +9,12 @@
   "customer_name",
   "customer_group",
   "territory",
+  "last_month_sales",
+  "current_credit_limit",
+  "credit_limit_available",
   "planned_amount",
+  "minimum_payment_required",
+  "projected_75_plus_outstanding",
   "achieved_amount",
   "variance_amount",
   "achievement_percent",
@@ -45,10 +50,44 @@
    "read_only": 1
   },
   {
+   "fieldname": "last_month_sales",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Last Month Sales",
+   "read_only": 1
+  },
+  {
+   "fieldname": "current_credit_limit",
+   "fieldtype": "Currency",
+   "label": "Credit Limit",
+   "read_only": 1
+  },
+  {
+   "fieldname": "credit_limit_available",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Credit Limit Available",
+   "read_only": 1
+  },
+  {
    "fieldname": "planned_amount",
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Planned Amount"
+  },
+  {
+   "fieldname": "minimum_payment_required",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Minimum Payment Required",
+   "read_only": 1
+  },
+  {
+   "fieldname": "projected_75_plus_outstanding",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "75+ Outstanding at Month End",
+   "read_only": 1
   },
   {
    "fieldname": "achieved_amount",

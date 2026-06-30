@@ -6,7 +6,7 @@ from collections import defaultdict
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import cint, flt, get_first_day, get_last_day, getdate, nowdate
+from frappe.utils import add_months, cint, flt, get_first_day, get_last_day, getdate, nowdate
 
 
 class MonthlySalesPlan(Document):
@@ -59,8 +59,23 @@ class MonthlySalesPlan(Document):
 
     def _set_achievement_amounts(self):
         actuals = get_sales_invoice_actuals(self.company, self.plan_month, self.sales_person)
+        metrics = get_customer_metrics(
+            self.company,
+            self.plan_month,
+            self.sales_person,
+            [row.customer for row in self.customers if row.customer],
+        )
         for row in self.customers:
+            row_metrics = metrics.get(row.customer, {}) if row.customer else {}
+            row.last_month_sales = flt(row_metrics.get("last_month_sales"), 2)
+            row.current_credit_limit = flt(row_metrics.get("current_credit_limit"), 2)
+            row.credit_limit_available = flt(row_metrics.get("credit_limit_available"), 2)
+            row.projected_75_plus_outstanding = flt(row_metrics.get("projected_75_plus_outstanding"), 2)
             row.achieved_amount = flt(actuals.get(row.customer, 0), 2) if row.customer else 0
+            row.minimum_payment_required = flt(
+                max(flt(row.planned_amount) - flt(row.credit_limit_available), 0),
+                2,
+            )
             row.variance_amount = flt(row.achieved_amount - flt(row.planned_amount), 2)
             row.achievement_percent = (
                 flt(row.achieved_amount) * 100 / flt(row.planned_amount)
@@ -128,6 +143,10 @@ def fetch_customers(company, plan_month, sales_person):
         {"sales_person": sales_person},
         as_dict=True,
     )
+    metrics = get_customer_metrics(company, plan_month, sales_person, [row.customer for row in rows])
+    for row in rows:
+        row.update(metrics.get(row.customer, {}))
+
     return rows
 
 
@@ -159,7 +178,12 @@ def make_revision(source_name):
                 "customer_name": row.customer_name,
                 "customer_group": row.customer_group,
                 "territory": row.territory,
+                "last_month_sales": row.last_month_sales,
+                "current_credit_limit": row.current_credit_limit,
+                "credit_limit_available": row.credit_limit_available,
                 "planned_amount": row.planned_amount,
+                "minimum_payment_required": row.minimum_payment_required,
+                "projected_75_plus_outstanding": row.projected_75_plus_outstanding,
                 "remarks": row.remarks,
             },
         )
@@ -213,6 +237,98 @@ def get_sales_invoice_actuals(company, plan_month, sales_person=None):
         actuals[row.customer] += flt(row.base_net_total) * percentage / 100
 
     return {customer: flt(amount, 2) for customer, amount in actuals.items()}
+
+
+def get_customer_metrics(company, plan_month, sales_person=None, customers=None):
+    if not company or not plan_month:
+        return {}
+
+    customer_list = [customer for customer in (customers or []) if customer]
+    if not customer_list:
+        return {}
+
+    plan_month = get_first_day(getdate(plan_month))
+    previous_month = add_months(plan_month, -1)
+    values = {
+        "company": company,
+        "previous_month_start": get_first_day(previous_month),
+        "previous_month_end": get_last_day(previous_month),
+        "plan_month_end": get_last_day(plan_month),
+        "customers": tuple(customer_list),
+    }
+
+    sales_person_condition = ""
+    if sales_person:
+        values["sales_person"] = sales_person
+        sales_person_condition = "AND st.sales_person = %(sales_person)s"
+
+    last_month_sales = frappe.db.sql(
+        """
+        SELECT
+            si.customer,
+            SUM(si.base_net_total * IFNULL(st.allocated_percentage, 0) / 100) AS last_month_sales
+        FROM `tabSales Invoice` si
+        INNER JOIN `tabSales Team` st
+            ON st.parent = si.name
+            AND st.parenttype = 'Sales Invoice'
+            AND st.parentfield = 'sales_team'
+            {sales_person_condition}
+        WHERE si.docstatus = 1
+          AND si.is_return = 0
+          AND si.company = %(company)s
+          AND si.customer IN %(customers)s
+          AND si.posting_date BETWEEN %(previous_month_start)s AND %(previous_month_end)s
+        GROUP BY si.customer
+        """.format(sales_person_condition=sales_person_condition),
+        values,
+        as_dict=True,
+    )
+
+    credit_rows = frappe.db.sql(
+        """
+        SELECT
+            c.name AS customer,
+            COALESCE(MAX(ccl.credit_limit), 0) AS current_credit_limit,
+            COALESCE(SUM(CASE WHEN si.outstanding_amount > 0 THEN si.outstanding_amount ELSE 0 END), 0) AS current_outstanding,
+            COALESCE(SUM(
+                CASE
+                    WHEN si.outstanding_amount > 0
+                     AND DATEDIFF(%(plan_month_end)s, si.posting_date) > 75
+                    THEN si.outstanding_amount
+                    ELSE 0
+                END
+            ), 0) AS projected_75_plus_outstanding
+        FROM `tabCustomer` c
+        LEFT JOIN `tabCustomer Credit Limit` ccl
+            ON ccl.parent = c.name
+            AND ccl.company = %(company)s
+        LEFT JOIN `tabSales Invoice` si
+            ON si.customer = c.name
+            AND si.docstatus = 1
+            AND si.is_return = 0
+            AND si.company = %(company)s
+        WHERE c.name IN %(customers)s
+        GROUP BY c.name
+        """,
+        values,
+        as_dict=True,
+    )
+
+    metrics = {
+        row.customer: {
+            "last_month_sales": 0,
+            "current_credit_limit": flt(row.current_credit_limit, 2),
+            "credit_limit_available": flt(flt(row.current_credit_limit) - flt(row.current_outstanding), 2),
+            "projected_75_plus_outstanding": flt(row.projected_75_plus_outstanding, 2),
+        }
+        for row in credit_rows
+    }
+
+    for row in last_month_sales:
+        metrics.setdefault(row.customer, {})
+        metrics[row.customer]["last_month_sales"] = flt(row.last_month_sales, 2)
+
+    return metrics
 
 
 def get_month_label(plan_month):
