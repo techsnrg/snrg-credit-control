@@ -369,7 +369,7 @@ def build_detailed_table_message(sales_person_name, headquarter, date_label, cus
                 ]
             )
 
-    return "\n".join("\t".join(clean_table_cell(cell)) for cell in rows)
+    return "\n".join("\t".join(clean_table_cell(cell) for cell in row) for row in rows)
 
 
 def get_sorted_customer_rows(customers):
