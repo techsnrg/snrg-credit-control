@@ -539,6 +539,11 @@ def _ensure_report():
             "ref_doctype": "Sales Invoice",
             "extra_roles": ["Sales User"],
         },
+        {
+            "report_name": "Employee Salary Management Report",
+            "ref_doctype": "Journal Entry",
+            "extra_roles": ["Accounts User", "HR Manager"],
+        },
     ]
 
     default_roles = [
@@ -911,6 +916,13 @@ def _ensure_credit_control_workspace():
         ("credit_report_shortcut", "Credit Control Report", "Credit Control Report", "Green", "list"),
         ("customer_credit_review_shortcut", "Customer Credit Review", "Customer Credit Review", "Blue", "list"),
         ("ptp_dashboard_report_shortcut", "PTP Dashboard Report", "PTP Dashboard", "Orange", "dashboard"),
+        (
+            "employee_salary_management_report_shortcut",
+            "Employee Salary Management Report",
+            "Employee Salary Management Report",
+            "Grey",
+            "list",
+        ),
         (
             "minimum_selling_rate_invoice_check_shortcut",
             "Minimum Selling Rate Invoice Check",
