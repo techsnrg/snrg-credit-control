@@ -310,6 +310,8 @@ def make_row(key, sales_person, totals, date_label):
             sales_person_name,
             headquarter,
             date_label,
+            sales,
+            collection,
             totals["customers"],
         ),
     }
@@ -341,31 +343,27 @@ def build_detailed_message(employee_name, headquarter, date_label, sales, collec
     return "\n".join(lines).rstrip()
 
 
-def build_detailed_table_message(sales_person_name, headquarter, date_label, customers):
+def build_detailed_table_message(sales_person_name, headquarter, date_label, sales, collection, customers):
     rows = [
-        [
-            _("Period"),
-            _("Sales Person"),
-            _("Headquarter"),
-            _("Customer"),
-            _("Sales"),
-            _("Collection"),
-        ]
+        [_("Name"), sales_person_name],
+        [_("Headquarter"), headquarter],
+        [_("Period"), date_label],
+        [_("Sales"), format_indian_currency(sales)],
+        [_("Collection"), format_indian_currency(collection)],
+        [],
+        [_("Customer Name"), _("Sales"), _("Collection")],
     ]
 
     customer_rows = get_sorted_customer_rows(customers)
     if not customer_rows:
-        rows.append([date_label, sales_person_name, headquarter, _("No customer-wise sales or collection."), 0, 0])
+        rows.append([_("No customer-wise sales or collection."), "", ""])
     else:
         for row in customer_rows:
             rows.append(
                 [
-                    date_label,
-                    sales_person_name,
-                    headquarter,
                     row["customer_name"] or row["customer"] or _("Unassigned Customer"),
-                    flt(row["sales"], 2),
-                    flt(row["collection"], 2),
+                    format_indian_currency(row["sales"]),
+                    format_indian_currency(row["collection"]),
                 ]
             )
 

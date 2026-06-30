@@ -42,7 +42,7 @@ frappe.query_reports["Sales Person Sales and Collection Summary"] = {
       const messages = (report.data || [])
         .map((row) => row.detailed_table_message)
         .filter(Boolean);
-      copyReportText(joinTableMessages(messages), __("Excel table copied."));
+      copyReportText(messages.join("\n\n"), __("Excel table copied."));
     });
   },
 
@@ -81,15 +81,6 @@ function copyReportText(text, successMessage) {
 
   frappe.utils.copy_to_clipboard(text);
   frappe.show_alert({ message: successMessage || __("WhatsApp message copied."), indicator: "green" });
-}
-
-function joinTableMessages(messages) {
-  const rows = [];
-  messages.forEach((message, index) => {
-    const messageRows = message.split("\n").filter(Boolean);
-    rows.push(...(index === 0 ? messageRows : messageRows.slice(1)));
-  });
-  return rows.join("\n");
 }
 
 function getDefaultDateRange() {
