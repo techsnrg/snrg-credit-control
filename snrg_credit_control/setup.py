@@ -887,6 +887,7 @@ def _ensure_credit_control_workspace():
     has_md_dashboard_page = frappe.db.exists("Page", "managing-director-dashboard")
     has_sales_tracking_page = frappe.db.exists("Page", "sales-tracking")
     has_sales_tracking_kanban_page = frappe.db.exists("Page", "sales-tracking-kanban")
+    has_customer_sales_person_mapping_page = frappe.db.exists("Page", "customer-sales-person-mapping")
     has_sales_tracking_sla_settings = frappe.db.exists("DocType", "Sales Tracking SLA Settings")
     has_production_planning_page = frappe.db.exists("Page", "production-planning")
     sales_tracking_reports = [
@@ -904,6 +905,7 @@ def _ensure_credit_control_workspace():
     has_sales_tracking_section = (
         has_sales_tracking_page
         or has_sales_tracking_kanban_page
+        or has_customer_sales_person_mapping_page
         or has_sales_tracking_sla_settings
         or bool(sales_tracking_reports)
     )
@@ -1010,6 +1012,15 @@ def _ensure_credit_control_workspace():
                 "id": "sales_tracking_kanban_page_shortcut",
                 "type": "shortcut",
                 "data": {"shortcut_name": "Sales Tracking Kanban", "col": 3},
+            }
+        )
+
+    if has_customer_sales_person_mapping_page:
+        content_blocks.append(
+            {
+                "id": "customer_sales_person_mapping_page_shortcut",
+                "type": "shortcut",
+                "data": {"shortcut_name": "Customer Sales Person Mapping", "col": 3},
             }
         )
 
@@ -1145,6 +1156,21 @@ def _ensure_credit_control_workspace():
                 "type": "Link",
                 "link_type": "Page",
                 "link_to": "sales-tracking-kanban",
+                "hidden": 0,
+                "is_query_report": 0,
+                "link_count": 0,
+                "onboard": 1,
+                "dependencies": "",
+            }
+        )
+
+    if has_customer_sales_person_mapping_page:
+        links.append(
+            {
+                "label": "Customer Sales Person Mapping",
+                "type": "Link",
+                "link_type": "Page",
+                "link_to": "customer-sales-person-mapping",
                 "hidden": 0,
                 "is_query_report": 0,
                 "link_count": 0,
@@ -1312,6 +1338,17 @@ def _ensure_credit_control_workspace():
                 "link_to": "sales-tracking-kanban",
                 "icon": "dashboard",
                 "color": "Purple",
+            }
+        )
+
+    if has_customer_sales_person_mapping_page:
+        shortcuts.append(
+            {
+                "type": "Page",
+                "label": "Customer Sales Person Mapping",
+                "link_to": "customer-sales-person-mapping",
+                "icon": "organization",
+                "color": "Green",
             }
         )
 
