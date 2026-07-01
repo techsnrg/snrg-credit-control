@@ -2,6 +2,7 @@
 {% set letter_head_content = letter_head.content if letter_head is mapping else letter_head %}
 {% set letter_head_footer = letter_head.footer if letter_head is mapping else "" %}
 {% set customer_count = doc.customers | length %}
+{% set print_title = "Monthly Sales Plan - " ~ (doc.sales_person_name or doc.sales_person or "Sales Person") ~ " - " ~ (doc.plan_month or "Plan Month") ~ " - " ~ doc.name %}
 {% set risk = namespace(payment=0, overdue=0) %}
 {% for row in doc.customers %}
   {% if (row.minimum_payment_required or 0) > 0 %}
@@ -11,6 +12,8 @@
     {% set risk.overdue = risk.overdue + 1 %}
   {% endif %}
 {% endfor %}
+
+<title>{{ print_title }}</title>
 
 <style>
   @page {

@@ -14,6 +14,10 @@ frappe.ui.form.on("Monthly Sales Plan", {
       frm.add_custom_button(__("Fetch Customers"), () => fetchCustomers(frm));
     }
 
+    if (!frm.is_new()) {
+      frm.add_custom_button(__("Download PDF"), () => downloadPlanPdf(frm), __("Export"));
+    }
+
     if (frm.doc.docstatus === 1 && frm.doc.status !== "Cancelled") {
       frm.add_custom_button(__("Create Revision"), () => createRevision(frm));
     }
@@ -142,6 +146,78 @@ function updateMinimumPayment(cdt, cdn) {
   const row = locals[cdt][cdn];
   const required = Math.max(Number(row.planned_amount || 0) - Number(row.credit_limit_available || 0), 0);
   frappe.model.set_value(cdt, cdn, "minimum_payment_required", required);
+}
+
+async function downloadPlanPdf(frm) {
+  if (frm.is_dirty()) {
+    await frm.save();
+  }
+
+  const params = new URLSearchParams({
+    doctype: frm.doctype,
+    name: frm.doc.name,
+    format: "Monthly Sales Plan",
+    no_letterhead: "0",
+  });
+
+  const response = await fetch(`/api/method/frappe.utils.print_format.download_pdf?${params.toString()}`, {
+    credentials: "same-origin",
+  });
+
+  if (!response.ok) {
+    frappe.msgprint(__("Unable to download PDF. Please try again."));
+    return;
+  }
+
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = getPlanPdfFilename(frm);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
+
+function getPlanPdfFilename(frm) {
+  const salesPerson = cleanFilenamePart(frm.doc.sales_person_name || frm.doc.sales_person || "Sales Person");
+  const month = cleanFilenamePart(getPlanMonthLabel(frm.doc.plan_month));
+  const planId = cleanFilenamePart(frm.doc.name || "Monthly Sales Plan");
+  return `Monthly Sales Plan - ${salesPerson} - ${month} - ${planId}.pdf`;
+}
+
+function getPlanMonthLabel(planMonth) {
+  if (!planMonth) return "Plan Month";
+
+  const value = String(planMonth);
+  const match = value.match(/^(\d{4})-(\d{2})/);
+  if (!match) return value;
+
+  const monthNames = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
+  const monthIndex = Number(match[2]) - 1;
+  const monthName = monthNames[monthIndex] || match[2];
+  return `${monthName} ${match[1]}`;
+}
+
+function cleanFilenamePart(value) {
+  return String(value || "")
+    .replace(/[\\/:*?"<>|]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function createRevision(frm) {
