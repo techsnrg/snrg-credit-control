@@ -1,0 +1,335 @@
+{% set currency = doc.currency or "INR" %}
+{% set letter_head_content = letter_head.content if letter_head is mapping else letter_head %}
+{% set letter_head_footer = letter_head.footer if letter_head is mapping else "" %}
+{% set customer_count = doc.customers | length %}
+{% set risk = namespace(payment=0, overdue=0) %}
+{% for row in doc.customers %}
+  {% if (row.minimum_payment_required or 0) > 0 %}
+    {% set risk.payment = risk.payment + 1 %}
+  {% endif %}
+  {% if (row.projected_75_plus_outstanding or 0) > 0 %}
+    {% set risk.overdue = risk.overdue + 1 %}
+  {% endif %}
+{% endfor %}
+
+<style>
+  @page {
+    margin: 14mm 10mm;
+  }
+  body, table, td, th {
+    font-family: "Inter", "Arial", sans-serif;
+    color: #172033;
+    font-size: 10px;
+  }
+  .letter-head {
+    margin-bottom: 10px;
+  }
+  .letter-head-footer {
+    position: fixed;
+    left: 10mm;
+    right: 10mm;
+    bottom: 5mm;
+  }
+  .msp-shell {
+    padding-bottom: 44px;
+  }
+  .msp-header {
+    border: 1px solid #20324a;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+  .msp-title-bar {
+    background: #20324a;
+    color: #fff;
+    padding: 10px 12px;
+  }
+  .msp-title {
+    margin: 0;
+    font-size: 18px;
+    line-height: 1.2;
+    font-weight: 800;
+    letter-spacing: 0;
+  }
+  .msp-subtitle {
+    margin-top: 3px;
+    font-size: 10px;
+    color: #dbe7f7;
+  }
+  .msp-meta {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+  }
+  .msp-meta-cell {
+    display: table-cell;
+    padding: 8px 10px;
+    border-right: 1px solid #d9e1ec;
+    vertical-align: top;
+  }
+  .msp-meta-cell:last-child {
+    border-right: 0;
+  }
+  .msp-label {
+    color: #667085;
+    font-size: 8px;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+  .msp-value {
+    margin-top: 3px;
+    color: #101828;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .msp-section-title {
+    margin: 12px 0 6px;
+    font-size: 12px;
+    color: #101828;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+  .msp-kpi-grid {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 10px;
+  }
+  .msp-kpi-grid td {
+    width: 25%;
+    border: 1px solid #d9e1ec;
+    padding: 8px 10px;
+    vertical-align: top;
+  }
+  .msp-kpi-label {
+    color: #667085;
+    font-size: 8px;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+  .msp-kpi-value {
+    margin-top: 4px;
+    color: #101828;
+    font-size: 13px;
+    font-weight: 800;
+  }
+  .msp-kpi-note {
+    margin-top: 3px;
+    color: #667085;
+    font-size: 8px;
+  }
+  .msp-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+  .msp-table th,
+  .msp-table td {
+    border: 1px solid #d9e1ec;
+    padding: 5px 5px;
+    vertical-align: top;
+  }
+  .msp-table th {
+    background: #eef3f8;
+    color: #20324a;
+    font-size: 8px;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+  .msp-table tbody tr:nth-child(even) td {
+    background: #fbfcfe;
+  }
+  .msp-num {
+    text-align: right;
+    white-space: nowrap;
+  }
+  .msp-customer {
+    font-weight: 800;
+    color: #1849a9;
+  }
+  .msp-small {
+    margin-top: 2px;
+    color: #667085;
+    font-size: 8px;
+    line-height: 1.35;
+  }
+  .msp-risk {
+    color: #b42318;
+    font-weight: 800;
+  }
+  .msp-footer-grid {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 12px;
+    page-break-inside: avoid;
+  }
+  .msp-footer-grid td {
+    width: 50%;
+    border: 1px solid #d9e1ec;
+    padding: 10px;
+    vertical-align: top;
+  }
+  .msp-sign-line {
+    border-bottom: 1px solid #98a2b3;
+    height: 26px;
+    margin-bottom: 6px;
+  }
+  .msp-muted {
+    color: #667085;
+  }
+</style>
+
+{% if letter_head_content and not no_letterhead %}
+<div class="letter-head">{{ letter_head_content }}</div>
+{% endif %}
+
+<div class="msp-shell">
+  <div class="msp-header">
+    <div class="msp-title-bar">
+      <h1 class="msp-title">Monthly Sales Plan</h1>
+      <div class="msp-subtitle">A working plan for customer-wise sales focus, credit readiness, and month-end follow-up.</div>
+    </div>
+    <div class="msp-meta">
+      <div class="msp-meta-cell">
+        <div class="msp-label">Plan ID</div>
+        <div class="msp-value">{{ doc.name }}</div>
+      </div>
+      <div class="msp-meta-cell">
+        <div class="msp-label">Company</div>
+        <div class="msp-value">{{ doc.company }}</div>
+      </div>
+      <div class="msp-meta-cell">
+        <div class="msp-label">Plan Month</div>
+        <div class="msp-value">{{ doc.plan_month }}</div>
+      </div>
+      <div class="msp-meta-cell">
+        <div class="msp-label">Sales Person</div>
+        <div class="msp-value">{{ doc.sales_person_name or doc.sales_person }}</div>
+      </div>
+    </div>
+    <div class="msp-meta">
+      <div class="msp-meta-cell">
+        <div class="msp-label">Plan Date</div>
+        <div class="msp-value">{{ frappe.utils.formatdate(doc.plan_date) if doc.plan_date else "-" }}</div>
+      </div>
+      <div class="msp-meta-cell">
+        <div class="msp-label">Status</div>
+        <div class="msp-value">{{ doc.status or "Draft" }}</div>
+      </div>
+      <div class="msp-meta-cell">
+        <div class="msp-label">Revision</div>
+        <div class="msp-value">Revision {{ doc.revision_no or 1 }}</div>
+      </div>
+      <div class="msp-meta-cell">
+        <div class="msp-label">Printed On</div>
+        <div class="msp-value">{{ frappe.utils.format_datetime(frappe.utils.now_datetime(), "dd-MM-yyyy HH:mm") }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="msp-section-title">Monthly Targets</div>
+  <table class="msp-kpi-grid">
+    <tr>
+      <td>
+        <div class="msp-kpi-label">Total Planned</div>
+        <div class="msp-kpi-value">{{ frappe.utils.fmt_money(doc.total_planned_amount, currency=currency) }}</div>
+        <div class="msp-kpi-note">{{ customer_count }} customers / new leads</div>
+      </td>
+      <td>
+        <div class="msp-kpi-label">Total Achieved</div>
+        <div class="msp-kpi-value">{{ frappe.utils.fmt_money(doc.total_achieved_amount, currency=currency) }}</div>
+        <div class="msp-kpi-note">Booked against this plan</div>
+      </td>
+      <td>
+        <div class="msp-kpi-label">Variance</div>
+        <div class="msp-kpi-value">{{ frappe.utils.fmt_money(doc.total_variance_amount, currency=currency) }}</div>
+        <div class="msp-kpi-note">Achieved minus planned</div>
+      </td>
+      <td>
+        <div class="msp-kpi-label">Achievement</div>
+        <div class="msp-kpi-value">{{ frappe.utils.flt(doc.achievement_percent, 2) }}%</div>
+        <div class="msp-kpi-note">{{ risk.payment }} payment focus, {{ risk.overdue }} ageing risk</div>
+      </td>
+    </tr>
+  </table>
+
+  <div class="msp-section-title">Customer Action Plan</div>
+  <table class="msp-table">
+    <thead>
+      <tr>
+        <th style="width: 4%;">No.</th>
+        <th style="width: 18%;">Customer / Lead</th>
+        <th style="width: 11%;">Group</th>
+        <th style="width: 10%;">Territory</th>
+        <th style="width: 10%;">Last Month</th>
+        <th style="width: 10%;">Credit Available</th>
+        <th style="width: 10%;">Planned</th>
+        <th style="width: 10%;">Min. Payment</th>
+        <th style="width: 10%;">75+ Risk</th>
+        <th style="width: 7%;">Achv.</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in doc.customers %}
+      <tr>
+        <td class="msp-num">{{ loop.index }}</td>
+        <td>
+          <div class="msp-customer">{{ row.customer_name or row.customer or "New Lead" }}</div>
+          <div class="msp-small">{{ row.customer or "Manual lead" }}</div>
+          {% if row.remarks %}
+          <div class="msp-small"><strong>Note:</strong> {{ row.remarks }}</div>
+          {% endif %}
+        </td>
+        <td>{{ row.customer_group or "-" }}</td>
+        <td>{{ row.territory or "-" }}</td>
+        <td class="msp-num">{{ frappe.utils.fmt_money(row.last_month_sales, currency=currency) }}</td>
+        <td class="msp-num">{{ frappe.utils.fmt_money(row.credit_limit_available, currency=currency) }}</td>
+        <td class="msp-num"><strong>{{ frappe.utils.fmt_money(row.planned_amount, currency=currency) }}</strong></td>
+        <td class="msp-num {% if (row.minimum_payment_required or 0) > 0 %}msp-risk{% endif %}">
+          {{ frappe.utils.fmt_money(row.minimum_payment_required, currency=currency) }}
+        </td>
+        <td class="msp-num {% if (row.projected_75_plus_outstanding or 0) > 0 %}msp-risk{% endif %}">
+          {{ frappe.utils.fmt_money(row.projected_75_plus_outstanding, currency=currency) }}
+        </td>
+        <td class="msp-num">{{ frappe.utils.flt(row.achievement_percent, 2) }}%</td>
+      </tr>
+      {% endfor %}
+      {% if not doc.customers %}
+      <tr>
+        <td colspan="10" class="msp-muted">No customer rows added.</td>
+      </tr>
+      {% endif %}
+    </tbody>
+  </table>
+
+  <table class="msp-footer-grid">
+    <tr>
+      <td>
+        <div class="msp-label">Sales Person Commitment</div>
+        <div class="msp-sign-line"></div>
+        <div class="msp-muted">Name, signature, and date</div>
+      </td>
+      <td>
+        <div class="msp-label">Manager Review</div>
+        <div class="msp-sign-line"></div>
+        <div class="msp-muted">Reviewed by, signature, and date</div>
+      </td>
+    </tr>
+    {% if doc.previous_plan or doc.revision_reason %}
+    <tr>
+      <td>
+        <div class="msp-label">Previous Plan</div>
+        <div class="msp-value">{{ doc.previous_plan or "-" }}</div>
+      </td>
+      <td>
+        <div class="msp-label">Revision Reason</div>
+        <div class="msp-value">{{ doc.revision_reason or "-" }}</div>
+      </td>
+    </tr>
+    {% endif %}
+  </table>
+</div>
+
+{% if letter_head_footer and not no_letterhead %}
+<div class="letter-head-footer">{{ letter_head_footer }}</div>
+{% endif %}
