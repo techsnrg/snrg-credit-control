@@ -51,6 +51,7 @@ def get_plans(filters):
         fields=[
             "name",
             "company",
+            "plan_date",
             "plan_month",
             "sales_person",
             "sales_person_name",
@@ -108,6 +109,7 @@ def build_rows(plans, filters):
             rows.append(
                 {
                     "plan": plan.name,
+                    "plan_date": plan.plan_date,
                     "plan_month": get_month_label(plan.plan_month),
                     "sales_person": plan.sales_person,
                     "sales_person_name": plan.sales_person_name,
@@ -176,6 +178,7 @@ def get_report_summary(rows):
 def get_columns():
     return [
         {"label": _("Plan"), "fieldname": "plan", "fieldtype": "Link", "options": "Monthly Sales Plan", "width": 150},
+        {"label": _("Plan Date"), "fieldname": "plan_date", "fieldtype": "Date", "width": 110},
         {"label": _("Month"), "fieldname": "plan_month", "fieldtype": "Data", "width": 120},
         {
             "label": _("Sales Person"),

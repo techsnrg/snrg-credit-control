@@ -11,6 +11,7 @@ from frappe.utils import add_months, cint, flt, get_first_day, get_last_day, get
 
 class MonthlySalesPlan(Document):
     def validate(self):
+        self._set_plan_date()
         self._normalize_month()
         self._set_revision_defaults()
         self._set_customer_details()
@@ -28,6 +29,10 @@ class MonthlySalesPlan(Document):
         self.db_set("status", "Cancelled", update_modified=False)
         self.db_set("is_current_plan", 0, update_modified=False)
         _activate_latest_plan(self.company, self.plan_month, self.sales_person, exclude=self.name)
+
+    def _set_plan_date(self):
+        if not self.plan_date:
+            self.plan_date = nowdate()
 
     def _normalize_month(self):
         if self.plan_month:
@@ -160,6 +165,7 @@ def make_revision(source_name):
 
     revision = frappe.new_doc("Monthly Sales Plan")
     revision.company = source.company
+    revision.plan_date = nowdate()
     revision.plan_month = source.plan_month
     revision.sales_person = source.sales_person
     revision.sales_person_name = source.sales_person_name
