@@ -251,6 +251,7 @@ def get_month_range(month_value):
 def get_print_header(company, from_date, to_date):
     company_doc = frappe.get_cached_doc("Company", company)
     address = get_company_address(company)
+    month_label = formatdate(from_date, "MMMM yyyy")
     period = _("{0} to {1}").format(
         formatdate(from_date, "dd-MM-yyyy"),
         formatdate(to_date, "dd-MM-yyyy"),
@@ -281,6 +282,11 @@ def get_print_header(company, from_date, to_date):
                 font-size: 13px;
                 font-weight: 600;
             }}
+            .salary-report-print-header .date-range {{
+                margin-top: 3px;
+                color: #555;
+                font-size: 11px;
+            }}
             @media print {{
                 .salary-report-print-header {{
                     margin-top: -8px;
@@ -290,7 +296,9 @@ def get_print_header(company, from_date, to_date):
         <div class="salary-report-print-header">
             <h2>{frappe.utils.escape_html(company_doc.company_name or company)}</h2>
             <div class="company-address">{address_html}</div>
-            <div class="period">{_("Employee Salary Management Report")} - {period}</div>
+            <div class="period">{_("Employee Salary Management Report")}</div>
+            <div class="period">{_("Month")}: {frappe.utils.escape_html(month_label)}</div>
+            <div class="date-range">{_("Period")}: {period}</div>
         </div>
     """
 
