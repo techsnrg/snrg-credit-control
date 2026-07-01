@@ -16,12 +16,13 @@
   "sales_person_name",
   "status",
   "is_current_plan",
+  "customers",
   "totals_section",
   "total_planned_amount",
   "total_achieved_amount",
+  "totals_column_break",
   "total_variance_amount",
   "achievement_percent",
-  "customers",
   "revision_section",
   "revision_no",
   "revision_column_break",
@@ -160,6 +161,10 @@
    "in_list_view": 1,
    "label": "Total Achieved",
    "read_only": 1
+  },
+  {
+   "fieldname": "totals_column_break",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "total_variance_amount",
