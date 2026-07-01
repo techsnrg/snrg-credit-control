@@ -1,5 +1,7 @@
 frappe.ui.form.on("Monthly Sales Plan", {
   refresh(frm) {
+    setupMonthPicker(frm);
+
     frm.set_query("previous_plan", () => ({
       filters: {
         company: frm.doc.company,
@@ -17,6 +19,9 @@ frappe.ui.form.on("Monthly Sales Plan", {
     }
   },
 
+  onload(frm) {
+    setupMonthPicker(frm);
+  },
 });
 
 frappe.ui.form.on("Monthly Sales Plan Customer", {
@@ -71,6 +76,21 @@ function fetchCustomers(frm) {
   }
 
   runFetch();
+}
+
+function setupMonthPicker(frm) {
+  if (!frm.doc.plan_month) {
+    frm.set_value("plan_month", frappe.datetime.get_today().slice(0, 7));
+  } else if (/^\d{4}-\d{2}-\d{2}$/.test(frm.doc.plan_month)) {
+    frm.set_value("plan_month", frm.doc.plan_month.slice(0, 7));
+  }
+
+  setTimeout(() => {
+    const control = frm.fields_dict.plan_month;
+    if (!control || !control.$input) return;
+    control.$input.attr("type", "month");
+    control.$input.attr("placeholder", "YYYY-MM");
+  }, 0);
 }
 
 function mergeCustomerRows(frm, customers) {

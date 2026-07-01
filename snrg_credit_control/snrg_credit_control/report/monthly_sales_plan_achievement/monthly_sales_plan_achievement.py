@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import frappe
 from frappe import _
-from frappe.utils import flt, get_first_day, getdate
+from frappe.utils import flt
 
 from snrg_credit_control.snrg_credit_control.doctype.monthly_sales_plan.monthly_sales_plan import (
     get_month_label,
     get_sales_invoice_actuals,
+    normalize_plan_month,
 )
 
 
@@ -24,7 +25,7 @@ def validate_filters(filters):
         frappe.throw(_("Please select a Company."))
     if not filters.get("plan_month"):
         frappe.throw(_("Please select a Plan Month."))
-    filters.plan_month = get_first_day(getdate(filters.plan_month))
+    filters.plan_month = normalize_plan_month(filters.plan_month)
 
 
 def get_plans(filters):

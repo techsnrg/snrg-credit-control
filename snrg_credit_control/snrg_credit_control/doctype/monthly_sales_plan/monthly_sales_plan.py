@@ -31,7 +31,7 @@ class MonthlySalesPlan(Document):
 
     def _normalize_month(self):
         if self.plan_month:
-            self.plan_month = get_first_day(getdate(self.plan_month))
+            self.plan_month = normalize_plan_month(self.plan_month)
 
     def _set_revision_defaults(self):
         if not self.revision_no:
@@ -198,8 +198,8 @@ def get_sales_invoice_actuals(company, plan_month, sales_person=None):
 
     values = {
         "company": company,
-        "from_date": get_first_day(getdate(plan_month)),
-        "to_date": get_last_day(getdate(plan_month)),
+        "from_date": get_plan_month_start(plan_month),
+        "to_date": get_plan_month_end(plan_month),
     }
     salesperson_condition = ""
     if sales_person:
@@ -247,7 +247,7 @@ def get_customer_metrics(company, plan_month, sales_person=None, customers=None)
     if not customer_list:
         return {}
 
-    plan_month = get_first_day(getdate(plan_month))
+    plan_month = get_plan_month_start(plan_month)
     previous_month = add_months(plan_month, -1)
     values = {
         "company": company,
@@ -334,8 +334,28 @@ def get_customer_metrics(company, plan_month, sales_person=None, customers=None)
 def get_month_label(plan_month):
     if not plan_month:
         return ""
-    date_value = getdate(plan_month)
+    date_value = get_plan_month_start(plan_month)
     return f"{calendar.month_name[date_value.month]} {date_value.year}"
+
+
+def normalize_plan_month(plan_month):
+    plan_month = str(plan_month or "").strip()
+    if len(plan_month) == 7 and plan_month[4] == "-":
+        return plan_month
+
+    date_value = getdate(plan_month)
+    return f"{date_value.year}-{date_value.month:02d}"
+
+
+def get_plan_month_start(plan_month):
+    plan_month = str(plan_month or "").strip()
+    if len(plan_month) == 7 and plan_month[4] == "-":
+        return getdate(f"{plan_month}-01")
+    return get_first_day(getdate(plan_month))
+
+
+def get_plan_month_end(plan_month):
+    return get_last_day(get_plan_month_start(plan_month))
 
 
 def _activate_latest_plan(company, plan_month, sales_person, exclude=None):

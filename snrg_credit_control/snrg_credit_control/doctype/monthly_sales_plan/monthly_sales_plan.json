@@ -48,9 +48,9 @@
    "fieldtype": "Column Break"
   },
   {
-   "description": "Use any date inside the target month. The system stores it as the first day of that month.",
+   "description": "Select the target month.",
    "fieldname": "plan_month",
-   "fieldtype": "Date",
+   "fieldtype": "Data",
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Plan Month",

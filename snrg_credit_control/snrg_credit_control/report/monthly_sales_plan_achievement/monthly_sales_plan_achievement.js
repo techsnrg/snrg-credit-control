@@ -11,8 +11,8 @@ frappe.query_reports["Monthly Sales Plan Achievement"] = {
     {
       fieldname: "plan_month",
       label: __("Plan Month"),
-      fieldtype: "Date",
-      default: frappe.datetime.month_start(frappe.datetime.get_today()),
+      fieldtype: "Data",
+      default: frappe.datetime.get_today().slice(0, 7),
       reqd: 1,
     },
     {
@@ -53,6 +53,15 @@ frappe.query_reports["Monthly Sales Plan Achievement"] = {
       depends_on: "eval:doc.include_superseded",
     },
   ],
+
+  onload(report) {
+    setTimeout(() => {
+      const filter = report.get_filter("plan_month");
+      if (!filter || !filter.$input) return;
+      filter.$input.attr("type", "month");
+      filter.$input.attr("placeholder", "YYYY-MM");
+    }, 0);
+  },
 
   formatter(value, row, column, data, default_formatter) {
     const formatted = default_formatter(value, row, column, data);
