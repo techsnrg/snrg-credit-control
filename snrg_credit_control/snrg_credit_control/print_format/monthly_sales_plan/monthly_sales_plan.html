@@ -258,15 +258,13 @@
     <thead>
       <tr>
         <th style="width: 4%;">No.</th>
-        <th style="width: 18%;">Customer / Lead</th>
-        <th style="width: 11%;">Group</th>
-        <th style="width: 10%;">Territory</th>
-        <th style="width: 10%;">Last Month</th>
-        <th style="width: 10%;">Credit Available</th>
-        <th style="width: 10%;">Planned</th>
-        <th style="width: 10%;">Min. Payment</th>
-        <th style="width: 10%;">75+ Risk</th>
-        <th style="width: 7%;">Achv.</th>
+        <th style="width: 26%;">Customer / Lead</th>
+        <th style="width: 13%;">Last Month</th>
+        <th style="width: 13%;">Credit Available</th>
+        <th style="width: 13%;">Planned</th>
+        <th style="width: 13%;">Min. Payment</th>
+        <th style="width: 12%;">75+ Risk</th>
+        <th style="width: 6%;">Achv.</th>
       </tr>
     </thead>
     <tbody>
@@ -280,8 +278,6 @@
           <div class="msp-small"><strong>Note:</strong> {{ row.remarks }}</div>
           {% endif %}
         </td>
-        <td>{{ row.customer_group or "-" }}</td>
-        <td>{{ row.territory or "-" }}</td>
         <td class="msp-num">{{ frappe.utils.fmt_money(row.last_month_sales, currency=currency) }}</td>
         <td class="msp-num">{{ frappe.utils.fmt_money(row.credit_limit_available, currency=currency) }}</td>
         <td class="msp-num"><strong>{{ frappe.utils.fmt_money(row.planned_amount, currency=currency) }}</strong></td>
@@ -296,7 +292,7 @@
       {% endfor %}
       {% if not doc.customers %}
       <tr>
-        <td colspan="10" class="msp-muted">No customer rows added.</td>
+        <td colspan="8" class="msp-muted">No customer rows added.</td>
       </tr>
       {% endif %}
     </tbody>
