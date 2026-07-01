@@ -33,7 +33,7 @@ class SnrgCustomerSalesPersonMapping {
     this.wrapper.find(".layout-main-section").html(`
       <style>
         .snrg-cspm-page { display:flex; flex-direction:column; gap:14px; color:#172033; }
-        .snrg-cspm-toolbar { display:grid; grid-template-columns:minmax(240px, 320px) minmax(220px, 320px) auto; gap:12px; align-items:end; }
+        .snrg-cspm-toolbar { display:grid; grid-template-columns:minmax(240px, 320px) minmax(120px, 160px) minmax(220px, 320px) auto; gap:12px; align-items:end; }
         .snrg-cspm-actions { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
         .snrg-cspm-button { border:1px solid #d9e1ec; border-radius:6px; padding:8px 11px; background:#fff; color:#1f3a5f; font-size:12px; font-weight:700; cursor:pointer; }
         .snrg-cspm-button.primary { background:#1f6feb; border-color:#1f6feb; color:#fff; }
@@ -68,7 +68,8 @@ class SnrgCustomerSalesPersonMapping {
       </style>
       <div class="snrg-cspm-page">
         <section class="snrg-cspm-toolbar">
-          <div class="snrg-cspm-sales-person-filter"></div>
+          <div class="snrg-cspm-sales-person-action"></div>
+          <div class="snrg-cspm-contribution-field"></div>
           <div class="snrg-cspm-search-filter"></div>
           <div class="snrg-cspm-actions">
             <button class="snrg-cspm-button primary" data-action="add">Add Customers</button>
@@ -127,12 +128,13 @@ class SnrgCustomerSalesPersonMapping {
 
   makeFilters() {
     this.controls.salesPerson = frappe.ui.form.make_control({
-      parent: this.wrapper.find(".snrg-cspm-sales-person-filter"),
+      parent: this.wrapper.find(".snrg-cspm-sales-person-action"),
       df: {
         fieldtype: "Link",
         fieldname: "sales_person",
-        label: "Sales Person",
+        label: "Sales Person Name",
         options: "Sales Person",
+        placeholder: "Select sales person",
         change: () => {
           this.limitStart = 0;
           this.selectedCustomers.clear();
@@ -141,6 +143,18 @@ class SnrgCustomerSalesPersonMapping {
       },
       render_input: true,
     });
+
+    this.controls.contribution = frappe.ui.form.make_control({
+      parent: this.wrapper.find(".snrg-cspm-contribution-field"),
+      df: {
+        fieldtype: "Float",
+        fieldname: "contribution",
+        label: "Contribution %",
+        default: 100,
+      },
+      render_input: true,
+    });
+    this.controls.contribution.set_value(100);
 
     this.controls.search = frappe.ui.form.make_control({
       parent: this.wrapper.find(".snrg-cspm-search-filter"),
@@ -217,19 +231,12 @@ class SnrgCustomerSalesPersonMapping {
     return this.controls.salesPerson.get_value();
   }
 
-  getSelectedRows() {
-    return this.rows.filter((row) => this.selectedCustomers.has(row.customer));
-  }
-
-  getInferredSalesPerson() {
-    const selectedRows = this.getSelectedRows();
-    const candidates = selectedRows.length ? selectedRows : this.rows;
-    const salesPeople = Array.from(new Set(candidates.map((row) => row.sales_person).filter(Boolean)));
-    return salesPeople.length === 1 ? salesPeople[0] : "";
-  }
-
-  getActionSalesPerson() {
-    return this.getSalesPerson() || this.getInferredSalesPerson();
+  getContributionPercentage() {
+    const value = this.controls.contribution.get_value();
+    if (value === null || value === undefined || value === "") {
+      return 100;
+    }
+    return value;
   }
 
   refresh() {
@@ -301,22 +308,23 @@ class SnrgCustomerSalesPersonMapping {
   }
 
   openAddDialog() {
-    const salesPerson = this.getActionSalesPerson();
+    const salesPerson = this.getSalesPerson();
     if (!salesPerson) {
-      frappe.msgprint("Please select a Sales Person first, or click a Sales Person name in the table.");
+      frappe.msgprint("Please select a Sales Person Name first.");
       return;
     }
-    if (!this.getSalesPerson()) {
-      this.controls.salesPerson.set_value(salesPerson);
+    const contribution = this.getContributionPercentage();
+    if (contribution < 0 || contribution > 100) {
+      frappe.msgprint("Contribution % must be between 0 and 100.");
+      return;
     }
 
     const dialog = new frappe.ui.Dialog({
-      title: "Add Customers",
+      title: `Add Customers for ${salesPerson}`,
       fields: [
         { fieldtype: "Data", fieldname: "search", label: "Search", placeholder: "Customer, group, or territory" },
         { fieldtype: "Link", fieldname: "customer_group", label: "Customer Group", options: "Customer Group" },
         { fieldtype: "Link", fieldname: "territory", label: "Territory", options: "Territory" },
-        { fieldtype: "Float", fieldname: "allocated_percentage", label: "Allocation %", description: "Leave blank to use 100% for empty sales teams and 0% when other rows already exist." },
         { fieldtype: "HTML", fieldname: "results" },
       ],
       primary_action_label: "Add Selected",
@@ -329,8 +337,7 @@ class SnrgCustomerSalesPersonMapping {
           frappe.msgprint("Please select at least one customer.");
           return;
         }
-        const values = dialog.get_values() || {};
-        this.addCustomers(customers, values.allocated_percentage, dialog);
+        this.addCustomers(customers, contribution, dialog);
       },
       secondary_action_label: "Search",
       secondary_action: () => this.loadAvailableCustomers(dialog),
@@ -392,7 +399,7 @@ class SnrgCustomerSalesPersonMapping {
   }
 
   addCustomers(customers, allocatedPercentage, dialog) {
-    const salesPerson = this.getActionSalesPerson();
+    const salesPerson = this.getSalesPerson();
     frappe.call({
       method: "snrg_credit_control.customer_sales_person_mapping.add_sales_person_to_customers",
       args: {
@@ -412,9 +419,9 @@ class SnrgCustomerSalesPersonMapping {
   }
 
   removeSelected() {
-    const salesPerson = this.getActionSalesPerson();
+    const salesPerson = this.getSalesPerson();
     if (!salesPerson) {
-      frappe.msgprint("Please select a Sales Person first, or select rows for one Sales Person.");
+      frappe.msgprint("Please select a Sales Person Name first.");
       return;
     }
     const customers = Array.from(this.selectedCustomers);
