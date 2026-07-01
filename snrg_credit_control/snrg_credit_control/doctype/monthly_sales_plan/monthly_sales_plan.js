@@ -15,7 +15,8 @@ frappe.ui.form.on("Monthly Sales Plan", {
     }
 
     if (!frm.is_new()) {
-      frm.add_custom_button(__("Download PDF"), () => downloadPlanPdf(frm), __("Export"));
+      frm.add_custom_button(__("Download Professional PDF"), () => downloadPlanPdf(frm, "Monthly Sales Plan Professional"), __("Export"));
+      frm.add_custom_button(__("Download Standard PDF"), () => downloadPlanPdf(frm, "Monthly Sales Plan"), __("Export"));
     }
 
     if (frm.doc.docstatus === 1 && frm.doc.status !== "Cancelled") {
@@ -148,7 +149,7 @@ function updateMinimumPayment(cdt, cdn) {
   frappe.model.set_value(cdt, cdn, "minimum_payment_required", required);
 }
 
-async function downloadPlanPdf(frm) {
+async function downloadPlanPdf(frm, printFormat) {
   if (frm.is_dirty()) {
     await frm.save();
   }
@@ -156,7 +157,7 @@ async function downloadPlanPdf(frm) {
   const params = new URLSearchParams({
     doctype: frm.doctype,
     name: frm.doc.name,
-    format: "Monthly Sales Plan",
+    format: printFormat || "Monthly Sales Plan Professional",
     no_letterhead: "0",
   });
 
