@@ -39,11 +39,26 @@ frappe.query_reports["Employee Salary Management Report"] = {
 
   onload(report) {
     report.page.add_action_item(__("Export Ready PDF"), () => {
-      if (report.print_report) {
-        report.print_report();
+      if (typeof report.pdf_report !== "function" || !frappe.ui.get_print_settings) {
+        frappe.msgprint({
+          title: __("PDF Export Unavailable"),
+          message: __("Please use Menu > PDF for this report."),
+          indicator: "orange",
+        });
         return;
       }
-      $(".page-actions .btn-print, .standard-actions .btn-print").first().trigger("click");
+
+      const dialog = frappe.ui.get_print_settings(
+        false,
+        (print_settings) => report.pdf_report(print_settings),
+        report.report_doc && report.report_doc.letter_head,
+        report.get_visible_columns ? report.get_visible_columns() : [],
+        true
+      );
+
+      if (report.add_portrait_warning) {
+        report.add_portrait_warning(dialog);
+      }
     });
   },
 
