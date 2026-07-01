@@ -53,6 +53,7 @@ class SnrgCustomerSalesPersonMapping {
         .snrg-cspm-table th { background:#fbfcfe; color:#475467; font-weight:800; text-align:left; white-space:nowrap; }
         .snrg-cspm-table tr:hover td { background:#f9fbff; }
         .snrg-cspm-customer { font-weight:800; color:#1849a9; cursor:pointer; }
+        .snrg-cspm-sales-person { color:#1849a9; cursor:pointer; font-weight:700; }
         .snrg-cspm-muted { color:#667085; font-size:12px; }
         .snrg-cspm-empty { padding:28px 16px; text-align:center; color:#667085; font-size:13px; }
         .snrg-cspm-footer { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; gap:10px; border-top:1px solid #edf1f7; }
@@ -191,6 +192,15 @@ class SnrgCustomerSalesPersonMapping {
     this.wrapper.on("click", "[data-role='open-customer']", (event) => {
       frappe.set_route("Form", "Customer", $(event.currentTarget).data("customer"));
     });
+    this.wrapper.on("click", "[data-role='select-sales-person']", (event) => {
+      const salesPerson = $(event.currentTarget).data("sales-person");
+      if (!salesPerson) return;
+      this.controls.salesPerson.set_value(salesPerson);
+      frappe.show_alert({
+        message: `Sales Person selected: ${frappe.utils.escape_html(salesPerson)}`,
+        indicator: "blue",
+      });
+    });
   }
 
   applyRouteOptions() {
@@ -205,6 +215,21 @@ class SnrgCustomerSalesPersonMapping {
 
   getSalesPerson() {
     return this.controls.salesPerson.get_value();
+  }
+
+  getSelectedRows() {
+    return this.rows.filter((row) => this.selectedCustomers.has(row.customer));
+  }
+
+  getInferredSalesPerson() {
+    const selectedRows = this.getSelectedRows();
+    const candidates = selectedRows.length ? selectedRows : this.rows;
+    const salesPeople = Array.from(new Set(candidates.map((row) => row.sales_person).filter(Boolean)));
+    return salesPeople.length === 1 ? salesPeople[0] : "";
+  }
+
+  getActionSalesPerson() {
+    return this.getSalesPerson() || this.getInferredSalesPerson();
   }
 
   refresh() {
@@ -247,7 +272,7 @@ class SnrgCustomerSalesPersonMapping {
         <td>${frappe.utils.escape_html(row.customer_group || "")}</td>
         <td>${frappe.utils.escape_html(row.territory || "")}</td>
         <td>
-          <div>${frappe.utils.escape_html(row.sales_person_name || row.sales_person || "")}</div>
+          <div class="snrg-cspm-sales-person" data-role="select-sales-person" data-sales-person="${frappe.utils.escape_html(row.sales_person || "")}">${frappe.utils.escape_html(row.sales_person_name || row.sales_person || "")}</div>
           <div class="snrg-cspm-muted">${frappe.utils.escape_html(row.sales_person || "")}</div>
         </td>
         <td>${frappe.format(row.allocated_percentage || 0, { fieldtype: "Percent" })}</td>
@@ -276,10 +301,13 @@ class SnrgCustomerSalesPersonMapping {
   }
 
   openAddDialog() {
-    const salesPerson = this.getSalesPerson();
+    const salesPerson = this.getActionSalesPerson();
     if (!salesPerson) {
-      frappe.msgprint("Please select a Sales Person first.");
+      frappe.msgprint("Please select a Sales Person first, or click a Sales Person name in the table.");
       return;
+    }
+    if (!this.getSalesPerson()) {
+      this.controls.salesPerson.set_value(salesPerson);
     }
 
     const dialog = new frappe.ui.Dialog({
@@ -364,10 +392,11 @@ class SnrgCustomerSalesPersonMapping {
   }
 
   addCustomers(customers, allocatedPercentage, dialog) {
+    const salesPerson = this.getActionSalesPerson();
     frappe.call({
       method: "snrg_credit_control.customer_sales_person_mapping.add_sales_person_to_customers",
       args: {
-        sales_person: this.getSalesPerson(),
+        sales_person: salesPerson,
         customers,
         allocated_percentage: allocatedPercentage,
       },
@@ -383,9 +412,9 @@ class SnrgCustomerSalesPersonMapping {
   }
 
   removeSelected() {
-    const salesPerson = this.getSalesPerson();
+    const salesPerson = this.getActionSalesPerson();
     if (!salesPerson) {
-      frappe.msgprint("Please select a Sales Person first.");
+      frappe.msgprint("Please select a Sales Person first, or select rows for one Sales Person.");
       return;
     }
     const customers = Array.from(this.selectedCustomers);
