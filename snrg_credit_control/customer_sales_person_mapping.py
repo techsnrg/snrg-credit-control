@@ -46,6 +46,7 @@ def get_mapped_customers(
     customer=None,
     customer_group=None,
     territory=None,
+    mapping_status=None,
     limit_start=0,
     limit_page_length=50,
 ):
@@ -86,6 +87,10 @@ def get_mapped_customers(
     if territory:
         conditions.append("c.territory = %(territory)s")
         values["territory"] = territory
+    if mapping_status == "Mapped Customers":
+        conditions.append("st.name IS NOT NULL")
+    elif mapping_status == "Not Mapped Customers":
+        conditions.append("st.name IS NULL")
 
     where_clause = " AND ".join(conditions) if conditions else "1 = 1"
 

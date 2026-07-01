@@ -33,7 +33,8 @@ class SnrgCustomerSalesPersonMapping {
     this.wrapper.find(".layout-main-section").html(`
       <style>
         .snrg-cspm-page { display:flex; flex-direction:column; gap:14px; color:#172033; }
-        .snrg-cspm-toolbar { display:grid; grid-template-columns:minmax(220px, 300px) minmax(110px, 150px) repeat(3, minmax(180px, 1fr)); gap:12px; align-items:end; }
+        .snrg-cspm-filter-shell { position:sticky; top:0; z-index:5; display:flex; flex-direction:column; gap:12px; padding:0 0 10px; background:#fff; }
+        .snrg-cspm-toolbar { display:grid; grid-template-columns:minmax(220px, 300px) minmax(110px, 150px) minmax(160px, 210px) repeat(3, minmax(170px, 1fr)); gap:12px; align-items:end; }
         .snrg-cspm-command-row { display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap; }
         .snrg-cspm-actions { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
         .snrg-cspm-button { border:1px solid #d9e1ec; border-radius:6px; padding:8px 11px; background:#fff; color:#1f3a5f; font-size:12px; font-weight:700; cursor:pointer; }
@@ -64,16 +65,19 @@ class SnrgCustomerSalesPersonMapping {
         }
       </style>
       <div class="snrg-cspm-page">
-        <section class="snrg-cspm-toolbar">
-          <div class="snrg-cspm-sales-person-action"></div>
-          <div class="snrg-cspm-contribution-field"></div>
-          <div class="snrg-cspm-customer-filter"></div>
-          <div class="snrg-cspm-customer-group-filter"></div>
-          <div class="snrg-cspm-territory-filter"></div>
-        </section>
-        <section class="snrg-cspm-command-row">
-          <button class="snrg-cspm-button primary" data-action="add">Add Selected Customers</button>
-          <button class="snrg-cspm-button danger" data-action="remove">Remove Selected</button>
+        <section class="snrg-cspm-filter-shell">
+          <div class="snrg-cspm-toolbar">
+            <div class="snrg-cspm-sales-person-action"></div>
+            <div class="snrg-cspm-contribution-field"></div>
+            <div class="snrg-cspm-mapping-status-filter"></div>
+            <div class="snrg-cspm-customer-filter"></div>
+            <div class="snrg-cspm-customer-group-filter"></div>
+            <div class="snrg-cspm-territory-filter"></div>
+          </div>
+          <div class="snrg-cspm-command-row">
+            <button class="snrg-cspm-button primary" data-action="add">Add Selected Customers</button>
+            <button class="snrg-cspm-button danger" data-action="remove">Remove Selected</button>
+          </div>
         </section>
         <section class="snrg-cspm-panel">
           <div class="snrg-cspm-panel-head">
@@ -140,6 +144,24 @@ class SnrgCustomerSalesPersonMapping {
       render_input: true,
     });
     this.controls.contribution.set_value(100);
+
+    this.controls.mappingStatus = frappe.ui.form.make_control({
+      parent: this.wrapper.find(".snrg-cspm-mapping-status-filter"),
+      df: {
+        fieldtype: "Select",
+        fieldname: "mapping_status",
+        label: "Show",
+        options: "Mapped Customers\nNot Mapped Customers\nAll Customers",
+        default: "Mapped Customers",
+        change: () => {
+          this.limitStart = 0;
+          this.selectedCustomers.clear();
+          this.refresh();
+        },
+      },
+      render_input: true,
+    });
+    this.controls.mappingStatus.set_value("Mapped Customers");
 
     this.controls.customer = frappe.ui.form.make_control({
       parent: this.wrapper.find(".snrg-cspm-customer-filter"),
@@ -262,6 +284,7 @@ class SnrgCustomerSalesPersonMapping {
       method: "snrg_credit_control.customer_sales_person_mapping.get_mapped_customers",
       args: {
         sales_person: this.getSalesPerson(),
+        mapping_status: this.controls.mappingStatus.get_value(),
         customer: this.controls.customer.get_value(),
         customer_group: this.controls.customerGroup.get_value(),
         territory: this.controls.territory.get_value(),
