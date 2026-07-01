@@ -15,18 +15,18 @@
   "sales_person_name",
   "status",
   "is_current_plan",
-  "revision_section",
-  "revision_no",
-  "revision_column_break",
-  "previous_plan",
-  "revision_date",
-  "revision_reason",
   "totals_section",
   "total_planned_amount",
   "total_achieved_amount",
   "total_variance_amount",
   "achievement_percent",
-  "customers"
+  "customers",
+  "revision_section",
+  "revision_no",
+  "revision_column_break",
+  "previous_plan",
+  "revision_date",
+  "revision_reason"
  ],
  "fields": [
   {

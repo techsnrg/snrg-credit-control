@@ -17,13 +17,6 @@ frappe.ui.form.on("Monthly Sales Plan", {
     }
   },
 
-  plan_month(frm) {
-    normalizePlanMonth(frm);
-  },
-
-  before_save(frm) {
-    normalizePlanMonth(frm);
-  },
 });
 
 frappe.ui.form.on("Monthly Sales Plan Customer", {
@@ -43,14 +36,6 @@ frappe.ui.form.on("Monthly Sales Plan Customer", {
     updateMinimumPayment(cdt, cdn);
   },
 });
-
-function normalizePlanMonth(frm) {
-  if (!frm.doc.plan_month) return;
-  const firstDay = frappe.datetime.month_start(frm.doc.plan_month);
-  if (firstDay && firstDay !== frm.doc.plan_month) {
-    frm.set_value("plan_month", firstDay);
-  }
-}
 
 function fetchCustomers(frm) {
   const required = ["company", "plan_month", "sales_person"];
