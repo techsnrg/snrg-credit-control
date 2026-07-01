@@ -16,6 +16,7 @@
   "sales_person_name",
   "status",
   "is_current_plan",
+  "customers_section",
   "customers",
   "totals_section",
   "total_planned_amount",
@@ -109,6 +110,11 @@
    "read_only": 1
   },
   {
+   "fieldname": "customers_section",
+   "fieldtype": "Section Break",
+   "label": "Customers / New Leads"
+  },
+  {
    "fieldname": "revision_section",
    "fieldtype": "Section Break",
    "label": "Revision"
@@ -181,7 +187,7 @@
   {
    "fieldname": "customers",
    "fieldtype": "Table",
-   "label": "Customers / New Leads",
+   "label": "Plan Rows",
    "options": "Monthly Sales Plan Customer"
   }
  ],
