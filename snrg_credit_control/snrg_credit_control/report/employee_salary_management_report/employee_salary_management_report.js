@@ -35,6 +35,12 @@ frappe.query_reports["Employee Salary Management Report"] = {
         };
       },
     },
+    {
+      fieldname: "basic_report",
+      label: __("Basic Report"),
+      fieldtype: "Check",
+      default: 0,
+    },
   ],
 
   onload(report) {

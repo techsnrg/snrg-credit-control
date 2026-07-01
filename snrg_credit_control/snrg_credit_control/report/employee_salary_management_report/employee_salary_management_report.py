@@ -15,7 +15,7 @@ def execute(filters=None):
     message = get_print_header(filters.company, from_date, to_date)
     report_summary = get_report_summary(data)
 
-    return get_columns(), data, message, None, report_summary
+    return get_columns(filters), data, message, None, report_summary
 
 
 def validate_filters(filters):
@@ -25,7 +25,24 @@ def validate_filters(filters):
         frappe.throw(_("Please select a Month."))
 
 
-def get_columns():
+def get_columns(filters):
+    if filters.get("basic_report"):
+        return [
+            {
+                "label": _("Employee Name"),
+                "fieldname": "employee_name",
+                "fieldtype": "Data",
+                "width": 280,
+            },
+            {
+                "label": _("Salary Amount"),
+                "fieldname": "salary_amount",
+                "fieldtype": "Currency",
+                "options": "currency",
+                "width": 150,
+            },
+        ]
+
     return [
         {
             "label": _("Sr No"),
