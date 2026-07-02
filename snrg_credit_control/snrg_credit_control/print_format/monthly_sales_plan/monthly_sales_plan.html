@@ -180,6 +180,26 @@
   .msp-muted {
     color: #667085;
   }
+  .msp-guidelines {
+    margin-top: 10px;
+    border: 1px solid #d9e1ec;
+    border-left: 3px solid #20324a;
+    padding: 7px 9px;
+    page-break-inside: avoid;
+    background: #fbfcfe;
+  }
+  .msp-guidelines-title {
+    color: #20324a;
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .msp-guidelines-text {
+    color: #344054;
+    font-size: 8.4px;
+    line-height: 1.45;
+  }
 </style>
 
 {% if letter_head_content and not no_letterhead %}
@@ -300,6 +320,13 @@
       {% endif %}
     </tbody>
   </table>
+
+  <div class="msp-guidelines">
+    <div class="msp-guidelines-title">Sales Execution Guidelines</div>
+    <div class="msp-guidelines-text">
+      Billing shall be strictly governed by company credit policy and customer-wise credit limits. Customers blocked due to payment, credit limit, pricing, or dispatch dependency must be cleared before further billing commitment. All 75+ ageing risk accounts require strict follow-up with payment commitment date and expected amount. New leads should be converted before the 10th of the month to enable repeat billing by month-end. Minimum 80% achievement is expected at total plan level and customer / lead level. Achievement will be reviewed with the Managing Director every Friday. Risks, delays, customer objections, and escalation matters must be reported in advance; no month-end surprises are acceptable. The salesperson confirms ownership of this plan and commits to achieving the planned billing and collection actions.
+    </div>
+  </div>
 
   <table class="msp-footer-grid">
     <tr>
