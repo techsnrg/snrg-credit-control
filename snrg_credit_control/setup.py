@@ -32,6 +32,7 @@ def after_install():
     _ensure_stock_workspace()
     _ensure_scheme_management_workspace()
     _ensure_demand_notice_default_print_format()
+    _ensure_monthly_sales_plan_default_print_format()
     frappe.db.commit()
 
 
@@ -53,6 +54,7 @@ def after_migrate():
     _ensure_stock_workspace()
     _ensure_scheme_management_workspace()
     _ensure_demand_notice_default_print_format()
+    _ensure_monthly_sales_plan_default_print_format()
     frappe.db.commit()
 
 
@@ -787,6 +789,38 @@ def _ensure_demand_notice_default_print_format():
         )
 
 
+def _ensure_monthly_sales_plan_default_print_format():
+    _ensure_default_print_format("Monthly Sales Plan", "Monthly Sales Plan")
+
+
+def _ensure_default_print_format(doctype, print_format):
+    if not frappe.db.exists("DocType", doctype):
+        return
+
+    if not frappe.db.exists("Print Format", print_format):
+        return
+
+    doctype_meta = frappe.get_meta("DocType")
+    if doctype_meta.has_field("default_print_format"):
+        frappe.db.set_value(
+            "DocType",
+            doctype,
+            "default_print_format",
+            print_format,
+            update_modified=False,
+        )
+
+    print_format_meta = frappe.get_meta("Print Format")
+    if print_format_meta.has_field("default"):
+        frappe.db.set_value(
+            "Print Format",
+            print_format,
+            "default",
+            1,
+            update_modified=False,
+        )
+
+
 # ---------------------------------------------------------------------------
 # Sales Tracking SLA Settings — default singleton record
 # ---------------------------------------------------------------------------
@@ -892,6 +926,7 @@ def _ensure_credit_control_workspace():
     has_md_dashboard_page = frappe.db.exists("Page", "managing-director-dashboard")
     has_sales_tracking_page = frappe.db.exists("Page", "sales-tracking")
     has_sales_tracking_kanban_page = frappe.db.exists("Page", "sales-tracking-kanban")
+    has_customer_sales_person_mapping_page = frappe.db.exists("Page", "customer-sales-person-mapping")
     has_sales_tracking_sla_settings = frappe.db.exists("DocType", "Sales Tracking SLA Settings")
     has_production_planning_page = frappe.db.exists("Page", "production-planning")
     sales_tracking_reports = [
@@ -909,6 +944,7 @@ def _ensure_credit_control_workspace():
     has_sales_tracking_section = (
         has_sales_tracking_page
         or has_sales_tracking_kanban_page
+        or has_customer_sales_person_mapping_page
         or has_sales_tracking_sla_settings
         or bool(sales_tracking_reports)
     )
@@ -1022,6 +1058,15 @@ def _ensure_credit_control_workspace():
                 "id": "sales_tracking_kanban_page_shortcut",
                 "type": "shortcut",
                 "data": {"shortcut_name": "Sales Tracking Kanban", "col": 3},
+            }
+        )
+
+    if has_customer_sales_person_mapping_page:
+        content_blocks.append(
+            {
+                "id": "customer_sales_person_mapping_page_shortcut",
+                "type": "shortcut",
+                "data": {"shortcut_name": "Customer Sales Person Mapping", "col": 3},
             }
         )
 
@@ -1157,6 +1202,21 @@ def _ensure_credit_control_workspace():
                 "type": "Link",
                 "link_type": "Page",
                 "link_to": "sales-tracking-kanban",
+                "hidden": 0,
+                "is_query_report": 0,
+                "link_count": 0,
+                "onboard": 1,
+                "dependencies": "",
+            }
+        )
+
+    if has_customer_sales_person_mapping_page:
+        links.append(
+            {
+                "label": "Customer Sales Person Mapping",
+                "type": "Link",
+                "link_type": "Page",
+                "link_to": "customer-sales-person-mapping",
                 "hidden": 0,
                 "is_query_report": 0,
                 "link_count": 0,
@@ -1324,6 +1384,17 @@ def _ensure_credit_control_workspace():
                 "link_to": "sales-tracking-kanban",
                 "icon": "dashboard",
                 "color": "Purple",
+            }
+        )
+
+    if has_customer_sales_person_mapping_page:
+        shortcuts.append(
+            {
+                "type": "Page",
+                "label": "Customer Sales Person Mapping",
+                "link_to": "customer-sales-person-mapping",
+                "icon": "organization",
+                "color": "Green",
             }
         )
 

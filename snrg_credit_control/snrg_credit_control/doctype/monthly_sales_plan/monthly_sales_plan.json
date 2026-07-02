@@ -1,0 +1,243 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:MSP-{YYYY}-{#####}",
+ "creation": "2026-06-29 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "plan_section",
+  "company",
+  "plan_date",
+  "plan_column_break",
+  "plan_month",
+  "sales_column_break",
+  "sales_person",
+  "sales_person_name",
+  "status",
+  "is_current_plan",
+  "customers_section",
+  "customers",
+  "totals_section",
+  "total_planned_amount",
+  "total_achieved_amount",
+  "totals_column_break",
+  "total_variance_amount",
+  "achievement_percent",
+  "revision_section",
+  "revision_no",
+  "revision_column_break",
+  "previous_plan",
+  "revision_date",
+  "revision_reason"
+ ],
+ "fields": [
+  {
+   "fieldname": "plan_section",
+   "fieldtype": "Section Break",
+   "label": "Plan"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "default": "Today",
+   "fieldname": "plan_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Plan Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "plan_column_break",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Select the target month.",
+   "fieldname": "plan_month",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Plan Month",
+   "reqd": 1
+  },
+  {
+   "fieldname": "sales_column_break",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sales_person",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Sales Person",
+   "options": "Sales Person",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "sales_person.sales_person_name",
+   "fieldname": "sales_person_name",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "in_list_view": 1,
+   "label": "Sales Person Name",
+   "read_only": 1
+  },
+  {
+   "default": "Draft",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Draft\nFrozen\nSuperseded\nCancelled",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "is_current_plan",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Current Plan",
+   "read_only": 1
+  },
+  {
+   "fieldname": "customers_section",
+   "fieldtype": "Section Break",
+   "label": "Customers / New Leads"
+  },
+  {
+   "fieldname": "revision_section",
+   "fieldtype": "Section Break",
+   "label": "Revision"
+  },
+  {
+   "default": "1",
+   "fieldname": "revision_no",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Revision No.",
+   "read_only": 1
+  },
+  {
+   "fieldname": "revision_column_break",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "previous_plan",
+   "fieldtype": "Link",
+   "label": "Previous Plan",
+   "options": "Monthly Sales Plan",
+   "read_only": 1
+  },
+  {
+   "fieldname": "revision_date",
+   "fieldtype": "Date",
+   "label": "Revision Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "revision_reason",
+   "fieldtype": "Small Text",
+   "label": "Revision Reason"
+  },
+  {
+   "fieldname": "totals_section",
+   "fieldtype": "Section Break",
+   "label": "Totals"
+  },
+  {
+   "fieldname": "total_planned_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Total Planned",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_achieved_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Total Achieved",
+   "read_only": 1
+  },
+  {
+   "fieldname": "totals_column_break",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total_variance_amount",
+   "fieldtype": "Currency",
+   "label": "Total Variance",
+   "read_only": 1
+  },
+  {
+   "fieldname": "achievement_percent",
+   "fieldtype": "Percent",
+   "label": "Achievement %",
+   "read_only": 1
+  },
+  {
+   "fieldname": "customers",
+   "fieldtype": "Table",
+   "label": "Plan Rows",
+   "options": "Monthly Sales Plan Customer"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-06-29 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Snrg Credit Control",
+ "name": "Monthly Sales Plan",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

@@ -1,0 +1,29 @@
+{
+ "content": null,
+ "creation": "2026-07-01 00:00:00.000000",
+ "docstatus": 0,
+ "doctype": "Page",
+ "icon": "octicon octicon-organization",
+ "idx": 0,
+ "modified": "2026-07-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Snrg Credit Control",
+ "name": "customer-sales-person-mapping",
+ "owner": "Administrator",
+ "page_name": "customer-sales-person-mapping",
+ "roles": [
+  {
+   "role": "System Manager"
+  },
+  {
+   "role": "Sales Manager"
+  },
+  {
+   "role": "Sales User"
+  }
+ ],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "title": "Customer Sales Person Mapping"
+}
