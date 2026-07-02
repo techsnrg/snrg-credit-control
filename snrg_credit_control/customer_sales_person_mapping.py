@@ -46,27 +46,24 @@ def get_mapped_customers(
     customer=None,
     customer_group=None,
     territory=None,
-    mapping_status=None,
     limit_start=0,
     limit_page_length=50,
 ):
     _require_customer_read()
-    conditions = []
+    if not sales_person:
+        return {"rows": [], "total": 0}
+
+    _validate_sales_person(sales_person)
+    conditions = [
+        "st.parenttype = 'Customer'",
+        "st.parentfield = 'sales_team'",
+        "st.sales_person = %(sales_person)s",
+    ]
     values = {
-        "sales_person": sales_person or "",
+        "sales_person": sales_person,
         "limit_start": cint(limit_start),
         "limit_page_length": min(cint(limit_page_length) or 50, 200),
     }
-    sales_team_join_condition = "1 = 0"
-
-    if sales_person:
-        _validate_sales_person(sales_person)
-        sales_team_join_condition = """
-            st.parent = c.name
-            AND st.parenttype = 'Customer'
-            AND st.parentfield = 'sales_team'
-            AND st.sales_person = %(sales_person)s
-        """
 
     if search:
         values["search"] = f"%{search}%"
@@ -87,18 +84,14 @@ def get_mapped_customers(
     if territory:
         conditions.append("c.territory = %(territory)s")
         values["territory"] = territory
-    if mapping_status == "Mapped Customers":
-        conditions.append("st.name IS NOT NULL")
-    elif mapping_status == "Not Mapped Customers":
-        conditions.append("st.name IS NULL")
 
-    where_clause = " AND ".join(conditions) if conditions else "1 = 1"
+    where_clause = " AND ".join(conditions)
 
     rows = frappe.db.sql(
         """
         SELECT
             st.name AS row_name,
-            c.name AS customer,
+            st.parent AS customer,
             c.customer_name,
             c.customer_group,
             c.territory,
@@ -107,17 +100,14 @@ def get_mapped_customers(
             sp.sales_person_name,
             st.allocated_percentage,
             st.idx,
-            CASE WHEN st.name IS NULL THEN 0 ELSE 1 END AS is_mapped
-        FROM `tabCustomer` c
-        LEFT JOIN `tabSales Team` st ON {sales_team_join_condition}
+            1 AS is_mapped
+        FROM `tabSales Team` st
+        INNER JOIN `tabCustomer` c ON c.name = st.parent
         LEFT JOIN `tabSales Person` sp ON sp.name = st.sales_person
         WHERE {where_clause}
         ORDER BY c.customer_name ASC, c.name ASC, st.idx ASC
         LIMIT %(limit_start)s, %(limit_page_length)s
-        """.format(
-            sales_team_join_condition=sales_team_join_condition,
-            where_clause=where_clause,
-        ),
+        """.format(where_clause=where_clause),
         values,
         as_dict=True,
     )
@@ -125,13 +115,10 @@ def get_mapped_customers(
     total = frappe.db.sql(
         """
         SELECT COUNT(*)
-        FROM `tabCustomer` c
-        LEFT JOIN `tabSales Team` st ON {sales_team_join_condition}
+        FROM `tabSales Team` st
+        INNER JOIN `tabCustomer` c ON c.name = st.parent
         WHERE {where_clause}
-        """.format(
-            sales_team_join_condition=sales_team_join_condition,
-            where_clause=where_clause,
-        ),
+        """.format(where_clause=where_clause),
         values,
     )[0][0]
 
@@ -139,8 +126,19 @@ def get_mapped_customers(
 
 
 @frappe.whitelist()
-def get_available_customers(sales_person, search=None, customer_group=None, territory=None, limit_page_length=50):
+def get_unmapped_customers(
+    sales_person=None,
+    search=None,
+    customer=None,
+    customer_group=None,
+    territory=None,
+    limit_start=0,
+    limit_page_length=50,
+):
     _require_customer_read()
+    if not sales_person:
+        return {"rows": [], "total": 0}
+
     _validate_sales_person(sales_person)
 
     conditions = [
@@ -156,6 +154,7 @@ def get_available_customers(sales_person, search=None, customer_group=None, terr
     ]
     values = {
         "sales_person": sales_person,
+        "limit_start": cint(limit_start),
         "limit_page_length": min(cint(limit_page_length) or 50, 200),
     }
 
@@ -169,6 +168,9 @@ def get_available_customers(sales_person, search=None, customer_group=None, terr
                 OR c.territory LIKE %(search)s
             )"""
         )
+    if customer:
+        conditions.append("c.name = %(customer)s")
+        values["customer"] = customer
     if customer_group:
         conditions.append("c.customer_group = %(customer_group)s")
         values["customer_group"] = customer_group
@@ -176,21 +178,59 @@ def get_available_customers(sales_person, search=None, customer_group=None, terr
         conditions.append("c.territory = %(territory)s")
         values["territory"] = territory
 
-    return frappe.db.sql(
+    rows = frappe.db.sql(
         """
         SELECT
+            NULL AS row_name,
             c.name AS customer,
             c.customer_name,
             c.customer_group,
-            c.territory
+            c.territory,
+            c.disabled,
+            NULL AS sales_person,
+            NULL AS sales_person_name,
+            NULL AS allocated_percentage,
+            NULL AS idx,
+            0 AS is_mapped
         FROM `tabCustomer` c
         WHERE {conditions}
         ORDER BY c.customer_name ASC, c.name ASC
-        LIMIT %(limit_page_length)s
+        LIMIT %(limit_start)s, %(limit_page_length)s
         """.format(conditions=" AND ".join(conditions)),
         values,
         as_dict=True,
     )
+
+    total = frappe.db.sql(
+        """
+        SELECT COUNT(*)
+        FROM `tabCustomer` c
+        WHERE {conditions}
+        """.format(conditions=" AND ".join(conditions)),
+        values,
+    )[0][0]
+
+    return {"rows": rows, "total": total}
+
+
+@frappe.whitelist()
+def get_available_customers(
+    sales_person,
+    search=None,
+    customer=None,
+    customer_group=None,
+    territory=None,
+    limit_page_length=50,
+):
+    result = get_unmapped_customers(
+        sales_person=sales_person,
+        search=search,
+        customer=customer,
+        customer_group=customer_group,
+        territory=territory,
+        limit_page_length=limit_page_length,
+    )
+    return result.get("rows", [])
 
 
 @frappe.whitelist()

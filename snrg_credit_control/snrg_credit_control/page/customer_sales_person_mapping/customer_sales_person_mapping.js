@@ -17,6 +17,7 @@ class SnrgCustomerSalesPersonMapping {
     this.total = 0;
     this.limitStart = 0;
     this.pageLength = 50;
+    this.mode = "mapped";
     this.selectedCustomers = new Set();
     this.setup();
   }
@@ -34,7 +35,12 @@ class SnrgCustomerSalesPersonMapping {
       <style>
         .snrg-cspm-page { display:flex; flex-direction:column; gap:14px; color:#172033; }
         .snrg-cspm-filter-shell { position:sticky; top:0; z-index:5; display:flex; flex-direction:column; gap:12px; padding:0 0 10px; background:#fff; }
-        .snrg-cspm-toolbar { display:grid; grid-template-columns:minmax(220px, 300px) minmax(110px, 150px) minmax(160px, 210px) repeat(3, minmax(170px, 1fr)); gap:12px; align-items:end; }
+        .snrg-cspm-mode-row { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+        .snrg-cspm-tabs { display:inline-flex; border:1px solid #d9e1ec; border-radius:8px; overflow:hidden; background:#fff; }
+        .snrg-cspm-tab { border:0; border-right:1px solid #d9e1ec; padding:9px 13px; background:#fff; color:#475467; font-weight:800; cursor:pointer; }
+        .snrg-cspm-tab:last-child { border-right:0; }
+        .snrg-cspm-tab.active { background:#1f6feb; color:#fff; }
+        .snrg-cspm-toolbar { display:grid; grid-template-columns:minmax(220px, 300px) minmax(110px, 150px) repeat(3, minmax(180px, 1fr)); gap:12px; align-items:end; }
         .snrg-cspm-command-row { display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap; }
         .snrg-cspm-actions { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
         .snrg-cspm-button { border:1px solid #d9e1ec; border-radius:6px; padding:8px 11px; background:#fff; color:#1f3a5f; font-size:12px; font-weight:700; cursor:pointer; }
@@ -60,16 +66,20 @@ class SnrgCustomerSalesPersonMapping {
         .snrg-cspm-footer { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; gap:10px; border-top:1px solid #edf1f7; }
         @media (max-width: 900px) {
           .snrg-cspm-toolbar { grid-template-columns:1fr; }
-          .snrg-cspm-actions { justify-content:flex-start; }
-          .snrg-cspm-command-row { justify-content:flex-start; }
+          .snrg-cspm-actions, .snrg-cspm-command-row { justify-content:flex-start; }
         }
       </style>
       <div class="snrg-cspm-page">
         <section class="snrg-cspm-filter-shell">
+          <div class="snrg-cspm-mode-row">
+            <div class="snrg-cspm-tabs">
+              <button class="snrg-cspm-tab active" data-mode="mapped">Mapped Customers</button>
+              <button class="snrg-cspm-tab" data-mode="add">Add Customers</button>
+            </div>
+          </div>
           <div class="snrg-cspm-toolbar">
             <div class="snrg-cspm-sales-person-action"></div>
             <div class="snrg-cspm-contribution-field"></div>
-            <div class="snrg-cspm-mapping-status-filter"></div>
             <div class="snrg-cspm-customer-filter"></div>
             <div class="snrg-cspm-customer-group-filter"></div>
             <div class="snrg-cspm-territory-filter"></div>
@@ -82,8 +92,8 @@ class SnrgCustomerSalesPersonMapping {
         <section class="snrg-cspm-panel">
           <div class="snrg-cspm-panel-head">
             <div>
-              <div class="snrg-cspm-panel-title">Customers</div>
-              <div class="snrg-cspm-panel-subtitle" data-role="table-summary">Select rows below, then add or remove the selected salesperson mapping.</div>
+              <div class="snrg-cspm-panel-title" data-role="table-title">Mapped Customers</div>
+              <div class="snrg-cspm-panel-subtitle" data-role="table-summary">Select a salesperson to load mapped customers.</div>
             </div>
             <button class="snrg-cspm-button" data-action="clear-selection">Clear Selection</button>
           </div>
@@ -124,11 +134,7 @@ class SnrgCustomerSalesPersonMapping {
         label: "Sales Person Name",
         options: "Sales Person",
         placeholder: "Select sales person",
-        change: () => {
-          this.limitStart = 0;
-          this.selectedCustomers.clear();
-          this.refresh();
-        },
+        change: () => this.resetAndRefresh(),
       },
       render_input: true,
     });
@@ -145,24 +151,6 @@ class SnrgCustomerSalesPersonMapping {
     });
     this.controls.contribution.set_value(100);
 
-    this.controls.mappingStatus = frappe.ui.form.make_control({
-      parent: this.wrapper.find(".snrg-cspm-mapping-status-filter"),
-      df: {
-        fieldtype: "Select",
-        fieldname: "mapping_status",
-        label: "Show",
-        options: "Mapped Customers\nNot Mapped Customers\nAll Customers",
-        default: "Mapped Customers",
-        change: () => {
-          this.limitStart = 0;
-          this.selectedCustomers.clear();
-          this.refresh();
-        },
-      },
-      render_input: true,
-    });
-    this.controls.mappingStatus.set_value("Mapped Customers");
-
     this.controls.customer = frappe.ui.form.make_control({
       parent: this.wrapper.find(".snrg-cspm-customer-filter"),
       df: {
@@ -170,11 +158,7 @@ class SnrgCustomerSalesPersonMapping {
         fieldname: "customer",
         label: "Customer Name",
         options: "Customer",
-        change: () => {
-          this.limitStart = 0;
-          this.selectedCustomers.clear();
-          this.refresh();
-        },
+        change: () => this.resetAndRefresh(),
       },
       render_input: true,
     });
@@ -186,11 +170,7 @@ class SnrgCustomerSalesPersonMapping {
         fieldname: "customer_group",
         label: "Customer Group",
         options: "Customer Group",
-        change: () => {
-          this.limitStart = 0;
-          this.selectedCustomers.clear();
-          this.refresh();
-        },
+        change: () => this.resetAndRefresh(),
       },
       render_input: true,
     });
@@ -202,17 +182,18 @@ class SnrgCustomerSalesPersonMapping {
         fieldname: "territory",
         label: "Territory",
         options: "Territory",
-        change: () => {
-          this.limitStart = 0;
-          this.selectedCustomers.clear();
-          this.refresh();
-        },
+        change: () => this.resetAndRefresh(),
       },
       render_input: true,
     });
+
+    this.applyMode();
   }
 
   bindEvents() {
+    this.wrapper.on("click", "[data-mode]", (event) => {
+      this.setMode($(event.currentTarget).data("mode"));
+    });
     this.wrapper.on("click", "[data-action='add']", () => this.addSelectedCustomers());
     this.wrapper.on("click", "[data-action='remove']", () => this.removeSelected());
     this.wrapper.on("click", "[data-action='clear-selection']", () => {
@@ -246,15 +227,6 @@ class SnrgCustomerSalesPersonMapping {
     this.wrapper.on("click", "[data-role='open-customer']", (event) => {
       frappe.set_route("Form", "Customer", $(event.currentTarget).data("customer"));
     });
-    this.wrapper.on("click", "[data-role='select-sales-person']", (event) => {
-      const salesPerson = $(event.currentTarget).data("sales-person");
-      if (!salesPerson) return;
-      this.controls.salesPerson.set_value(salesPerson);
-      frappe.show_alert({
-        message: `Sales Person selected: ${frappe.utils.escape_html(salesPerson)}`,
-        indicator: "blue",
-      });
-    });
   }
 
   applyRouteOptions() {
@@ -265,6 +237,28 @@ class SnrgCustomerSalesPersonMapping {
       return;
     }
     this.refresh();
+  }
+
+  setMode(mode) {
+    if (!["mapped", "add"].includes(mode) || this.mode === mode) return;
+    this.mode = mode;
+    this.resetAndRefresh();
+  }
+
+  resetAndRefresh() {
+    this.limitStart = 0;
+    this.selectedCustomers.clear();
+    this.refresh();
+  }
+
+  applyMode() {
+    const isAddMode = this.mode === "add";
+    this.wrapper.find("[data-mode]").removeClass("active");
+    this.wrapper.find(`[data-mode='${this.mode}']`).addClass("active");
+    this.wrapper.find(".snrg-cspm-contribution-field").toggle(isAddMode);
+    this.wrapper.find("[data-action='add']").toggle(isAddMode);
+    this.wrapper.find("[data-action='remove']").toggle(!isAddMode);
+    this.wrapper.find("[data-role='table-title']").text(isAddMode ? "Available Customers" : "Mapped Customers");
   }
 
   getSalesPerson() {
@@ -279,20 +273,33 @@ class SnrgCustomerSalesPersonMapping {
     return value;
   }
 
+  getFilterArgs() {
+    return {
+      sales_person: this.getSalesPerson(),
+      customer: this.controls.customer.get_value(),
+      customer_group: this.controls.customerGroup.get_value(),
+      territory: this.controls.territory.get_value(),
+      limit_start: this.limitStart,
+      limit_page_length: this.pageLength,
+    };
+  }
+
   refresh() {
+    this.applyMode();
+    if (!this.getSalesPerson()) {
+      this.rows = [];
+      this.total = 0;
+      this.render();
+      return;
+    }
+
     frappe.call({
-      method: "snrg_credit_control.customer_sales_person_mapping.get_mapped_customers",
-      args: {
-        sales_person: this.getSalesPerson(),
-        mapping_status: this.controls.mappingStatus.get_value(),
-        customer: this.controls.customer.get_value(),
-        customer_group: this.controls.customerGroup.get_value(),
-        territory: this.controls.territory.get_value(),
-        limit_start: this.limitStart,
-        limit_page_length: this.pageLength,
-      },
+      method: this.mode === "add"
+        ? "snrg_credit_control.customer_sales_person_mapping.get_unmapped_customers"
+        : "snrg_credit_control.customer_sales_person_mapping.get_mapped_customers",
+      args: this.getFilterArgs(),
       freeze: true,
-      freeze_message: "Loading customers...",
+      freeze_message: this.mode === "add" ? "Loading available customers..." : "Loading mapped customers...",
       callback: (r) => {
         const message = r.message || {};
         this.rows = message.rows || [];
@@ -305,7 +312,10 @@ class SnrgCustomerSalesPersonMapping {
   render() {
     const body = this.wrapper.find(".snrg-cspm-body");
     if (!this.rows.length) {
-      body.html(`<tr><td colspan="7"><div class="snrg-cspm-empty">No customers found for the selected filters.</div></td></tr>`);
+      const message = this.getSalesPerson()
+        ? "No customers found for the selected filters."
+        : "Select a Sales Person Name to load customers.";
+      body.html(`<tr><td colspan="7"><div class="snrg-cspm-empty">${message}</div></td></tr>`);
       this.wrapper.find("[data-action='toggle-page']").prop("checked", false);
       this.updateSummary();
       this.updatePagination();
@@ -322,7 +332,7 @@ class SnrgCustomerSalesPersonMapping {
         <td>${frappe.utils.escape_html(row.customer_group || "")}</td>
         <td>${frappe.utils.escape_html(row.territory || "")}</td>
         <td>
-          <div class="snrg-cspm-sales-person" data-role="select-sales-person" data-sales-person="${frappe.utils.escape_html(row.sales_person || "")}">${row.is_mapped ? frappe.utils.escape_html(row.sales_person_name || row.sales_person || "") : "-"}</div>
+          <div class="snrg-cspm-sales-person">${row.is_mapped ? frappe.utils.escape_html(row.sales_person_name || row.sales_person || "") : "-"}</div>
           <div class="snrg-cspm-muted">${row.is_mapped ? frappe.utils.escape_html(row.sales_person || "") : "Not mapped to selected sales person"}</div>
         </td>
         <td>${row.is_mapped ? frappe.format(row.allocated_percentage || 0, { fieldtype: "Percent" }) : "-"}</td>
@@ -340,10 +350,10 @@ class SnrgCustomerSalesPersonMapping {
   }
 
   updateSummary() {
-    const mapped = this.rows.filter((row) => row.is_mapped).length;
     const selected = this.selectedCustomers.size;
+    const label = this.mode === "add" ? "available" : "mapped";
     this.wrapper.find("[data-role='table-summary']").text(
-      `${this.total} customer(s) found. ${mapped} mapped on this page. ${selected} selected.`
+      `${this.total} ${label} customer(s) found. ${selected} selected.`
     );
   }
 
@@ -372,17 +382,12 @@ class SnrgCustomerSalesPersonMapping {
       return;
     }
 
-    this.addCustomers(customers, contribution);
-  }
-
-  addCustomers(customers, allocatedPercentage) {
-    const salesPerson = this.getSalesPerson();
     frappe.call({
       method: "snrg_credit_control.customer_sales_person_mapping.add_sales_person_to_customers",
       args: {
         sales_person: salesPerson,
         customers,
-        allocated_percentage: allocatedPercentage,
+        allocated_percentage: contribution,
       },
       freeze: true,
       freeze_message: "Adding sales person to customers...",
