@@ -136,27 +136,25 @@ def get_unmapped_customers(
     limit_page_length=50,
 ):
     _require_customer_read()
-    if not sales_person:
-        return {"rows": [], "total": 0}
+    conditions = ["IFNULL(c.disabled, 0) = 0"]
+    values = {
+        "limit_start": cint(limit_start),
+        "limit_page_length": min(cint(limit_page_length) or 50, 200),
+    }
 
-    _validate_sales_person(sales_person)
-
-    conditions = [
-        "IFNULL(c.disabled, 0) = 0",
-        """NOT EXISTS (
+    if sales_person:
+        _validate_sales_person(sales_person)
+        values["sales_person"] = sales_person
+        conditions.append(
+            """NOT EXISTS (
             SELECT 1
             FROM `tabSales Team` st
             WHERE st.parent = c.name
               AND st.parenttype = 'Customer'
               AND st.parentfield = 'sales_team'
               AND st.sales_person = %(sales_person)s
-        )""",
-    ]
-    values = {
-        "sales_person": sales_person,
-        "limit_start": cint(limit_start),
-        "limit_page_length": min(cint(limit_page_length) or 50, 200),
-    }
+        )"""
+        )
 
     if search:
         values["search"] = f"%{search}%"

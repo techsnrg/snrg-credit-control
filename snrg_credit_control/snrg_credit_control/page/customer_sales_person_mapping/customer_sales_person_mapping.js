@@ -286,7 +286,7 @@ class SnrgCustomerSalesPersonMapping {
 
   refresh() {
     this.applyMode();
-    if (!this.getSalesPerson()) {
+    if (this.mode === "mapped" && !this.getSalesPerson()) {
       this.rows = [];
       this.total = 0;
       this.render();
@@ -312,9 +312,7 @@ class SnrgCustomerSalesPersonMapping {
   render() {
     const body = this.wrapper.find(".snrg-cspm-body");
     if (!this.rows.length) {
-      const message = this.getSalesPerson()
-        ? "No customers found for the selected filters."
-        : "Select a Sales Person Name to load customers.";
+      const message = this.getEmptyMessage();
       body.html(`<tr><td colspan="7"><div class="snrg-cspm-empty">${message}</div></td></tr>`);
       this.wrapper.find("[data-action='toggle-page']").prop("checked", false);
       this.updateSummary();
@@ -352,9 +350,22 @@ class SnrgCustomerSalesPersonMapping {
   updateSummary() {
     const selected = this.selectedCustomers.size;
     const label = this.mode === "add" ? "available" : "mapped";
+    const suffix = this.mode === "add" && !this.getSalesPerson()
+      ? " Select a Sales Person Name before adding."
+      : "";
     this.wrapper.find("[data-role='table-summary']").text(
-      `${this.total} ${label} customer(s) found. ${selected} selected.`
+      `${this.total} ${label} customer(s) found. ${selected} selected.${suffix}`
     );
+  }
+
+  getEmptyMessage() {
+    if (this.mode === "mapped" && !this.getSalesPerson()) {
+      return "Select a Sales Person Name to load mapped customers.";
+    }
+    if (this.mode === "add" && !this.getSalesPerson()) {
+      return "No active customers found for the selected filters. Select a Sales Person Name before adding.";
+    }
+    return "No customers found for the selected filters.";
   }
 
   updatePagination() {
