@@ -77,13 +77,13 @@ frappe.query_reports["Employee Salary Management Report"] = {
 
     return `
       <style>
-        .salary-tax-report {
+        .salary-certified-report {
           color: #111827;
           font-family: Arial, sans-serif;
           font-size: 10.5px;
           line-height: 1.35;
         }
-        .salary-tax-report .tax-topline {
+        .salary-certified-report .report-topline {
           border: 1px solid #111827;
           padding: 6px 10px;
           text-align: center;
@@ -92,45 +92,45 @@ frappe.query_reports["Employee Salary Management Report"] = {
           letter-spacing: .4px;
           text-transform: uppercase;
         }
-        .salary-tax-report .company-block {
+        .salary-certified-report .company-block {
           border: 1px solid #111827;
           border-top: 0;
           padding: 14px 18px 12px;
           text-align: center;
         }
-        .salary-tax-report .company-name {
+        .salary-certified-report .company-name {
           margin: 0 0 5px;
           font-size: 18px;
           font-weight: 700;
           text-transform: uppercase;
         }
-        .salary-tax-report .company-address {
+        .salary-certified-report .company-address {
           color: #374151;
           font-size: 10.5px;
           white-space: pre-line;
         }
-        .salary-tax-report .report-title {
+        .salary-certified-report .report-title {
           margin: 14px 0 0;
           font-size: 15px;
           font-weight: 700;
           text-transform: uppercase;
         }
-        .salary-tax-report .meta-table,
-        .salary-tax-report .salary-table {
+        .salary-certified-report .meta-table,
+        .salary-certified-report .salary-table {
           width: 100%;
           border-collapse: collapse;
         }
-        .salary-tax-report .meta-table {
+        .salary-certified-report .meta-table {
           margin: 12px 0 14px;
           border: 1px solid #111827;
         }
-        .salary-tax-report .meta-table td {
+        .salary-certified-report .meta-table td {
           border: 1px solid #111827;
           padding: 6px 8px;
           vertical-align: top;
           width: 25%;
         }
-        .salary-tax-report .meta-label {
+        .salary-certified-report .meta-label {
           color: #4b5563;
           display: block;
           font-size: 9px;
@@ -138,58 +138,58 @@ frappe.query_reports["Employee Salary Management Report"] = {
           margin-bottom: 2px;
           text-transform: uppercase;
         }
-        .salary-tax-report .meta-value {
+        .salary-certified-report .meta-value {
           font-size: 11px;
           font-weight: 700;
         }
-        .salary-tax-report .salary-table {
+        .salary-certified-report .salary-table {
           border: 1px solid #111827;
           margin-top: 8px;
         }
-        .salary-tax-report .salary-table th,
-        .salary-tax-report .salary-table td {
+        .salary-certified-report .salary-table th,
+        .salary-certified-report .salary-table td {
           border: 1px solid #111827;
           padding: 6px 7px;
           vertical-align: top;
         }
-        .salary-tax-report .salary-table th {
+        .salary-certified-report .salary-table th {
           background: #f3f4f6;
           color: #111827;
           font-weight: 700;
           text-align: left;
         }
-        .salary-tax-report .salary-table .sr-col {
+        .salary-certified-report .salary-table .sr-col {
           text-align: center;
           width: 42px;
         }
-        .salary-tax-report .salary-table .number-cell {
+        .salary-certified-report .salary-table .number-cell {
           text-align: right;
           white-space: nowrap;
         }
-        .salary-tax-report .salary-table tfoot td {
+        .salary-certified-report .salary-table tfoot td {
           background: #f9fafb;
           font-weight: 700;
         }
-        .salary-tax-report .declaration {
+        .salary-certified-report .certification {
           border: 1px solid #111827;
           margin-top: 16px;
           padding: 10px 12px;
         }
-        .salary-tax-report .declaration-title {
+        .salary-certified-report .certification-title {
           font-weight: 700;
           margin-bottom: 4px;
           text-transform: uppercase;
         }
-        .salary-tax-report .signature-row {
+        .salary-certified-report .signature-row {
           margin-top: 32px;
           width: 100%;
         }
-        .salary-tax-report .signature-cell {
+        .salary-certified-report .signature-cell {
           display: inline-block;
           width: 49%;
           vertical-align: bottom;
         }
-        .salary-tax-report .signature-line {
+        .salary-certified-report .signature-line {
           border-top: 1px solid #111827;
           display: inline-block;
           min-width: 190px;
@@ -197,8 +197,8 @@ frappe.query_reports["Employee Salary Management Report"] = {
         }
       </style>
 
-      <div class="salary-tax-report">
-        <div class="tax-topline">For Submission to Income Tax Department</div>
+      <div class="salary-certified-report">
+        <div class="report-topline">Certified Salary Statement</div>
         <div class="company-block">
           <h1 class="company-name">${context.company_name}</h1>
           <div class="company-address">${context.company_address}</div>
@@ -259,10 +259,10 @@ frappe.query_reports["Employee Salary Management Report"] = {
           </tfoot>
         </table>
 
-        <div class="declaration">
-          <div class="declaration-title">Declaration</div>
+        <div class="certification">
+          <div class="certification-title">Certification</div>
           <div>
-            Certified that the salary details stated above are generated from the company's posted accounting records for the selected salary month and are submitted for Income Tax Department reference.
+            Certified that the salary details stated above are generated from the company's posted accounting records for the selected salary month.
           </div>
           <div class="signature-row">
             <div class="signature-cell">
