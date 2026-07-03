@@ -19,6 +19,7 @@ class SnrgUomConversionManager {
     this.pageLength = 50;
     this.sortBy = "item_code";
     this.sortOrder = "asc";
+    this.targetUoms = ["Nos", "Box", "Carton"];
     this.pendingChanges = new Map();
     this.setup();
   }
@@ -48,7 +49,7 @@ class SnrgUomConversionManager {
         .snrg-uom-panel-title { font-size:14px; font-weight:800; color:#101828; }
         .snrg-uom-panel-subtitle { font-size:12px; color:#667085; margin-top:2px; }
         .snrg-uom-table-wrap { overflow:auto; }
-        .snrg-uom-table { width:100%; border-collapse:collapse; min-width:980px; }
+        .snrg-uom-table { width:100%; border-collapse:collapse; min-width:1080px; }
         .snrg-uom-table th, .snrg-uom-table td { padding:10px 12px; border-bottom:1px solid #edf1f7; vertical-align:top; font-size:13px; }
         .snrg-uom-table th { background:#fbfcfe; color:#475467; font-weight:800; text-align:left; white-space:nowrap; }
         .snrg-uom-table tr:hover td { background:#f9fbff; }
@@ -58,11 +59,9 @@ class SnrgUomConversionManager {
         .snrg-uom-item-name { color:#101828; margin-top:2px; }
         .snrg-uom-muted { color:#667085; font-size:12px; }
         .snrg-uom-disabled { display:inline-flex; align-items:center; border:1px solid #f3c3bd; color:#b42318; background:#fff1f0; border-radius:999px; padding:3px 7px; font-size:11px; font-weight:800; margin-top:6px; }
-        .snrg-uom-uom-list { display:flex; flex-direction:column; gap:8px; min-width:260px; }
-        .snrg-uom-uom-row { display:grid; grid-template-columns:minmax(100px, 1fr) 120px; gap:8px; align-items:center; }
-        .snrg-uom-uom-name { font-weight:800; color:#344054; }
         .snrg-uom-factor { width:100%; border:1px solid #d9e1ec; border-radius:6px; padding:7px 8px; text-align:right; background:#fff; }
         .snrg-uom-factor.changed { border-color:#1f6feb; background:#eff6ff; }
+        .snrg-uom-factor.missing { background:#fff; }
         .snrg-uom-empty { padding:28px 16px; text-align:center; color:#667085; font-size:13px; }
         .snrg-uom-footer { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; gap:10px; border-top:1px solid #edf1f7; }
         @media (max-width: 900px) {
@@ -100,9 +99,10 @@ class SnrgUomConversionManager {
                   <th style="width:240px;"><button class="snrg-uom-sort" data-sort="item_code">Item Code</button></th>
                   <th><button class="snrg-uom-sort" data-sort="item_name">Item Name</button></th>
                   <th style="width:180px;"><button class="snrg-uom-sort" data-sort="item_group">Item Group</button></th>
-                  <th style="width:130px;"><button class="snrg-uom-sort" data-sort="stock_uom">Stock UOM</button></th>
-                  <th style="width:330px;">UOM Conversion Factors</th>
-                  <th style="width:110px;">Action</th>
+                  <th style="width:120px;"><button class="snrg-uom-sort" data-sort="stock_uom">Stock UOM</button></th>
+                  <th style="width:130px;">Nos</th>
+                  <th style="width:130px;">Box</th>
+                  <th style="width:130px;">Carton</th>
                 </tr>
               </thead>
               <tbody class="snrg-uom-body"></tbody>
@@ -193,9 +193,6 @@ class SnrgUomConversionManager {
       frappe.set_route("Form", "Item", $(event.currentTarget).data("item"));
     });
     this.wrapper.on("change", "[data-role='factor-input']", (event) => this.trackFactorChange(event.currentTarget));
-    this.wrapper.on("click", "[data-action='add-uom']", (event) => {
-      this.addUom($(event.currentTarget).data("item"));
-    });
   }
 
   applyRouteOptions() {
@@ -261,7 +258,7 @@ class SnrgUomConversionManager {
     this.renderSortState();
     const body = this.wrapper.find(".snrg-uom-body");
     if (!this.rows.length) {
-      body.html(`<tr><td colspan="6"><div class="snrg-uom-empty">No items found for the selected filters.</div></td></tr>`);
+      body.html(`<tr><td colspan="7"><div class="snrg-uom-empty">No items found for the selected filters.</div></td></tr>`);
       this.updateSummary();
       this.updatePagination();
       return;
@@ -278,10 +275,6 @@ class SnrgUomConversionManager {
   }
 
   renderRow(row) {
-    const uoms = row.uoms && row.uoms.length
-      ? row.uoms.map((uomRow) => this.renderUomRow(row.item_code, uomRow)).join("")
-      : `<div class="snrg-uom-muted">No UOM rows configured.</div>`;
-
     return `
       <tr>
         <td>
@@ -291,34 +284,37 @@ class SnrgUomConversionManager {
         <td><div class="snrg-uom-item-name">${this.escape(row.item_name || "")}</div></td>
         <td>${this.escape(row.item_group || "")}</td>
         <td>${this.escape(row.stock_uom || "")}</td>
-        <td><div class="snrg-uom-uom-list">${uoms}</div></td>
-        <td><button class="snrg-uom-button" data-action="add-uom" data-item="${this.escapeAttr(row.item_code)}">Add UOM</button></td>
+        ${this.targetUoms.map((uom) => `<td>${this.renderUomInput(row, uom)}</td>`).join("")}
       </tr>
     `;
   }
 
-  renderUomRow(itemCode, uomRow) {
-    const key = this.getChangeKey(itemCode, uomRow.uom);
+  renderUomInput(row, uom) {
+    const value = this.getUomFactor(row, uom);
+    const key = this.getChangeKey(row.item_code, uom);
     return `
-      <div class="snrg-uom-uom-row">
-        <div>
-          <div class="snrg-uom-uom-name">${this.escape(uomRow.uom || "")}</div>
-          <div class="snrg-uom-muted">Row ${this.escape(String(uomRow.idx || ""))}</div>
-        </div>
-        <input
-          class="snrg-uom-factor"
-          data-role="factor-input"
-          data-change-key="${this.escapeAttr(key)}"
-          data-item="${this.escapeAttr(itemCode)}"
-          data-uom="${this.escapeAttr(uomRow.uom)}"
-          data-original="${this.escapeAttr(String(uomRow.conversion_factor || ""))}"
-          type="number"
-          step="any"
-          min="0"
-          value="${this.escapeAttr(String(uomRow.conversion_factor || ""))}"
-        >
-      </div>
+      <input
+        class="snrg-uom-factor ${value === "" ? "missing" : ""}"
+        data-role="factor-input"
+        data-change-key="${this.escapeAttr(key)}"
+        data-item="${this.escapeAttr(row.item_code)}"
+        data-uom="${this.escapeAttr(uom)}"
+        data-original="${this.escapeAttr(String(value))}"
+        type="number"
+        step="any"
+        min="0"
+        placeholder="Add"
+        value="${this.escapeAttr(String(value))}"
+      >
     `;
+  }
+
+  getUomFactor(row, uom) {
+    const matchingRow = (row.uoms || []).find((uomRow) => uomRow.uom === uom);
+    if (matchingRow) {
+      return matchingRow.conversion_factor;
+    }
+    return row.stock_uom === uom ? 1 : "";
   }
 
   renderSortState() {
@@ -334,20 +330,30 @@ class SnrgUomConversionManager {
   trackFactorChange(input) {
     const itemCode = $(input).data("item");
     const uom = $(input).data("uom");
-    const original = this.toFloat($(input).data("original"));
-    const conversionFactor = this.toFloat($(input).val());
+    const originalRaw = String($(input).attr("data-original") || "");
+    const currentRaw = String($(input).val() || "").trim();
+    const original = this.toFloat(originalRaw);
+    const conversionFactor = this.toFloat(currentRaw);
     const key = this.getChangeKey(itemCode, uom);
+
+    if (!currentRaw) {
+      this.pendingChanges.delete(key);
+      $(input).val(originalRaw);
+      $(input).removeClass("changed");
+      this.updateDirtySummary();
+      return;
+    }
 
     if (conversionFactor <= 0) {
       frappe.msgprint("Conversion Factor must be greater than zero.");
-      $(input).val(original);
+      $(input).val(originalRaw);
       $(input).removeClass("changed");
       this.pendingChanges.delete(key);
       this.updateDirtySummary();
       return;
     }
 
-    if (conversionFactor === original) {
+    if (originalRaw && conversionFactor === original) {
       this.pendingChanges.delete(key);
       $(input).removeClass("changed");
     } else {
@@ -355,31 +361,6 @@ class SnrgUomConversionManager {
       $(input).addClass("changed");
     }
     this.updateDirtySummary();
-  }
-
-  addUom(itemCode) {
-    frappe.prompt(
-      [
-        { fieldtype: "Link", fieldname: "uom", label: "UOM", options: "UOM", reqd: 1 },
-        { fieldtype: "Float", fieldname: "conversion_factor", label: "Conversion Factor", reqd: 1 },
-      ],
-      (values) => {
-        if (this.toFloat(values.conversion_factor) <= 0) {
-          frappe.msgprint("Conversion Factor must be greater than zero.");
-          return;
-        }
-        const key = this.getChangeKey(itemCode, values.uom);
-        this.pendingChanges.set(key, {
-          item_code: itemCode,
-          uom: values.uom,
-          conversion_factor: this.toFloat(values.conversion_factor),
-        });
-        this.updateDirtySummary();
-        this.saveChanges();
-      },
-      `Add UOM for ${itemCode}`,
-      "Save"
-    );
   }
 
   saveChanges() {
