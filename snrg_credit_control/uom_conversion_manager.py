@@ -55,6 +55,22 @@ def _validate_conversion_factor(conversion_factor):
     return conversion_factor
 
 
+def _get_item_group_and_descendants(item_group):
+    group_bounds = frappe.db.get_value("Item Group", item_group, ["lft", "rgt"], as_dict=True)
+    if not group_bounds:
+        frappe.throw(_("Item Group {0} does not exist.").format(frappe.bold(item_group)))
+
+    groups = frappe.get_all(
+        "Item Group",
+        filters={
+            "lft": [">=", group_bounds.lft],
+            "rgt": ["<=", group_bounds.rgt],
+        },
+        pluck="name",
+    )
+    return tuple(groups or [item_group])
+
+
 @frappe.whitelist()
 def get_items(
     item_group=None,
@@ -76,8 +92,8 @@ def get_items(
     }
 
     if item_group:
-        conditions.append("i.item_group = %(item_group)s")
-        values["item_group"] = item_group
+        conditions.append("i.item_group IN %(item_groups)s")
+        values["item_groups"] = _get_item_group_and_descendants(item_group)
     if item_code:
         conditions.append("i.name = %(item_code)s")
         values["item_code"] = item_code
