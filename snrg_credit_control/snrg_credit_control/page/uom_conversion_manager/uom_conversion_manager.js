@@ -60,6 +60,8 @@ class SnrgUomConversionManager {
         .snrg-uom-muted { color:#667085; font-size:12px; }
         .snrg-uom-disabled { display:inline-flex; align-items:center; border:1px solid #f3c3bd; color:#b42318; background:#fff1f0; border-radius:999px; padding:3px 7px; font-size:11px; font-weight:800; margin-top:6px; }
         .snrg-uom-factor { width:100%; border:1px solid #d9e1ec; border-radius:6px; padding:7px 8px; text-align:right; background:#fff; }
+        .snrg-uom-factor::-webkit-outer-spin-button, .snrg-uom-factor::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+        .snrg-uom-factor[type=number] { -moz-appearance:textfield; appearance:textfield; }
         .snrg-uom-factor.changed { border-color:#1f6feb; background:#eff6ff; }
         .snrg-uom-factor.missing { background:#fff; }
         .snrg-uom-empty { padding:28px 16px; text-align:center; color:#667085; font-size:13px; }
