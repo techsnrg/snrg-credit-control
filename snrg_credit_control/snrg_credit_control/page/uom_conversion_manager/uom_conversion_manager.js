@@ -38,7 +38,7 @@ class SnrgUomConversionManager {
       <style>
         .snrg-uom-page { display:flex; flex-direction:column; gap:14px; color:#172033; }
         .snrg-uom-filter-shell { position:sticky; top:0; z-index:5; display:flex; flex-direction:column; gap:12px; padding:0 0 10px; background:#fff; }
-        .snrg-uom-toolbar { display:grid; grid-template-columns:minmax(180px, 1fr) minmax(180px, 1fr) minmax(220px, 1.25fr) minmax(140px, 180px); gap:12px; align-items:end; }
+        .snrg-uom-toolbar { display:grid; grid-template-columns:minmax(180px, 1fr) minmax(180px, 1fr) minmax(220px, 1.25fr) minmax(140px, 180px) minmax(140px, 170px); gap:12px; align-items:end; }
         .snrg-uom-command-row { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
         .snrg-uom-actions { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
         .snrg-uom-button { border:1px solid #d9e1ec; border-radius:6px; padding:8px 11px; background:#fff; color:#1f3a5f; font-size:12px; font-weight:700; cursor:pointer; }
@@ -64,6 +64,8 @@ class SnrgUomConversionManager {
         .snrg-uom-factor[type=number] { -moz-appearance:textfield; appearance:textfield; }
         .snrg-uom-factor.changed { border-color:#1f6feb; background:#eff6ff; }
         .snrg-uom-factor.missing { background:#fff; }
+        .snrg-uom-finalised-cell { text-align:center; vertical-align:middle !important; }
+        .snrg-uom-finalised-check { width:16px; height:16px; cursor:pointer; }
         .snrg-uom-empty { padding:28px 16px; text-align:center; color:#667085; font-size:13px; }
         .snrg-uom-footer { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; gap:10px; border-top:1px solid #edf1f7; }
         @media (max-width: 900px) {
@@ -78,6 +80,7 @@ class SnrgUomConversionManager {
             <div class="snrg-uom-item-code-filter"></div>
             <div class="snrg-uom-item-name-filter"></div>
             <div class="snrg-uom-page-length-filter"></div>
+            <div class="snrg-uom-hide-finalised-filter"></div>
           </div>
           <div class="snrg-uom-command-row">
             <div class="snrg-uom-muted" data-role="dirty-summary">No unsaved changes.</div>
@@ -105,6 +108,7 @@ class SnrgUomConversionManager {
                   <th style="width:130px;">Nos</th>
                   <th style="width:130px;">Box</th>
                   <th style="width:130px;">Carton</th>
+                  <th style="width:110px;">Finalised</th>
                 </tr>
               </thead>
               <tbody class="snrg-uom-body"></tbody>
@@ -175,6 +179,19 @@ class SnrgUomConversionManager {
       render_input: true,
     });
     this.controls.pageLength.set_value("50");
+
+    this.controls.hideFinalised = frappe.ui.form.make_control({
+      parent: this.wrapper.find(".snrg-uom-hide-finalised-filter"),
+      df: {
+        fieldtype: "Check",
+        fieldname: "hide_finalised",
+        label: "Hide Finalised",
+        default: 1,
+        change: () => this.resetAndRefresh(),
+      },
+      render_input: true,
+    });
+    this.controls.hideFinalised.set_value(1);
   }
 
   bindEvents() {
@@ -195,6 +212,7 @@ class SnrgUomConversionManager {
       frappe.set_route("Form", "Item", $(event.currentTarget).data("item"));
     });
     this.wrapper.on("change", "[data-role='factor-input']", (event) => this.trackFactorChange(event.currentTarget));
+    this.wrapper.on("change", "[data-role='finalised-check']", (event) => this.setFinalised(event.currentTarget));
   }
 
   applyRouteOptions() {
@@ -212,6 +230,7 @@ class SnrgUomConversionManager {
       item_group: this.controls.itemGroup.get_value(),
       item_code: this.controls.itemCode.get_value(),
       item_name: this.controls.itemName.get_value(),
+      hide_finalised: this.controls.hideFinalised.get_value() ? 1 : 0,
       sort_by: this.sortBy,
       sort_order: this.sortOrder,
       limit_start: this.limitStart,
@@ -228,6 +247,7 @@ class SnrgUomConversionManager {
     this.controls.itemGroup.set_value("");
     this.controls.itemCode.set_value("");
     this.controls.itemName.set_value("");
+    this.controls.hideFinalised.set_value(1);
     this.resetAndRefresh();
   }
 
@@ -260,7 +280,7 @@ class SnrgUomConversionManager {
     this.renderSortState();
     const body = this.wrapper.find(".snrg-uom-body");
     if (!this.rows.length) {
-      body.html(`<tr><td colspan="7"><div class="snrg-uom-empty">No items found for the selected filters.</div></td></tr>`);
+      body.html(`<tr><td colspan="8"><div class="snrg-uom-empty">No items found for the selected filters.</div></td></tr>`);
       this.updateSummary();
       this.updatePagination();
       return;
@@ -287,6 +307,15 @@ class SnrgUomConversionManager {
         <td>${this.escape(row.item_group || "")}</td>
         <td>${this.escape(row.stock_uom || "")}</td>
         ${this.targetUoms.map((uom) => `<td>${this.renderUomInput(row, uom)}</td>`).join("")}
+        <td class="snrg-uom-finalised-cell">
+          <input
+            class="snrg-uom-finalised-check"
+            data-role="finalised-check"
+            data-item="${this.escapeAttr(row.item_code)}"
+            type="checkbox"
+            ${row.uom_conversion_finalised ? "checked" : ""}
+          >
+        </td>
       </tr>
     `;
   }
@@ -365,6 +394,34 @@ class SnrgUomConversionManager {
     this.updateDirtySummary();
   }
 
+  setFinalised(input) {
+    const itemCode = $(input).data("item");
+    const finalised = $(input).prop("checked") ? 1 : 0;
+
+    if (this.hasPendingChangesForItem(itemCode)) {
+      frappe.msgprint("Please save UOM changes for this item before marking it finalised.");
+      $(input).prop("checked", !finalised);
+      return;
+    }
+
+    $(input).prop("disabled", true);
+    frappe.call({
+      method: "snrg_credit_control.uom_conversion_manager.set_item_finalised",
+      args: { item_code: itemCode, finalised },
+      callback: () => {
+        frappe.show_alert({
+          message: finalised ? `${itemCode} marked finalised.` : `${itemCode} moved back to pending.`,
+          indicator: finalised ? "green" : "blue",
+        });
+        this.refresh();
+      },
+      error: () => {
+        $(input).prop("checked", !finalised);
+        $(input).prop("disabled", false);
+      },
+    });
+  }
+
   saveChanges() {
     const changes = Array.from(this.pendingChanges.values());
     if (!changes.length) {
@@ -428,6 +485,10 @@ class SnrgUomConversionManager {
     this.wrapper.find("[data-role='range']").text(`${from}-${to} of ${this.total}`);
     this.wrapper.find("[data-action='prev']").prop("disabled", this.limitStart <= 0);
     this.wrapper.find("[data-action='next']").prop("disabled", this.limitStart + this.pageLength >= this.total);
+  }
+
+  hasPendingChangesForItem(itemCode) {
+    return Array.from(this.pendingChanges.values()).some((change) => change.item_code === itemCode);
   }
 
   getChangeKey(itemCode, uom) {

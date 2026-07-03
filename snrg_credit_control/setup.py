@@ -19,6 +19,7 @@ def after_install():
     _ensure_role()
     _ensure_customer_fields()
     _ensure_customer_credit_limit_fields()
+    _ensure_item_fields()
     _ensure_so_fields()
     _ensure_quotation_fields()
     _ensure_sales_invoice_fields()
@@ -41,6 +42,7 @@ def after_migrate():
     _ensure_role()
     _ensure_customer_fields()
     _ensure_customer_credit_limit_fields()
+    _ensure_item_fields()
     _ensure_so_fields()
     _ensure_quotation_fields()
     _ensure_sales_invoice_fields()
@@ -140,6 +142,26 @@ def _ensure_customer_fields():
 def _ensure_customer_credit_limit_fields():
     for fdef in _CUSTOMER_CREDIT_LIMIT_FIELDS:
         _ensure_custom_field("Customer Credit Limit", fdef)
+
+
+# ---------------------------------------------------------------------------
+# Custom Fields — Item master
+# ---------------------------------------------------------------------------
+
+_ITEM_FIELDS = [
+    {
+        "fieldname": "custom_snrg_uom_conversion_finalised",
+        "fieldtype": "Check",
+        "label": "UOM Conversion Finalised",
+        "default": "0",
+        "insert_after": "stock_uom",
+    },
+]
+
+
+def _ensure_item_fields():
+    for fdef in _ITEM_FIELDS:
+        _ensure_custom_field("Item", fdef)
 
 
 # ---------------------------------------------------------------------------

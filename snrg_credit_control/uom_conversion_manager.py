@@ -15,6 +15,8 @@ SORT_FIELDS = {
     "modified": "i.modified",
 }
 
+FINALISED_FIELD = "custom_snrg_uom_conversion_finalised"
+
 
 def _as_list(value):
     if not value:
@@ -55,6 +57,10 @@ def _validate_conversion_factor(conversion_factor):
     return conversion_factor
 
 
+def _has_finalised_field():
+    return FINALISED_FIELD in frappe.db.get_table_columns("Item")
+
+
 def _get_item_group_and_descendants(item_group):
     group_bounds = frappe.db.get_value("Item Group", item_group, ["lft", "rgt"], as_dict=True)
     if not group_bounds:
@@ -78,11 +84,18 @@ def get_items(
     item_name=None,
     sort_by="item_code",
     sort_order="asc",
+    hide_finalised=1,
     limit_start=0,
     limit_page_length=50,
 ):
     _require_item_read()
 
+    has_finalised_field = _has_finalised_field()
+    finalised_select = (
+        f"IFNULL(i.{FINALISED_FIELD}, 0) AS uom_conversion_finalised"
+        if has_finalised_field
+        else "0 AS uom_conversion_finalised"
+    )
     sort_column = SORT_FIELDS.get(sort_by) or SORT_FIELDS["item_code"]
     sort_direction = "DESC" if str(sort_order).lower() == "desc" else "ASC"
     conditions = []
@@ -94,6 +107,8 @@ def get_items(
     if item_group:
         conditions.append("i.item_group IN %(item_groups)s")
         values["item_groups"] = _get_item_group_and_descendants(item_group)
+    if has_finalised_field and cint(hide_finalised):
+        conditions.append(f"IFNULL(i.{FINALISED_FIELD}, 0) = 0")
     if item_code:
         conditions.append("i.name = %(item_code)s")
         values["item_code"] = item_code
@@ -111,7 +126,8 @@ def get_items(
             i.item_group,
             i.stock_uom,
             i.disabled,
-            i.modified
+            i.modified,
+            {finalised_select}
         FROM `tabItem` i
         {where_clause}
         ORDER BY {sort_column} {sort_direction}, i.name ASC
@@ -120,6 +136,7 @@ def get_items(
             where_clause=where_clause,
             sort_column=sort_column,
             sort_direction=sort_direction,
+            finalised_select=finalised_select,
         ),
         values,
         as_dict=True,
@@ -164,6 +181,21 @@ def get_items(
         item["uoms"] = by_item.get(item.item_code, [])
 
     return {"rows": items, "total": total}
+
+
+@frappe.whitelist()
+def set_item_finalised(item_code, finalised=0):
+    _require_item_write()
+    _validate_item(item_code)
+
+    if not _has_finalised_field():
+        frappe.throw(_("Please run bench migrate before marking UOM conversion rows as finalised."))
+
+    finalised = 1 if cint(finalised) else 0
+    frappe.db.set_value("Item", item_code, FINALISED_FIELD, finalised)
+    frappe.db.commit()
+
+    return {"item_code": item_code, "uom_conversion_finalised": finalised}
 
 
 @frappe.whitelist()
