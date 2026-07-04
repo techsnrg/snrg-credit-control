@@ -63,11 +63,12 @@ class MonthlySalesPlan(Document):
             row.territory = customer.territory
 
     def _set_achievement_amounts(self):
-        actuals = get_sales_invoice_actuals(self.company, self.plan_month, self.sales_person)
+        sales_people = get_plan_sales_people(self.sales_person, self.team_members)
+        actuals = get_sales_invoice_actuals(self.company, self.plan_month, sales_people)
         metrics = get_customer_metrics(
             self.company,
             self.plan_month,
-            self.sales_person,
+            sales_people,
             [row.customer for row in self.customers if row.customer],
         )
         for row in self.customers:
@@ -120,7 +121,7 @@ class MonthlySalesPlan(Document):
 
 
 @frappe.whitelist()
-def fetch_customers(company, plan_month, sales_person):
+def fetch_customers(company, plan_month, sales_person, team_members=None):
     if not company:
         frappe.throw(_("Please select a Company."))
     if not plan_month:
@@ -128,9 +129,10 @@ def fetch_customers(company, plan_month, sales_person):
     if not sales_person:
         frappe.throw(_("Please select a Sales Person."))
 
+    sales_people = get_plan_sales_people(sales_person, team_members)
     rows = frappe.db.sql(
         """
-        SELECT
+        SELECT DISTINCT
             c.name AS customer,
             c.customer_name,
             c.customer_group,
@@ -141,18 +143,38 @@ def fetch_customers(company, plan_month, sales_person):
             AND st.parenttype = 'Customer'
             AND st.parentfield = 'sales_team'
         WHERE IFNULL(c.disabled, 0) = 0
-          AND st.sales_person = %(sales_person)s
+          AND st.sales_person IN %(sales_people)s
           AND LOWER(IFNULL(c.customer_group, '')) NOT IN ('vendor', 'vendors')
         ORDER BY c.customer_name ASC, c.name ASC
         """,
-        {"sales_person": sales_person},
+        {"sales_people": tuple(sales_people)},
         as_dict=True,
     )
-    metrics = get_customer_metrics(company, plan_month, sales_person, [row.customer for row in rows])
+    metrics = get_customer_metrics(company, plan_month, sales_people, [row.customer for row in rows])
     for row in rows:
         row.update(metrics.get(row.customer, {}))
 
     return rows
+
+
+def get_plan_sales_people(sales_person=None, team_members=None):
+    sales_people = []
+    if isinstance(sales_person, (list, tuple)):
+        sales_people.extend(sales_person)
+    elif sales_person:
+        sales_people.append(sales_person)
+
+    if isinstance(team_members, str) and team_members.strip().startswith(("[", "{")):
+        team_members = frappe.parse_json(team_members) or []
+    elif isinstance(team_members, str):
+        team_members = [team_members]
+
+    for row in team_members or []:
+        member = row.get("sales_person") if isinstance(row, dict) else row
+        if member:
+            sales_people.append(member)
+
+    return list(dict.fromkeys(sales_people))
 
 
 @frappe.whitelist()
@@ -205,15 +227,16 @@ def get_sales_invoice_actuals(company, plan_month, sales_person=None):
     if not company or not plan_month:
         return {}
 
+    sales_people = get_plan_sales_people(team_members=sales_person)
     values = {
         "company": company,
         "from_date": get_plan_month_start(plan_month),
         "to_date": get_plan_month_end(plan_month),
     }
     salesperson_condition = ""
-    if sales_person:
-        values["sales_person"] = sales_person
-        salesperson_condition = "AND st.sales_person = %(sales_person)s"
+    if sales_people:
+        values["sales_people"] = tuple(sales_people)
+        salesperson_condition = "AND st.sales_person IN %(sales_people)s"
 
     rows = frappe.db.sql(
         """
@@ -258,6 +281,7 @@ def get_customer_metrics(company, plan_month, sales_person=None, customers=None)
 
     plan_month = get_plan_month_start(plan_month)
     previous_month = add_months(plan_month, -1)
+    sales_people = get_plan_sales_people(team_members=sales_person)
     values = {
         "company": company,
         "previous_month_start": get_first_day(previous_month),
@@ -267,9 +291,9 @@ def get_customer_metrics(company, plan_month, sales_person=None, customers=None)
     }
 
     sales_person_condition = ""
-    if sales_person:
-        values["sales_person"] = sales_person
-        sales_person_condition = "AND st.sales_person = %(sales_person)s"
+    if sales_people:
+        values["sales_people"] = tuple(sales_people)
+        sales_person_condition = "AND st.sales_person IN %(sales_people)s"
 
     last_month_sales = frappe.db.sql(
         """

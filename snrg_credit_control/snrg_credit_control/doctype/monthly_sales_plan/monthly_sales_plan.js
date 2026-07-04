@@ -62,6 +62,7 @@ function fetchCustomers(frm) {
         company: frm.doc.company,
         plan_month: frm.doc.plan_month,
         sales_person: frm.doc.sales_person,
+        team_members: (frm.doc.team_members || []).map((row) => row.sales_person).filter(Boolean),
       },
       freeze: true,
       freeze_message: __("Fetching customers..."),
