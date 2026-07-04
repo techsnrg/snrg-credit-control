@@ -14,15 +14,17 @@ from frappe import _
 B2B_CUSTOMER = "Moglix B2B"
 B2C_CUSTOMER = "Moglix B2C"
 SUPPORTED_EXTENSIONS = {".csv", ".xlsx"}
+SUPPORTED_MARKETPLACES = {"Auto Detect", "Moglix", "Amazon", "Flipkart"}
 MISSING_INVOICE_LABEL = "Missing Invoice Number"
 
 
 @frappe.whitelist()
-def preview_file(file_url: str):
+def preview_file(file_url: str, marketplace: str = "Auto Detect"):
     """Parse an uploaded marketplace statement and return invoice/RTV preview rows."""
     if not file_url:
         frappe.throw(_("Please upload a CSV or XLSX file first."))
 
+    selected_marketplace = _clean_marketplace(marketplace)
     path = _get_file_path(file_url)
     extension = Path(path).suffix.lower()
     if extension not in SUPPORTED_EXTENSIONS:
@@ -32,12 +34,32 @@ def preview_file(file_url: str):
     if not rows:
         frappe.throw(_("The uploaded file does not contain any rows."))
 
-    marketplace = _detect_marketplace(rows[0])
+    detected_marketplace = _detect_marketplace(rows[0])
+    if selected_marketplace == "Auto Detect":
+        marketplace = detected_marketplace
+    else:
+        marketplace = selected_marketplace
+
+    if marketplace != detected_marketplace:
+        frappe.throw(
+            _(
+                "The uploaded file looks like {0}, but {1} was selected."
+            ).format(detected_marketplace, marketplace)
+        )
+    if marketplace in {"Amazon", "Flipkart"}:
+        frappe.throw(_("{0} parser is not available yet. Please upload a Moglix file for now.").format(marketplace))
     if marketplace != "Moglix":
-        frappe.throw(_("This first importer only supports Moglix finance reports."))
+        frappe.throw(_("Could not detect a supported marketplace format from this file."))
 
     parsed_rows = [_normalise_moglix_row(row, index + 2) for index, row in enumerate(rows)]
     return _build_preview(file_url, marketplace, parsed_rows)
+
+
+def _clean_marketplace(marketplace: str | None) -> str:
+    marketplace = _clean_text(marketplace) or "Auto Detect"
+    if marketplace not in SUPPORTED_MARKETPLACES:
+        frappe.throw(_("Unsupported marketplace selection: {0}").format(marketplace))
+    return marketplace
 
 
 def _get_file_path(file_url: str) -> str:

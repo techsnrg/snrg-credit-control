@@ -12,6 +12,7 @@ class SnrgMarketplaceInvoiceImporter {
   constructor(page, wrapper) {
     this.page = page;
     this.wrapper = $(wrapper);
+    this.controls = {};
     this.preview = null;
     this.activeTab = "invoices";
     this.setup();
@@ -21,6 +22,7 @@ class SnrgMarketplaceInvoiceImporter {
     this.page.set_primary_action("Upload File", () => this.uploadFile(), "upload");
     this.page.set_secondary_action("Clear", () => this.clear(), "refresh");
     this.renderShell();
+    this.makeControls();
     this.bindEvents();
     this.renderEmptyState();
   }
@@ -31,8 +33,10 @@ class SnrgMarketplaceInvoiceImporter {
         .snrg-mii-page { display:flex; flex-direction:column; gap:14px; color:#172033; }
         .snrg-mii-panel { border:1px solid #e1e7ef; border-radius:8px; background:#fff; overflow:hidden; }
         .snrg-mii-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 16px; border-bottom:1px solid #e1e7ef; background:#f8fafc; }
+        .snrg-mii-left { display:flex; flex-direction:column; gap:10px; min-width:260px; }
         .snrg-mii-title { font-size:15px; font-weight:800; color:#101828; }
         .snrg-mii-subtitle { margin-top:3px; color:#667085; font-size:12px; }
+        .snrg-mii-selector { width:260px; }
         .snrg-mii-actions { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
         .snrg-mii-button { border:1px solid #d9e1ec; border-radius:6px; padding:8px 11px; background:#fff; color:#1f3a5f; font-size:12px; font-weight:800; cursor:pointer; }
         .snrg-mii-button.primary { background:#1f6feb; border-color:#1f6feb; color:#fff; }
@@ -65,6 +69,7 @@ class SnrgMarketplaceInvoiceImporter {
         @media (max-width: 980px) {
           .snrg-mii-summary { grid-template-columns:repeat(2, minmax(140px, 1fr)); }
           .snrg-mii-head { align-items:flex-start; flex-direction:column; }
+          .snrg-mii-selector { width:100%; max-width:320px; }
           .snrg-mii-actions { justify-content:flex-start; }
         }
         @media (max-width: 640px) {
@@ -74,9 +79,12 @@ class SnrgMarketplaceInvoiceImporter {
       <div class="snrg-mii-page">
         <section class="snrg-mii-panel">
           <div class="snrg-mii-head">
-            <div>
-              <div class="snrg-mii-title">Marketplace File Preview</div>
-              <div class="snrg-mii-subtitle" data-role="file-summary">Upload a Moglix CSV or XLSX finance report to preview ERPNext invoice groups.</div>
+            <div class="snrg-mii-left">
+              <div>
+                <div class="snrg-mii-title">Marketplace File Preview</div>
+                <div class="snrg-mii-subtitle" data-role="file-summary">Select marketplace, then upload CSV or XLSX to preview ERPNext invoice groups.</div>
+              </div>
+              <div class="snrg-mii-selector"></div>
             </div>
             <div class="snrg-mii-actions">
               <button class="snrg-mii-button" data-action="clear">Clear</button>
@@ -97,6 +105,21 @@ class SnrgMarketplaceInvoiceImporter {
         </section>
       </div>
     `);
+  }
+
+  makeControls() {
+    this.controls.marketplace = frappe.ui.form.make_control({
+      parent: this.wrapper.find(".snrg-mii-selector"),
+      df: {
+        fieldtype: "Select",
+        fieldname: "marketplace",
+        label: "Marketplace",
+        options: "Auto Detect\nMoglix\nAmazon\nFlipkart",
+        default: "Auto Detect",
+      },
+      render_input: true,
+    });
+    this.controls.marketplace.set_value("Auto Detect");
   }
 
   bindEvents() {
@@ -128,7 +151,10 @@ class SnrgMarketplaceInvoiceImporter {
   previewFile(fileUrl) {
     frappe.call({
       method: "snrg_credit_control.marketplace_invoice_importer.preview_file",
-      args: { file_url: fileUrl },
+      args: {
+        file_url: fileUrl,
+        marketplace: this.getMarketplace(),
+      },
       freeze: true,
       freeze_message: "Reading marketplace file...",
       callback: (response) => {
@@ -154,7 +180,7 @@ class SnrgMarketplaceInvoiceImporter {
   }
 
   renderEmptyState() {
-    this.wrapper.find("[data-role='file-summary']").html("Upload a Moglix CSV or XLSX finance report to preview ERPNext invoice groups.");
+    this.wrapper.find("[data-role='file-summary']").html("Select marketplace, then upload CSV or XLSX to preview ERPNext invoice groups.");
     this.wrapper.find("[data-role='summary']").html(`
       ${this.metric("Invoice Groups", "-", "Waiting for file")}
       ${this.metric("B2B Invoices", "-", "Moglix B2B")}
@@ -353,6 +379,10 @@ class SnrgMarketplaceInvoiceImporter {
     return numeric.toLocaleString("en-IN", {
       maximumFractionDigits: 4,
     });
+  }
+
+  getMarketplace() {
+    return this.controls.marketplace?.get_value() || "Auto Detect";
   }
 
   joinValues(values) {
