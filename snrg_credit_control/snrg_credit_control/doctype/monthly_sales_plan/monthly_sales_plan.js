@@ -90,12 +90,25 @@ function setupMonthPicker(frm) {
     frm.set_value("plan_month", frm.doc.plan_month.slice(0, 7));
   }
 
-  setTimeout(() => {
+  [0, 100, 300].forEach((delay) => setTimeout(() => applyMonthPicker(frm), delay));
+}
+
+function applyMonthPicker(frm) {
     const control = frm.fields_dict.plan_month;
     if (!control || !control.$input) return;
-    control.$input.attr("type", "month");
-    control.$input.attr("placeholder", "YYYY-MM");
-  }, 0);
+
+    control.$input
+      .attr("type", "month")
+      .attr("placeholder", "YYYY-MM")
+      .off("click.month_picker focus.month_picker change.month_picker")
+      .on("click.month_picker focus.month_picker", function () {
+        if (typeof this.showPicker === "function") {
+          this.showPicker();
+        }
+      })
+      .on("change.month_picker", function () {
+        frm.set_value("plan_month", this.value);
+      });
 }
 
 function mergeCustomerRows(frm, customers) {
