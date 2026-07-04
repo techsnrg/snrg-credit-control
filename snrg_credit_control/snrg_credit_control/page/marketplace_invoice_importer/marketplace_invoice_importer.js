@@ -114,12 +114,12 @@ class SnrgMarketplaceInvoiceImporter {
         fieldtype: "Select",
         fieldname: "marketplace",
         label: "Marketplace",
-        options: "Auto Detect\nMoglix\nAmazon\nFlipkart",
-        default: "Auto Detect",
+        options: "Moglix\nAmazon\nFlipkart",
+        default: "Moglix",
       },
       render_input: true,
     });
-    this.controls.marketplace.set_value("Auto Detect");
+    this.controls.marketplace.set_value("Moglix");
   }
 
   bindEvents() {
@@ -382,7 +382,7 @@ class SnrgMarketplaceInvoiceImporter {
   }
 
   getMarketplace() {
-    return this.controls.marketplace?.get_value() || "Auto Detect";
+    return this.controls.marketplace?.get_value() || "Moglix";
   }
 
   joinValues(values) {
