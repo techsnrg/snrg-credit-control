@@ -443,6 +443,66 @@ def _ensure_quotation_fields():
 
 _SALES_INVOICE_FIELDS = [
     {
+        "fieldname": "custom_snrg_marketplace_section",
+        "fieldtype": "Section Break",
+        "label": "Marketplace Import",
+        "insert_after": "customer",
+        "collapsible": 1,
+    },
+    {
+        "fieldname": "custom_snrg_marketplace",
+        "fieldtype": "Select",
+        "label": "Marketplace",
+        "options": "\nMoglix\nAmazon\nFlipkart",
+        "insert_after": "custom_snrg_marketplace_section",
+        "allow_on_submit": 0,
+        "in_standard_filter": 1,
+    },
+    {
+        "fieldname": "custom_snrg_marketplace_customer_type",
+        "fieldtype": "Select",
+        "label": "Marketplace Customer Type",
+        "options": "\nB2B\nB2C",
+        "insert_after": "custom_snrg_marketplace",
+        "allow_on_submit": 0,
+        "in_standard_filter": 1,
+    },
+    {
+        "fieldname": "custom_snrg_marketplace_invoice_no",
+        "fieldtype": "Data",
+        "label": "Marketplace Invoice No",
+        "insert_after": "custom_snrg_marketplace_customer_type",
+        "allow_on_submit": 0,
+        "in_list_view": 1,
+        "in_standard_filter": 1,
+    },
+    {
+        "fieldname": "custom_snrg_marketplace_col_break",
+        "fieldtype": "Column Break",
+        "insert_after": "custom_snrg_marketplace_invoice_no",
+    },
+    {
+        "fieldname": "custom_snrg_marketplace_order_numbers",
+        "fieldtype": "Small Text",
+        "label": "Marketplace Order Numbers",
+        "insert_after": "custom_snrg_marketplace_col_break",
+        "allow_on_submit": 0,
+    },
+    {
+        "fieldname": "custom_snrg_marketplace_source_file",
+        "fieldtype": "Attach",
+        "label": "Marketplace Source File",
+        "insert_after": "custom_snrg_marketplace_order_numbers",
+        "allow_on_submit": 0,
+    },
+    {
+        "fieldname": "custom_snrg_marketplace_import_notes",
+        "fieldtype": "Small Text",
+        "label": "Marketplace Import Notes",
+        "insert_after": "custom_snrg_marketplace_source_file",
+        "allow_on_submit": 0,
+    },
+    {
         "fieldname": "custom_snrg_dispatch_section",
         "fieldtype": "Section Break",
         "label": "Dispatch & Delivery Tracking",
@@ -951,6 +1011,7 @@ def _ensure_credit_control_workspace():
     has_customer_sales_person_mapping_page = frappe.db.exists("Page", "customer-sales-person-mapping")
     has_sales_tracking_sla_settings = frappe.db.exists("DocType", "Sales Tracking SLA Settings")
     has_production_planning_page = frappe.db.exists("Page", "production-planning")
+    has_marketplace_invoice_importer_page = frappe.db.exists("Page", "marketplace-invoice-importer")
     sales_tracking_reports = [
         (
             "sales_person_sales_collection_summary_shortcut",
@@ -1144,6 +1205,22 @@ def _ensure_credit_control_workspace():
                 }
             )
 
+    if has_marketplace_invoice_importer_page:
+        content_blocks.extend(
+            [
+                {
+                    "id": "marketplace_imports_header",
+                    "type": "header",
+                    "data": {"text": "Marketplace Imports", "col": 12},
+                },
+                {
+                    "id": "marketplace_invoice_importer_shortcut",
+                    "type": "shortcut",
+                    "data": {"shortcut_name": "Marketplace Invoice Importer", "col": 3},
+                },
+            ]
+        )
+
     links = [
         {
             "label": "Credit Management",
@@ -1331,6 +1408,32 @@ def _ensure_credit_control_workspace():
                 }
             )
 
+    if has_marketplace_invoice_importer_page:
+        links.extend(
+            [
+                {
+                    "label": "Marketplace Imports",
+                    "type": "Card Break",
+                    "hidden": 0,
+                    "is_query_report": 0,
+                    "link_count": 0,
+                    "onboard": 0,
+                    "dependencies": "",
+                },
+                {
+                    "label": "Marketplace Invoice Importer",
+                    "type": "Link",
+                    "link_type": "Page",
+                    "link_to": "marketplace-invoice-importer",
+                    "hidden": 0,
+                    "is_query_report": 0,
+                    "link_count": 0,
+                    "onboard": 1,
+                    "dependencies": "",
+                },
+            ]
+        )
+
     shortcuts = [
         {
             "type": "DocType",
@@ -1364,6 +1467,17 @@ def _ensure_credit_control_workspace():
         if link_type == "Report":
             shortcut["doc_view"] = ""
         shortcuts.append(shortcut)
+
+    if has_marketplace_invoice_importer_page:
+        shortcuts.append(
+            {
+                "type": "Page",
+                "label": "Marketplace Invoice Importer",
+                "link_to": "marketplace-invoice-importer",
+                "icon": "upload",
+                "color": "Blue",
+            }
+        )
 
     if has_ptp_dashboard_page:
         shortcuts.append(
