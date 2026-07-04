@@ -71,6 +71,7 @@ def build_rows(plans, filters):
     customer_filter = filters.get("customer")
     customer_group_filter = filters.get("customer_group")
     territory_filter = filters.get("territory")
+    team_members_by_plan = get_team_members_by_plan([plan.name for plan in plans])
 
     for plan in plans:
         actuals = get_sales_invoice_actuals(plan.company, plan.plan_month, plan.sales_person)
@@ -113,6 +114,7 @@ def build_rows(plans, filters):
                     "plan_month": get_month_label(plan.plan_month),
                     "sales_person": plan.sales_person,
                     "sales_person_name": plan.sales_person_name,
+                    "team_members": ", ".join(team_members_by_plan.get(plan.name, [])),
                     "customer": child.customer,
                     "customer_name": child.customer_name or child.customer,
                     "customer_group": child.customer_group,
@@ -139,6 +141,29 @@ def build_rows(plans, filters):
             )
 
     return rows
+
+
+def get_team_members_by_plan(plan_names):
+    if not plan_names:
+        return {}
+
+    rows = frappe.db.sql(
+        """
+        SELECT team.parent, team.sales_person, sp.sales_person_name
+        FROM `tabMonthly Sales Plan Team Member` team
+        LEFT JOIN `tabSales Person` sp ON sp.name = team.sales_person
+        WHERE team.parenttype = 'Monthly Sales Plan'
+          AND team.parent IN %(plan_names)s
+        ORDER BY team.parent, team.idx
+        """,
+        {"plan_names": tuple(plan_names)},
+        as_dict=True,
+    )
+
+    team_members = {}
+    for row in rows:
+        team_members.setdefault(row.parent, []).append(row.sales_person_name or row.sales_person)
+    return team_members
 
 
 def get_previous_plan_amounts(previous_plan):
@@ -188,6 +213,7 @@ def get_columns():
             "width": 160,
         },
         {"label": _("Sales Person Name"), "fieldname": "sales_person_name", "fieldtype": "Data", "width": 170},
+        {"label": _("Team Members"), "fieldname": "team_members", "fieldtype": "Data", "width": 220},
         {"label": _("Customer"), "fieldname": "customer", "fieldtype": "Link", "options": "Customer", "width": 150},
         {"label": _("Customer / New Lead"), "fieldname": "customer_name", "fieldtype": "Data", "width": 220},
         {

@@ -176,6 +176,9 @@ def make_revision(source_name):
     revision.revision_date = nowdate()
     revision.revision_reason = source.revision_reason
 
+    for row in source.team_members:
+        revision.append("team_members", {"sales_person": row.sales_person})
+
     for row in source.customers:
         revision.append(
             "customers",

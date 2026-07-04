@@ -3,6 +3,12 @@
 {% set letter_head_footer = letter_head.footer if letter_head is mapping else "" %}
 {% set customer_count = doc.customers | length %}
 {% set print_title = "Monthly Sales Plan - " ~ (doc.sales_person_name or doc.sales_person or "Sales Person") ~ " - " ~ (doc.plan_month or "Plan Month") ~ " - " ~ doc.name %}
+{% set team = namespace(names=[]) %}
+{% for member in doc.team_members %}
+  {% if member.sales_person %}
+    {% set team.names = team.names + [frappe.db.get_value("Sales Person", member.sales_person, "sales_person_name") or member.sales_person] %}
+  {% endif %}
+{% endfor %}
 {% set risk = namespace(payment=0, overdue=0) %}
 {% for row in doc.customers %}
   {% if (row.minimum_payment_required or 0) > 0 %}
@@ -228,6 +234,9 @@
       <div class="msp-meta-cell">
         <div class="msp-label">Sales Person</div>
         <div class="msp-value">{{ doc.sales_person_name or doc.sales_person }}</div>
+        {% if team.names %}
+          <div class="msp-small">Team: {{ team.names | join(", ") }}</div>
+        {% endif %}
       </div>
     </div>
     <div class="msp-meta">

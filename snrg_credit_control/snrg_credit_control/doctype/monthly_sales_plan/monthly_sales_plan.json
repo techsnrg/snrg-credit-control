@@ -13,6 +13,7 @@
   "plan_month",
   "sales_column_break",
   "sales_person",
+  "team_members",
   "sales_person_name",
   "status",
   "is_current_plan",
@@ -80,6 +81,12 @@
    "label": "Sales Person",
    "options": "Sales Person",
    "reqd": 1
+  },
+  {
+   "fieldname": "team_members",
+   "fieldtype": "Table MultiSelect",
+   "label": "Team Members",
+   "options": "Monthly Sales Plan Team Member"
   },
   {
    "fetch_from": "sales_person.sales_person_name",
