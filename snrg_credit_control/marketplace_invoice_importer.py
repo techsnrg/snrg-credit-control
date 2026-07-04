@@ -232,6 +232,11 @@ def _group_invoice_rows(rows: list[dict]) -> list[dict]:
                 "customer_type": first["customer_type"],
                 "invoice_number": invoice_number,
                 "invoice_date": first["invoice_date"],
+                "supplier_invoices": _unique_values(group_rows, "supplier_invoice"),
+                "buyer_names": _unique_values(group_rows, "customer_name"),
+                "buyer_pincodes": _unique_values(group_rows, "customer_pincode"),
+                "buyer_cities": _unique_values(group_rows, "customer_city"),
+                "buyer_states": _unique_values(group_rows, "customer_state"),
                 "orders": sorted({row["order_number"] for row in group_rows if row["order_number"]}),
                 "line_count": len(group_rows),
                 "quantity": _number(sum((row["quantity"] for row in group_rows), Decimal("0"))),
@@ -246,6 +251,10 @@ def _group_invoice_rows(rows: list[dict]) -> list[dict]:
             }
         )
     return groups
+
+
+def _unique_values(rows: list[dict], key: str) -> list[str]:
+    return sorted({row.get(key) for row in rows if row.get(key)})
 
 
 def _build_warnings(invoice_groups, rtv_rows, cancelled_rows, adjustment_rows, missing_invoice_rows):

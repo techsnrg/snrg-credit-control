@@ -235,7 +235,9 @@ class SnrgMarketplaceInvoiceImporter {
             <th>Invoice</th>
             <th>Customer</th>
             <th>Date</th>
+            <th>Buyer</th>
             <th>Orders</th>
+            <th>Supplier Invoice</th>
             <th class="text-right">Lines</th>
             <th class="text-right">Qty</th>
             <th class="text-right">Taxable</th>
@@ -258,7 +260,12 @@ class SnrgMarketplaceInvoiceImporter {
         <td><div class="snrg-mii-key">${this.esc(group.invoice_number)}</div></td>
         <td><span class="snrg-mii-pill ${segment}">${this.esc(group.customer)}</span></td>
         <td>${this.esc(group.invoice_date || "")}</td>
+        <td>
+          <div>${this.esc(this.joinValues(group.buyer_names))}</div>
+          <div class="snrg-mii-muted">${this.esc(this.joinValues(group.buyer_cities))}${this.buyerLocationSuffix(group)}</div>
+        </td>
         <td>${this.esc((group.orders || []).join(", "))}</td>
+        <td>${this.esc(this.joinValues(group.supplier_invoices))}</td>
         <td class="text-right">${this.number(group.line_count)}</td>
         <td class="text-right">${this.number(group.quantity)}</td>
         <td class="text-right">${this.money(group.taxable_value)}</td>
@@ -282,9 +289,10 @@ class SnrgMarketplaceInvoiceImporter {
             <th>Source Row</th>
             <th>Invoice</th>
             <th>Order</th>
+            <th>Buyer</th>
             <th>Item</th>
             <th>Status</th>
-            <th>Customer State</th>
+            <th>Supplier Invoice</th>
             <th class="text-right">Qty</th>
             <th class="text-right">Gross</th>
             <th class="text-right">GST</th>
@@ -305,9 +313,13 @@ class SnrgMarketplaceInvoiceImporter {
         <td>${this.number(row.source_row)}</td>
         <td><div class="snrg-mii-key">${this.esc(row.invoice_number)}</div><div class="snrg-mii-muted">${this.esc(row.invoice_date || "")}</div></td>
         <td>${this.esc(row.order_number || "")}<div class="snrg-mii-muted">${this.esc(row.suborder_number || "")}</div></td>
+        <td>
+          <div>${this.esc(row.customer_name || "")}</div>
+          <div class="snrg-mii-muted">${this.esc([row.customer_city, row.customer_state, row.customer_pincode].filter(Boolean).join(", "))}</div>
+        </td>
         <td><div>${this.esc(row.product_name || "")}</div><div class="snrg-mii-muted">${this.esc(row.marketplace_sku || "")}</div></td>
         <td><span class="snrg-mii-pill ${statusClass}">${this.esc(status || "-")}</span></td>
-        <td>${this.esc(row.customer_state || "")}</td>
+        <td>${this.esc(row.supplier_invoice || "")}</td>
         <td class="text-right">${this.number(row.quantity)}</td>
         <td class="text-right">${this.money(row.invoice_value)}</td>
         <td class="text-right">${this.money(row.gst_value)}</td>
@@ -341,6 +353,19 @@ class SnrgMarketplaceInvoiceImporter {
     return numeric.toLocaleString("en-IN", {
       maximumFractionDigits: 4,
     });
+  }
+
+  joinValues(values) {
+    return (values || []).filter(Boolean).join(", ");
+  }
+
+  buyerLocationSuffix(group) {
+    const parts = [
+      this.joinValues(group.buyer_states),
+      this.joinValues(group.buyer_pincodes),
+    ].filter(Boolean);
+    if (!parts.length) return "";
+    return `, ${this.esc(parts.join(", "))}`;
   }
 
   esc(value) {
