@@ -7,6 +7,9 @@ from frappe import _
 from frappe.utils import cint, flt
 
 
+CUSTOMER_SALES_TEAM_UPDATE_ROLES = {"System Manager", "Sales Manager", "Sales User"}
+
+
 def _as_list(value):
     if not value:
         return []
@@ -21,7 +24,9 @@ def _require_customer_read():
 
 
 def _require_customer_write():
-    if not frappe.has_permission("Customer", "write"):
+    has_customer_write = frappe.has_permission("Customer", "write")
+    has_mapping_role = any(frappe.has_role(role) for role in CUSTOMER_SALES_TEAM_UPDATE_ROLES)
+    if not (has_customer_write or has_mapping_role):
         frappe.throw(_("Not permitted to update Customer sales teams."), frappe.PermissionError)
 
 
