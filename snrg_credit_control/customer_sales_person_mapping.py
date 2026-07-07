@@ -25,7 +25,8 @@ def _require_customer_read():
 
 def _require_customer_write():
     has_customer_write = frappe.has_permission("Customer", "write")
-    has_mapping_role = any(frappe.has_role(role) for role in CUSTOMER_SALES_TEAM_UPDATE_ROLES)
+    user_roles = set(frappe.get_roles())
+    has_mapping_role = bool(CUSTOMER_SALES_TEAM_UPDATE_ROLES.intersection(user_roles))
     if not (has_customer_write or has_mapping_role):
         frappe.throw(_("Not permitted to update Customer sales teams."), frappe.PermissionError)
 
