@@ -28,6 +28,7 @@ def after_install():
     _ensure_demand_notice_settings()
     _ensure_sales_tracking_sla_settings()
     _ensure_summer_bonanza_scheme()
+    _ensure_luxe_scheme()
     _remove_legacy_customer_credit_review_page()
     _ensure_credit_control_workspace()
     _ensure_stock_workspace()
@@ -51,6 +52,7 @@ def after_migrate():
     _ensure_demand_notice_settings()
     _ensure_sales_tracking_sla_settings()
     _ensure_summer_bonanza_scheme()
+    _ensure_luxe_scheme()
     _remove_legacy_customer_credit_review_page()
     _ensure_credit_control_workspace()
     _ensure_stock_workspace()
@@ -529,6 +531,18 @@ def _ensure_sales_invoice_fields():
             resolved["insert_after"] = dispatch_anchor
         _ensure_custom_field("Sales Invoice", resolved)
 
+    # CN Details is maintained through Customize Form rather than by this app,
+    # so only update it when the field is already present on the site.
+    cn_details_field = "Sales Invoice-custom_description"
+    if frappe.db.exists("Custom Field", cn_details_field):
+        frappe.db.set_value(
+            "Custom Field",
+            cn_details_field,
+            "read_only",
+            0,
+            update_modified=False,
+        )
+
 
 # ---------------------------------------------------------------------------
 # Report
@@ -683,6 +697,83 @@ def _ensure_summer_bonanza_scheme():
             ),
         }
     ).insert(ignore_permissions=True)
+
+
+def _ensure_luxe_scheme():
+    if not frappe.db.exists("DocType", "SNRG Scheme"):
+        return
+
+    scheme_name = "Luxe Scheme"
+
+    excluded_items = [
+        {"item_code": "40101-WH", "reason": "Excluded as per Luxe Scheme flyer terms"},
+        {"item_code": "40101-MG", "reason": "Excluded as per Luxe Scheme flyer terms"},
+    ]
+
+    slabs = [
+        {"slab_amount": 150000, "reward": 'Samsung 43" LED TV'},
+        {"slab_amount": 250000, "reward": 'iPhone 17e'},
+        {"slab_amount": 400000, "reward": 'Samsung 43" LED TV & iPhone 17e'},
+    ]
+
+    eligible_item_groups = []
+    if frappe.db.exists("Item Group", "All Item Groups"):
+        eligible_item_groups.append({"item_group": "All Item Groups"})
+
+    notes = (
+        "<p><strong>Luxe Scheme Terms &amp; Conditions:</strong></p>"
+        "<ol>"
+        "<li>Item codes <strong>40101-WH</strong> and <strong>40101-MG</strong> are excluded from the scheme.</li>"
+        "<li>Customers achieving 4L Pre GST sales target during the scheme period will be eligible for both 2.5L and 1.5L slabs (rewarded with Samsung 43\" LED TV &amp; iPhone 17e).</li>"
+        "<li>Credit Notes (CN) shall be issued as per these slabs:"
+        "<ul>"
+        "<li>43\" LED TV @ ₹30,000</li>"
+        "<li>iPhone 17e @ ₹60,000</li>"
+        "</ul>"
+        "</li>"
+        "<li>Payments must be completed within 60 days to qualify for the scheme.</li>"
+        "<li>The scheme is valid from 1st May, 2026 to 31st August, 2026.</li>"
+        "<li>Gifts/Free-of-cost items will be distributed post clearance of 100% payment after the scheme period.</li>"
+        "<li>Each collection amount entitles you to claim only one scheme, multiple claims for the same collection amount are not permitted.</li>"
+        "<li>TDS under section 194R shall be applicable accordingly.</li>"
+        "</ol>"
+    )
+
+    if frappe.db.exists("SNRG Scheme", scheme_name):
+        doc = frappe.get_doc("SNRG Scheme", scheme_name)
+        doc.scheme_type = "Period Cumulative Amount Slab"
+        doc.calculation_basis = "Excluded"
+        doc.valid_from = "2026-05-01"
+        doc.valid_upto = "2026-08-31"
+        doc.notes = notes
+
+        # Sync slabs
+        doc.set("slabs", slabs)
+
+        # Sync excluded items
+        doc.set("excluded_items", excluded_items)
+
+        # Sync eligible groups (only overwrite if not set manually)
+        if not doc.eligible_items and not doc.eligible_item_groups and eligible_item_groups:
+            doc.set("eligible_item_groups", eligible_item_groups)
+
+        doc.save(ignore_permissions=True)
+    else:
+        doc_data = {
+            "doctype": "SNRG Scheme",
+            "scheme_name": scheme_name,
+            "scheme_type": "Period Cumulative Amount Slab",
+            "calculation_basis": "Excluded",
+            "valid_from": "2026-05-01",
+            "valid_upto": "2026-08-31",
+            "slabs": slabs,
+            "excluded_items": excluded_items,
+            "notes": notes,
+        }
+        if eligible_item_groups:
+            doc_data["eligible_item_groups"] = eligible_item_groups
+
+        frappe.get_doc(doc_data).insert(ignore_permissions=True)
 
 
 # ---------------------------------------------------------------------------
