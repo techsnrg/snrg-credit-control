@@ -8,6 +8,7 @@ Idempotent: safe to run multiple times.
 import json
 
 import frappe
+from frappe.utils import flt
 
 
 # ---------------------------------------------------------------------------
