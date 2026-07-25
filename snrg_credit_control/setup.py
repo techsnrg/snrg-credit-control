@@ -29,6 +29,7 @@ def after_install():
     _ensure_sales_tracking_sla_settings()
     _ensure_summer_bonanza_scheme()
     _ensure_luxe_scheme()
+    _ensure_monsoon_bonanza_scheme()
     _remove_legacy_customer_credit_review_page()
     _ensure_credit_control_workspace()
     _ensure_stock_workspace()
@@ -53,6 +54,7 @@ def after_migrate():
     _ensure_sales_tracking_sla_settings()
     _ensure_summer_bonanza_scheme()
     _ensure_luxe_scheme()
+    _ensure_monsoon_bonanza_scheme()
     _remove_legacy_customer_credit_review_page()
     _ensure_credit_control_workspace()
     _ensure_stock_workspace()
@@ -768,6 +770,74 @@ def _ensure_luxe_scheme():
             "valid_upto": "2026-08-31",
             "slabs": slabs,
             "excluded_items": excluded_items,
+            "notes": notes,
+        }
+        if eligible_item_groups:
+            doc_data["eligible_item_groups"] = eligible_item_groups
+
+        frappe.get_doc(doc_data).insert(ignore_permissions=True)
+
+
+def _ensure_monsoon_bonanza_scheme():
+    if not frappe.db.exists("DocType", "SNRG Scheme"):
+        return
+
+    scheme_name = "Monsoon Bonanza Plates Scheme"
+
+    slabs = [
+        {"slab_amount": 50000, "reward": "Water Dispenser with Fridge"},
+        {"slab_amount": 100000, "reward": "8 Kg Fully Automatic Top Load Washing Machine"},
+        {"slab_amount": 200000, "reward": "HP Laptop (i3, 16GB RAM)"},
+        {"slab_amount": 300000, "reward": "Hero Vida VX2 EV Scooty"},
+    ]
+
+    eligible_item_groups = []
+    for group_name in ("G-Star", "G-Max", "G-Icon", "G-Curvy", "G-Woody"):
+        if frappe.db.exists("Item Group", group_name):
+            eligible_item_groups.append({"item_group": group_name})
+
+    if not eligible_item_groups and frappe.db.exists("Item Group", "All Item Groups"):
+        eligible_item_groups.append({"item_group": "All Item Groups"})
+
+    notes = (
+        "<p><strong>Monsoon Bonanza Plates Scheme Terms &amp; Conditions:</strong></p>"
+        "<ul>"
+        "<li>This scheme is available on <strong>G-Star, G-Max, G-Icon, G-Curvy &amp; G-Woody plates</strong>. All colors included.</li>"
+        "<li>Multiple slab qualifications allowed for increased value. For example, customer achieving 4L Slab shall qualify for 1 Scooty slab and 1 Washing Machine Slab.</li>"
+        "<li>No Credit Note (CN) will be issued under this scheme.</li>"
+        "<li>Payments must be completed within 60 days to qualify for the scheme.</li>"
+        "<li>The scheme is valid from 1st July, 2026 to 31st August, 2026.</li>"
+        "<li>Gifts/Free-of-cost items will be distributed post clearance of 100% payment after the scheme period.</li>"
+        "<li>Each collection amount entitles you to claim only one scheme, multiple claims for the same collection amount are not permitted.</li>"
+        "<li>TDS under section 194R shall be applicable accordingly.</li>"
+        "</ul>"
+    )
+
+    if frappe.db.exists("SNRG Scheme", scheme_name):
+        doc = frappe.get_doc("SNRG Scheme", scheme_name)
+        doc.scheme_type = "Period Cumulative Amount Slab"
+        doc.calculation_basis = "Excluded"
+        doc.valid_from = "2026-07-01"
+        doc.valid_upto = "2026-08-31"
+        doc.notes = notes
+
+        # Sync slabs
+        doc.set("slabs", slabs)
+
+        # Sync eligible groups (only overwrite if not set manually)
+        if not doc.eligible_items and not doc.eligible_item_groups and eligible_item_groups:
+            doc.set("eligible_item_groups", eligible_item_groups)
+
+        doc.save(ignore_permissions=True)
+    else:
+        doc_data = {
+            "doctype": "SNRG Scheme",
+            "scheme_name": scheme_name,
+            "scheme_type": "Period Cumulative Amount Slab",
+            "calculation_basis": "Excluded",
+            "valid_from": "2026-07-01",
+            "valid_upto": "2026-08-31",
+            "slabs": slabs,
             "notes": notes,
         }
         if eligible_item_groups:
