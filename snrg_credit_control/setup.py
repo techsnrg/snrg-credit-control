@@ -30,6 +30,7 @@ def after_install():
     _ensure_summer_bonanza_scheme()
     _ensure_luxe_scheme()
     _ensure_monsoon_bonanza_scheme()
+    _ensure_bangkok_bonanza_scheme()
     _remove_legacy_customer_credit_review_page()
     _ensure_credit_control_workspace()
     _ensure_stock_workspace()
@@ -55,6 +56,7 @@ def after_migrate():
     _ensure_summer_bonanza_scheme()
     _ensure_luxe_scheme()
     _ensure_monsoon_bonanza_scheme()
+    _ensure_bangkok_bonanza_scheme()
     _remove_legacy_customer_credit_review_page()
     _ensure_credit_control_workspace()
     _ensure_stock_workspace()
@@ -842,6 +844,178 @@ def _ensure_monsoon_bonanza_scheme():
         }
         if eligible_item_groups:
             doc_data["eligible_item_groups"] = eligible_item_groups
+
+        frappe.get_doc(doc_data).insert(ignore_permissions=True)
+
+
+def _ensure_bangkok_bonanza_scheme():
+    if not frappe.db.exists("DocType", "SNRG Scheme"):
+        return
+
+    scheme_name = "5 Month Bangkok Bonanza"
+
+    # Specific item exclusions
+    excluded_items = [
+        {"item_code": code, "reason": "Excluded as per Bangkok Bonanza Scheme flyer terms"}
+        for code in (
+            "10105-WH", "10126-WH", "10132-WH", "10138-WH",
+            "2101-WH", "2101-BR", "2104-WH", "2104-BR",
+            "2112-WH", "2112-BR"
+        )
+    ]
+
+    # Category slab configuration list
+    category_slabs = []
+
+    # helper to construct the 3 rows per slab
+    def add_slab_rows(slab_id, total, cube, switch, non_mod, reward):
+        category_slabs.append({
+            "slab_id": slab_id,
+            "category": "Cube",
+            "category_target": flt(cube),
+            "total_target": flt(total),
+            "minimum_categories_required": 2,
+            "reward": reward,
+        })
+        category_slabs.append({
+            "slab_id": slab_id,
+            "category": "Switchgear",
+            "category_target": flt(switch),
+            "total_target": flt(total),
+            "minimum_categories_required": 2,
+            "reward": reward,
+        })
+        category_slabs.append({
+            "slab_id": slab_id,
+            "category": "Non Modular and Essentials",
+            "category_target": flt(non_mod),
+            "total_target": flt(total),
+            "minimum_categories_required": 2,
+            "reward": reward,
+        })
+
+    add_slab_rows("Slab 1", 150000, 60000, 30000, 60000, "Silver Voucher Worth ₹3,000")
+    add_slab_rows("Slab 2", 250000, 100000, 50000, 100000, "Silver Voucher Worth ₹7,500")
+    add_slab_rows("Slab 3", 400000, 160000, 80000, 160000, "Smartphone Worth ₹16000")
+    add_slab_rows("Slab 4", 600000, 240000, 120000, 240000, "1 Trip to Bangkok (Ex- Delhi)")
+    add_slab_rows("Slab 5", 800000, 320000, 160000, 320000, "1 Trip to Bangkok (Ex- Delhi) & Gold Voucher Worth ₹24,000")
+    add_slab_rows("Slab 6", 1000000, 400000, 200000, 400000, "2 Pax Trip to Bangkok (Ex- Delhi)")
+
+    # Category Rules
+    category_rules = []
+
+    # Cube Group Resolver
+    cube_group = "Cube"
+    for candidate in ("GC Cube", "Cube", "Gold Coast Cube"):
+        if frappe.db.exists("Item Group", candidate):
+            cube_group = candidate
+            break
+    category_rules.append({
+        "category": "Cube",
+        "apply_on": "Item Group",
+        "item_group": cube_group,
+        "exclude": 0,
+    })
+
+    # Switchgear Group Resolver
+    switchgear_group = "Switchgear"
+    for candidate in ("Switchgear", "Gold Coast Switchgear", "GC Switchgear"):
+        if frappe.db.exists("Item Group", candidate):
+            switchgear_group = candidate
+            break
+    category_rules.append({
+        "category": "Switchgear",
+        "apply_on": "Item Group",
+        "item_group": switchgear_group,
+        "exclude": 0,
+    })
+
+    # Non Modular and Essentials
+    essentials_added = False
+    for candidate in ("Non-Modular Switches", "Non Modular Switches", "Non Modular"):
+        if frappe.db.exists("Item Group", candidate):
+            category_rules.append({
+                "category": "Non Modular and Essentials",
+                "apply_on": "Item Group",
+                "item_group": candidate,
+                "exclude": 0,
+            })
+            essentials_added = True
+
+    for candidate in ("Essential Range of Products", "Essentials", "Essential Range"):
+        if frappe.db.exists("Item Group", candidate):
+            category_rules.append({
+                "category": "Non Modular and Essentials",
+                "apply_on": "Item Group",
+                "item_group": candidate,
+                "exclude": 0,
+            })
+            essentials_added = True
+
+    if not essentials_added:
+        category_rules.append({
+            "category": "Non Modular and Essentials",
+            "apply_on": "Item Group",
+            "item_group": "Non Modular and Essentials",
+            "exclude": 0,
+        })
+
+    # Exclusions for PVC tapes, Wires & Cables, Conduit Pipes
+    for category in ("Cube", "Switchgear", "Non Modular and Essentials"):
+        for group in ("PVC tapes", "Wires & Cables", "Conduit Pipes"):
+            if frappe.db.exists("Item Group", group):
+                category_rules.append({
+                    "category": category,
+                    "apply_on": "Item Group",
+                    "item_group": group,
+                    "exclude": 1,
+                })
+
+    notes = (
+        "<p><strong>5 Month Bangkok Bonanza Terms &amp; Conditions:</strong></p>"
+        "<ol>"
+        "<li><strong>Period:</strong> April 1, 2026 to August 31, 2026.</li>"
+        "<li><strong>Minimum 2 category achievement</strong> is mandatory for qualification.</li>"
+        "<li>Multiple slab qualification is allowed, benefits will be cumulative. (Eg. Distributors achieving ₹14L qualify for both 2 Tickets Bangkok and Smartphones slabs).</li>"
+        "<li>The Scheme is applicable on all Gold Coast items excluding 10105-WH, 10126-WH, 10132-WH, 10138-WH, 2101-WH, 2101-BR, 2104-WH, 2104-BR, 2112-WH, 2112-BR, PVC tapes, Wires &amp; Cables and Conduit Pipes.</li>"
+        "<li>This scheme is applicable on GC Cube, Switchgear, Non-Modular Switches and Essential Range of Products.</li>"
+        "<li>Rewards (Silver/Gold/Bangkok Tickets) are non-exchangeable.</li>"
+        "<li>All tickets issued are economy class and subject to availability ex Delhi.</li>"
+        "<li>In case of visa rejections or non-availability of passports, the company may issue Credit Note valued 1 Bangkok Ticket at INR 40,000/-.</li>"
+        "<li>Payments must be completed within 60 days to qualify for the scheme.</li>"
+        "<li>Gifts/Free-of-cost items will be distributed post clearance of 100% payment after the scheme period.</li>"
+        "<li>Each collection amount entitles you to claim only one scheme, multiple claims for the same collection amount are not permitted.</li>"
+        "<li>TDS under section 194R shall be applicable accordingly.</li>"
+        "</ol>"
+    )
+
+    if frappe.db.exists("SNRG Scheme", scheme_name):
+        doc = frappe.get_doc("SNRG Scheme", scheme_name)
+        doc.scheme_type = "Period Cumulative Category Target Slab"
+        doc.calculation_basis = "Excluded"
+        doc.valid_from = "2026-04-01"
+        doc.valid_upto = "2026-08-31"
+        doc.notes = notes
+
+        # Sync tables
+        doc.set("category_slabs", category_slabs)
+        doc.set("category_rules", category_rules)
+        doc.set("excluded_items", excluded_items)
+
+        doc.save(ignore_permissions=True)
+    else:
+        doc_data = {
+            "doctype": "SNRG Scheme",
+            "scheme_name": scheme_name,
+            "scheme_type": "Period Cumulative Category Target Slab",
+            "calculation_basis": "Excluded",
+            "valid_from": "2026-04-01",
+            "valid_upto": "2026-08-31",
+            "category_slabs": category_slabs,
+            "category_rules": category_rules,
+            "excluded_items": excluded_items,
+            "notes": notes,
+        }
 
         frappe.get_doc(doc_data).insert(ignore_permissions=True)
 
