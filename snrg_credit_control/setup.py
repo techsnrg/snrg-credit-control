@@ -16,55 +16,63 @@ from frappe.utils import flt
 # ---------------------------------------------------------------------------
 
 def after_install():
-    _ensure_module()
-    _ensure_role()
-    _ensure_customer_fields()
-    _ensure_customer_credit_limit_fields()
-    _ensure_item_fields()
-    _ensure_so_fields()
-    _ensure_quotation_fields()
-    _ensure_sales_invoice_fields()
-    _ensure_report()
-    _ensure_employee_signatory_fields()
-    _ensure_demand_notice_settings()
-    _ensure_sales_tracking_sla_settings()
-    _ensure_summer_bonanza_scheme()
-    _ensure_luxe_scheme()
-    _ensure_monsoon_bonanza_scheme()
-    _ensure_bangkok_bonanza_scheme()
-    _remove_legacy_customer_credit_review_page()
-    _ensure_credit_control_workspace()
-    _ensure_stock_workspace()
-    _ensure_scheme_management_workspace()
-    _ensure_demand_notice_default_print_format()
-    _ensure_monthly_sales_plan_default_print_format()
-    frappe.db.commit()
+    try:
+        _ensure_module()
+        _ensure_role()
+        _ensure_customer_fields()
+        _ensure_customer_credit_limit_fields()
+        _ensure_item_fields()
+        _ensure_so_fields()
+        _ensure_quotation_fields()
+        _ensure_sales_invoice_fields()
+        _ensure_report()
+        _ensure_employee_signatory_fields()
+        _ensure_demand_notice_settings()
+        _ensure_sales_tracking_sla_settings()
+        _ensure_summer_bonanza_scheme()
+        _ensure_luxe_scheme()
+        _ensure_monsoon_bonanza_scheme()
+        _ensure_bangkok_bonanza_scheme()
+        _remove_legacy_customer_credit_review_page()
+        _ensure_credit_control_workspace()
+        _ensure_stock_workspace()
+        _ensure_scheme_management_workspace()
+        _ensure_demand_notice_default_print_format()
+        _ensure_monthly_sales_plan_default_print_format()
+        frappe.db.commit()
+    except Exception:
+        frappe.log_error(title="Credit Control after_install Failed", message=frappe.get_traceback())
+        raise
 
 
 def after_migrate():
-    _ensure_module()
-    _ensure_role()
-    _ensure_customer_fields()
-    _ensure_customer_credit_limit_fields()
-    _ensure_item_fields()
-    _ensure_so_fields()
-    _ensure_quotation_fields()
-    _ensure_sales_invoice_fields()
-    _ensure_report()
-    _ensure_employee_signatory_fields()
-    _ensure_demand_notice_settings()
-    _ensure_sales_tracking_sla_settings()
-    _ensure_summer_bonanza_scheme()
-    _ensure_luxe_scheme()
-    _ensure_monsoon_bonanza_scheme()
-    _ensure_bangkok_bonanza_scheme()
-    _remove_legacy_customer_credit_review_page()
-    _ensure_credit_control_workspace()
-    _ensure_stock_workspace()
-    _ensure_scheme_management_workspace()
-    _ensure_demand_notice_default_print_format()
-    _ensure_monthly_sales_plan_default_print_format()
-    frappe.db.commit()
+    try:
+        _ensure_module()
+        _ensure_role()
+        _ensure_customer_fields()
+        _ensure_customer_credit_limit_fields()
+        _ensure_item_fields()
+        _ensure_so_fields()
+        _ensure_quotation_fields()
+        _ensure_sales_invoice_fields()
+        _ensure_report()
+        _ensure_employee_signatory_fields()
+        _ensure_demand_notice_settings()
+        _ensure_sales_tracking_sla_settings()
+        _ensure_summer_bonanza_scheme()
+        _ensure_luxe_scheme()
+        _ensure_monsoon_bonanza_scheme()
+        _ensure_bangkok_bonanza_scheme()
+        _remove_legacy_customer_credit_review_page()
+        _ensure_credit_control_workspace()
+        _ensure_stock_workspace()
+        _ensure_scheme_management_workspace()
+        _ensure_demand_notice_default_print_format()
+        _ensure_monthly_sales_plan_default_print_format()
+        frappe.db.commit()
+    except Exception:
+        frappe.log_error(title="Credit Control after_migrate Failed", message=frappe.get_traceback())
+        raise
 
 
 # ---------------------------------------------------------------------------
@@ -710,10 +718,10 @@ def _ensure_luxe_scheme():
 
     scheme_name = "Luxe Scheme"
 
-    excluded_items = [
-        {"item_code": "40101-WH", "reason": "Excluded as per Luxe Scheme flyer terms"},
-        {"item_code": "40101-MG", "reason": "Excluded as per Luxe Scheme flyer terms"},
-    ]
+    excluded_items = []
+    for code in ("40101-WH", "40101-MG"):
+        if frappe.db.exists("Item", code):
+            excluded_items.append({"item_code": code, "reason": "Excluded as per Luxe Scheme flyer terms"})
 
     slabs = [
         {"slab_amount": 150000, "reward": 'Samsung 43" LED TV'},
@@ -849,21 +857,37 @@ def _ensure_monsoon_bonanza_scheme():
         frappe.get_doc(doc_data).insert(ignore_permissions=True)
 
 
+def _ensure_item_group(group_name):
+    if not frappe.db.exists("Item Group", group_name):
+        parent = "All Item Groups" if frappe.db.exists("Item Group", "All Item Groups") else None
+        frappe.get_doc({
+            "doctype": "Item Group",
+            "item_group_name": group_name,
+            "parent_item_group": parent,
+            "is_group": 0
+        }).insert(ignore_permissions=True)
+
+
 def _ensure_bangkok_bonanza_scheme():
     if not frappe.db.exists("DocType", "SNRG Scheme"):
         return
 
     scheme_name = "5 Month Bangkok Bonanza"
 
-    # Specific item exclusions
-    excluded_items = [
-        {"item_code": code, "reason": "Excluded as per Bangkok Bonanza Scheme flyer terms"}
-        for code in (
-            "10105-WH", "10126-WH", "10132-WH", "10138-WH",
-            "2101-WH", "2101-BR", "2104-WH", "2104-BR",
-            "2112-WH", "2112-BR"
-        )
-    ]
+    # Specific item exclusions (only add items that actually exist to pass link validation)
+    excluded_items = []
+    for code in (
+        "10105-WH", "10126-WH", "10132-WH", "10138-WH",
+        "2101-WH", "2101-BR", "2104-WH", "2104-BR",
+        "2112-WH", "2112-BR"
+    ):
+        if frappe.db.exists("Item", code):
+            excluded_items.append({"item_code": code, "reason": "Excluded as per Bangkok Bonanza Scheme flyer terms"})
+
+    # Ensure required category target item groups exist
+    _ensure_item_group("Cube")
+    _ensure_item_group("Switchgear")
+    _ensure_item_group("Non Modular and Essentials")
 
     # Category slab configuration list
     category_slabs = []
