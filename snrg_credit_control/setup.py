@@ -793,7 +793,7 @@ def _ensure_monsoon_bonanza_scheme():
     if not frappe.db.exists("DocType", "SNRG Scheme"):
         return
 
-    scheme_name = "Monsoon Bonanza Plates Scheme"
+    scheme_name = "Monsoon Bonanza Scheme"
 
     slabs = [
         {"slab_amount": 50000, "reward": "Water Dispenser with Fridge"},
@@ -811,7 +811,7 @@ def _ensure_monsoon_bonanza_scheme():
         eligible_item_groups.append({"item_group": "All Item Groups"})
 
     notes = (
-        "<p><strong>Monsoon Bonanza Plates Scheme Terms &amp; Conditions:</strong></p>"
+        "<p><strong>Monsoon Bonanza Scheme Terms &amp; Conditions:</strong></p>"
         "<ul>"
         "<li>This scheme is available on <strong>G-Star, G-Max, G-Icon, G-Curvy &amp; G-Woody plates</strong>. All colors included.</li>"
         "<li>Multiple slab qualifications allowed for increased value. For example, customer achieving 4L Slab shall qualify for 1 Scooty slab and 1 Washing Machine Slab.</li>"
@@ -872,7 +872,7 @@ def _ensure_bangkok_bonanza_scheme():
     if not frappe.db.exists("DocType", "SNRG Scheme"):
         return
 
-    scheme_name = "5 Month Bangkok Bonanza"
+    scheme_name = "Bangkok Bonanza Scheme"
 
     # Specific item exclusions (only add items that actually exist to pass link validation)
     excluded_items = []
