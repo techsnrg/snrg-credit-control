@@ -718,6 +718,10 @@ def _ensure_luxe_scheme():
 
     scheme_name = "Luxe Scheme"
 
+    # Delete if exists to recreate freshly
+    if frappe.db.exists("SNRG Scheme", scheme_name):
+        frappe.delete_doc("SNRG Scheme", scheme_name, ignore_permissions=True, force=True)
+
     excluded_items = []
     for code in ("40101-WH", "40101-MG"):
         if frappe.db.exists("Item", code):
@@ -752,48 +756,36 @@ def _ensure_luxe_scheme():
         "</ol>"
     )
 
-    if frappe.db.exists("SNRG Scheme", scheme_name):
-        doc = frappe.get_doc("SNRG Scheme", scheme_name)
-        doc.scheme_type = "Period Cumulative Amount Slab"
-        doc.calculation_basis = "Excluded"
-        doc.valid_from = "2026-05-01"
-        doc.valid_upto = "2026-08-31"
-        doc.notes = notes
+    doc_data = {
+        "doctype": "SNRG Scheme",
+        "scheme_name": scheme_name,
+        "scheme_type": "Period Cumulative Amount Slab",
+        "calculation_basis": "Excluded",
+        "valid_from": "2026-05-01",
+        "valid_upto": "2026-08-31",
+        "slabs": slabs,
+        "excluded_items": excluded_items,
+        "notes": notes,
+    }
+    if eligible_item_groups:
+        doc_data["eligible_item_groups"] = eligible_item_groups
 
-        # Sync slabs
-        doc.set("slabs", slabs)
-
-        # Sync excluded items
-        doc.set("excluded_items", excluded_items)
-
-        # Sync eligible groups (only overwrite if not set manually)
-        if not doc.eligible_items and not doc.eligible_item_groups and eligible_item_groups:
-            doc.set("eligible_item_groups", eligible_item_groups)
-
-        doc.save(ignore_permissions=True)
-    else:
-        doc_data = {
-            "doctype": "SNRG Scheme",
-            "scheme_name": scheme_name,
-            "scheme_type": "Period Cumulative Amount Slab",
-            "calculation_basis": "Excluded",
-            "valid_from": "2026-05-01",
-            "valid_upto": "2026-08-31",
-            "slabs": slabs,
-            "excluded_items": excluded_items,
-            "notes": notes,
-        }
-        if eligible_item_groups:
-            doc_data["eligible_item_groups"] = eligible_item_groups
-
-        frappe.get_doc(doc_data).insert(ignore_permissions=True)
+    frappe.get_doc(doc_data).insert(ignore_permissions=True)
 
 
 def _ensure_monsoon_bonanza_scheme():
     if not frappe.db.exists("DocType", "SNRG Scheme"):
         return
 
+    # Clean up old named scheme if exists
+    if frappe.db.exists("SNRG Scheme", "Monsoon Bonanza Plates Scheme"):
+        frappe.delete_doc("SNRG Scheme", "Monsoon Bonanza Plates Scheme", ignore_permissions=True, force=True)
+
     scheme_name = "Monsoon Bonanza Scheme"
+
+    # Delete if exists to recreate freshly
+    if frappe.db.exists("SNRG Scheme", scheme_name):
+        frappe.delete_doc("SNRG Scheme", scheme_name, ignore_permissions=True, force=True)
 
     slabs = [
         {"slab_amount": 50000, "reward": "Water Dispenser with Fridge"},
@@ -824,37 +816,20 @@ def _ensure_monsoon_bonanza_scheme():
         "</ul>"
     )
 
-    if frappe.db.exists("SNRG Scheme", scheme_name):
-        doc = frappe.get_doc("SNRG Scheme", scheme_name)
-        doc.scheme_type = "Period Cumulative Amount Slab"
-        doc.calculation_basis = "Excluded"
-        doc.valid_from = "2026-07-01"
-        doc.valid_upto = "2026-08-31"
-        doc.notes = notes
+    doc_data = {
+        "doctype": "SNRG Scheme",
+        "scheme_name": scheme_name,
+        "scheme_type": "Period Cumulative Amount Slab",
+        "calculation_basis": "Excluded",
+        "valid_from": "2026-07-01",
+        "valid_upto": "2026-08-31",
+        "slabs": slabs,
+        "notes": notes,
+    }
+    if eligible_item_groups:
+        doc_data["eligible_item_groups"] = eligible_item_groups
 
-        # Sync slabs
-        doc.set("slabs", slabs)
-
-        # Sync eligible groups (only overwrite if not set manually)
-        if not doc.eligible_items and not doc.eligible_item_groups and eligible_item_groups:
-            doc.set("eligible_item_groups", eligible_item_groups)
-
-        doc.save(ignore_permissions=True)
-    else:
-        doc_data = {
-            "doctype": "SNRG Scheme",
-            "scheme_name": scheme_name,
-            "scheme_type": "Period Cumulative Amount Slab",
-            "calculation_basis": "Excluded",
-            "valid_from": "2026-07-01",
-            "valid_upto": "2026-08-31",
-            "slabs": slabs,
-            "notes": notes,
-        }
-        if eligible_item_groups:
-            doc_data["eligible_item_groups"] = eligible_item_groups
-
-        frappe.get_doc(doc_data).insert(ignore_permissions=True)
+    frappe.get_doc(doc_data).insert(ignore_permissions=True)
 
 
 def _ensure_item_group(group_name):
@@ -872,7 +847,15 @@ def _ensure_bangkok_bonanza_scheme():
     if not frappe.db.exists("DocType", "SNRG Scheme"):
         return
 
+    # Clean up old named scheme if exists
+    if frappe.db.exists("SNRG Scheme", "5 Month Bangkok Bonanza"):
+        frappe.delete_doc("SNRG Scheme", "5 Month Bangkok Bonanza", ignore_permissions=True, force=True)
+
     scheme_name = "Bangkok Bonanza Scheme"
+
+    # Delete if exists to recreate freshly
+    if frappe.db.exists("SNRG Scheme", scheme_name):
+        frappe.delete_doc("SNRG Scheme", scheme_name, ignore_permissions=True, force=True)
 
     # Specific item exclusions (only add items that actually exist to pass link validation)
     excluded_items = []
@@ -1014,35 +997,20 @@ def _ensure_bangkok_bonanza_scheme():
         "</ol>"
     )
 
-    if frappe.db.exists("SNRG Scheme", scheme_name):
-        doc = frappe.get_doc("SNRG Scheme", scheme_name)
-        doc.scheme_type = "Period Cumulative Category Target Slab"
-        doc.calculation_basis = "Excluded"
-        doc.valid_from = "2026-04-01"
-        doc.valid_upto = "2026-08-31"
-        doc.notes = notes
+    doc_data = {
+        "doctype": "SNRG Scheme",
+        "scheme_name": scheme_name,
+        "scheme_type": "Period Cumulative Category Target Slab",
+        "calculation_basis": "Excluded",
+        "valid_from": "2026-04-01",
+        "valid_upto": "2026-08-31",
+        "category_slabs": category_slabs,
+        "category_rules": category_rules,
+        "excluded_items": excluded_items,
+        "notes": notes,
+    }
 
-        # Sync tables
-        doc.set("category_slabs", category_slabs)
-        doc.set("category_rules", category_rules)
-        doc.set("excluded_items", excluded_items)
-
-        doc.save(ignore_permissions=True)
-    else:
-        doc_data = {
-            "doctype": "SNRG Scheme",
-            "scheme_name": scheme_name,
-            "scheme_type": "Period Cumulative Category Target Slab",
-            "calculation_basis": "Excluded",
-            "valid_from": "2026-04-01",
-            "valid_upto": "2026-08-31",
-            "category_slabs": category_slabs,
-            "category_rules": category_rules,
-            "excluded_items": excluded_items,
-            "notes": notes,
-        }
-
-        frappe.get_doc(doc_data).insert(ignore_permissions=True)
+    frappe.get_doc(doc_data).insert(ignore_permissions=True)
 
 
 # ---------------------------------------------------------------------------
