@@ -52,7 +52,7 @@ class MonthlySalesPlan(Document):
             customer = frappe.db.get_value(
                 "Customer",
                 row.customer,
-                ["customer_name", "customer_group", "territory"],
+                ["customer_name", "customer_group", "territory", "custom_city"],
                 as_dict=True,
             )
             if not customer:
@@ -61,6 +61,9 @@ class MonthlySalesPlan(Document):
             row.customer_name = customer.customer_name or row.customer_name or row.customer
             row.customer_group = customer.customer_group
             row.territory = customer.territory
+            row.customer_city = customer.custom_city
+            if not row.responsible_sales_person:
+                row.responsible_sales_person = self.sales_person
 
     def _set_achievement_amounts(self):
         sales_people = get_plan_sales_people(self.sales_person, self.team_members)
@@ -72,6 +75,8 @@ class MonthlySalesPlan(Document):
             [row.customer for row in self.customers if row.customer],
         )
         for row in self.customers:
+            if not row.responsible_sales_person:
+                row.responsible_sales_person = self.sales_person
             row_metrics = metrics.get(row.customer, {}) if row.customer else {}
             row.last_month_sales = flt(row_metrics.get("last_month_sales"), 2)
             row.current_credit_limit = flt(row_metrics.get("current_credit_limit"), 2)
@@ -130,13 +135,15 @@ def fetch_customers(company, plan_month, sales_person, team_members=None):
         frappe.throw(_("Please select a Sales Person."))
 
     sales_people = get_plan_sales_people(sales_person, team_members)
-    rows = frappe.db.sql(
+    customer_rows = frappe.db.sql(
         """
-        SELECT DISTINCT
+        SELECT
             c.name AS customer,
             c.customer_name,
             c.customer_group,
-            c.territory
+            c.territory,
+            c.custom_city AS customer_city,
+            st.sales_person AS responsible_sales_person
         FROM `tabCustomer` c
         INNER JOIN `tabSales Team` st
             ON st.parent = c.name
@@ -145,11 +152,19 @@ def fetch_customers(company, plan_month, sales_person, team_members=None):
         WHERE IFNULL(c.disabled, 0) = 0
           AND st.sales_person IN %(sales_people)s
           AND LOWER(IFNULL(c.customer_group, '')) NOT IN ('vendor', 'vendors')
-        ORDER BY c.customer_name ASC, c.name ASC
+        ORDER BY c.customer_name ASC, c.name ASC, st.idx ASC
         """,
         {"sales_people": tuple(sales_people)},
         as_dict=True,
     )
+    rows = []
+    seen_customers = set()
+    for row in customer_rows:
+        if row.customer in seen_customers:
+            continue
+        seen_customers.add(row.customer)
+        rows.append(row)
+
     metrics = get_customer_metrics(company, plan_month, sales_people, [row.customer for row in rows])
     for row in rows:
         row.update(metrics.get(row.customer, {}))
@@ -207,6 +222,8 @@ def make_revision(source_name):
             {
                 "customer": row.customer,
                 "customer_name": row.customer_name,
+                "responsible_sales_person": row.responsible_sales_person,
+                "customer_city": row.customer_city,
                 "customer_group": row.customer_group,
                 "territory": row.territory,
                 "last_month_sales": row.last_month_sales,

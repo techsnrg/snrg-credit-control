@@ -18,6 +18,13 @@
     {% set risk.overdue = risk.overdue + 1 %}
   {% endif %}
 {% endfor %}
+{% set responsible_people = namespace(names=[]) %}
+{% for row in doc.customers %}
+  {% set person = row.responsible_sales_person or doc.sales_person or "Unassigned" %}
+  {% if person not in responsible_people.names %}
+    {% set responsible_people.names = responsible_people.names + [person] %}
+  {% endif %}
+{% endfor %}
 
 <title>{{ print_title }}</title>
 
@@ -290,13 +297,15 @@
     <thead>
       <tr>
         <th style="width: 4%;">No.</th>
-        <th style="width: 26%;">Customer / Lead</th>
-        <th style="width: 13%;">Last Month</th>
-        <th style="width: 13%;">Credit Available</th>
-        <th style="width: 13%;">Planned</th>
-        <th style="width: 13%;">Min. Payment</th>
-        <th style="width: 12%;">75+ Risk</th>
-        <th style="width: 6%;">Achv.</th>
+        <th style="width: 20%;">Customer / Lead</th>
+        <th style="width: 14%;">Responsible</th>
+        <th style="width: 8%;">City</th>
+        <th style="width: 10%;">Last Month</th>
+        <th style="width: 11%;">Credit Available</th>
+        <th style="width: 11%;">Planned</th>
+        <th style="width: 10%;">Min. Payment</th>
+        <th style="width: 8%;">75+ Risk</th>
+        <th style="width: 4%;">Achv.</th>
       </tr>
     </thead>
     <tbody>
@@ -310,6 +319,8 @@
           <div class="msp-small"><strong>Note:</strong> {{ row.remarks }}</div>
           {% endif %}
         </td>
+        <td>{{ frappe.db.get_value("Sales Person", row.responsible_sales_person, "sales_person_name") or row.responsible_sales_person or doc.sales_person or "-" }}</td>
+        <td>{{ row.customer_city or "-" }}</td>
         <td class="msp-num">{{ frappe.utils.fmt_money(row.last_month_sales, currency=currency) }}</td>
         <td class="msp-num">{{ frappe.utils.fmt_money(row.credit_limit_available, currency=currency) }}</td>
         <td class="msp-num"><strong>{{ frappe.utils.fmt_money(row.planned_amount, currency=currency) }}</strong></td>
@@ -324,9 +335,54 @@
       {% endfor %}
       {% if not doc.customers %}
       <tr>
-        <td colspan="8" class="msp-muted">No customer rows added.</td>
+        <td colspan="10" class="msp-muted">No customer rows added.</td>
       </tr>
       {% endif %}
+    </tbody>
+  </table>
+
+  <div class="msp-section-title">Responsible Person Summary</div>
+  <table class="msp-table">
+    <thead>
+      <tr>
+        <th style="width: 34%;">Responsible Sales Person</th>
+        <th style="width: 10%;">Rows</th>
+        <th style="width: 18%;">Planned</th>
+        <th style="width: 18%;">Achieved</th>
+        <th style="width: 20%;">Min. Payment</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% set grand = namespace(rows=0, planned=0, achieved=0, payment=0) %}
+      {% for person in responsible_people.names %}
+        {% set summary = namespace(rows=0, planned=0, achieved=0, payment=0) %}
+        {% for row in doc.customers %}
+          {% if (row.responsible_sales_person or doc.sales_person or "Unassigned") == person %}
+            {% set summary.rows = summary.rows + 1 %}
+            {% set summary.planned = summary.planned + (row.planned_amount or 0) %}
+            {% set summary.achieved = summary.achieved + (row.achieved_amount or 0) %}
+            {% set summary.payment = summary.payment + (row.minimum_payment_required or 0) %}
+          {% endif %}
+        {% endfor %}
+        {% set grand.rows = grand.rows + summary.rows %}
+        {% set grand.planned = grand.planned + summary.planned %}
+        {% set grand.achieved = grand.achieved + summary.achieved %}
+        {% set grand.payment = grand.payment + summary.payment %}
+        <tr>
+          <td>{{ frappe.db.get_value("Sales Person", person, "sales_person_name") or person }}</td>
+          <td class="msp-num">{{ summary.rows }}</td>
+          <td class="msp-num">{{ frappe.utils.fmt_money(summary.planned, currency=currency) }}</td>
+          <td class="msp-num">{{ frappe.utils.fmt_money(summary.achieved, currency=currency) }}</td>
+          <td class="msp-num {% if summary.payment > 0 %}msp-risk{% endif %}">{{ frappe.utils.fmt_money(summary.payment, currency=currency) }}</td>
+        </tr>
+      {% endfor %}
+      <tr>
+        <td><strong>Total</strong></td>
+        <td class="msp-num"><strong>{{ grand.rows }}</strong></td>
+        <td class="msp-num"><strong>{{ frappe.utils.fmt_money(grand.planned, currency=currency) }}</strong></td>
+        <td class="msp-num"><strong>{{ frappe.utils.fmt_money(grand.achieved, currency=currency) }}</strong></td>
+        <td class="msp-num"><strong>{{ frappe.utils.fmt_money(grand.payment, currency=currency) }}</strong></td>
+      </tr>
     </tbody>
   </table>
 

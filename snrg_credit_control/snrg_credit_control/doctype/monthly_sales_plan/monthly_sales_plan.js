@@ -17,10 +17,13 @@ frappe.ui.form.on("Monthly Sales Plan", {
     if (!frm.is_new()) {
       frm.add_custom_button(__("Download PDF"), () => downloadPlanPdf(frm), __("Export"));
     }
+    frm.add_custom_button(__("Download Plan Table CSV"), () => downloadPlanTableCsv(frm), __("Export"));
 
     if (frm.doc.docstatus === 1 && frm.doc.status !== "Cancelled") {
       frm.add_custom_button(__("Create Revision"), () => createRevision(frm));
     }
+
+    renderResponsibleSummary(frm);
   },
 
   onload(frm) {
@@ -33,16 +36,30 @@ frappe.ui.form.on("Monthly Sales Plan Customer", {
     const row = locals[cdt][cdn];
     if (!row.customer) return;
 
-    frappe.db.get_value("Customer", row.customer, ["customer_name", "customer_group", "territory"]).then((result) => {
+    frappe.db.get_value("Customer", row.customer, ["customer_name", "customer_group", "territory", "custom_city"]).then((result) => {
       const customer = result && result.message ? result.message : {};
       frappe.model.set_value(cdt, cdn, "customer_name", customer.customer_name || row.customer);
       frappe.model.set_value(cdt, cdn, "customer_group", customer.customer_group || "");
       frappe.model.set_value(cdt, cdn, "territory", customer.territory || "");
+      frappe.model.set_value(cdt, cdn, "customer_city", customer.custom_city || "");
+      if (!row.responsible_sales_person) {
+        frappe.model.set_value(cdt, cdn, "responsible_sales_person", frm.doc.sales_person || "");
+      }
+      renderResponsibleSummary(frm);
     });
+  },
+
+  customer_name(frm) {
+    renderResponsibleSummary(frm);
+  },
+
+  responsible_sales_person(frm) {
+    renderResponsibleSummary(frm);
   },
 
   planned_amount(frm, cdt, cdn) {
     updateMinimumPayment(cdt, cdn);
+    renderResponsibleSummary(frm);
   },
 });
 
@@ -127,6 +144,8 @@ function mergeCustomerRows(frm, customers) {
     const row = frm.add_child("customers");
     row.customer = customer.customer;
     row.customer_name = customer.customer_name || customer.customer;
+    row.responsible_sales_person = customer.responsible_sales_person || frm.doc.sales_person || "";
+    row.customer_city = customer.customer_city || "";
     row.customer_group = customer.customer_group || "";
     row.territory = customer.territory || "";
     row.last_month_sales = customer.last_month_sales || 0;
@@ -144,12 +163,15 @@ function mergeCustomerRows(frm, customers) {
   manualRows.forEach((manualRow) => {
     const row = frm.add_child("customers");
     row.customer_name = manualRow.customer_name || "";
+    row.responsible_sales_person = manualRow.responsible_sales_person || frm.doc.sales_person || "";
+    row.customer_city = manualRow.customer_city || "";
     row.planned_amount = manualRow.planned_amount || 0;
     row.minimum_payment_required = 0;
     row.remarks = manualRow.remarks || "";
   });
 
   frm.refresh_field("customers");
+  renderResponsibleSummary(frm);
   frappe.show_alert({
     message: __("Fetched {0} customers. Manual lead rows preserved.", [customers.length]),
     indicator: "green",
@@ -160,6 +182,134 @@ function updateMinimumPayment(cdt, cdn) {
   const row = locals[cdt][cdn];
   const required = Math.max(Number(row.planned_amount || 0) - Number(row.credit_limit_available || 0), 0);
   frappe.model.set_value(cdt, cdn, "minimum_payment_required", required);
+}
+
+function renderResponsibleSummary(frm) {
+  const wrapper = frm.fields_dict.responsible_person_summary && frm.fields_dict.responsible_person_summary.$wrapper;
+  if (!wrapper) return;
+
+  const summary = {};
+  (frm.doc.customers || []).forEach((row) => {
+    const person = row.responsible_sales_person || frm.doc.sales_person || __("Unassigned");
+    if (!summary[person]) {
+      summary[person] = {
+        count: 0,
+        planned: 0,
+        achieved: 0,
+        minimumPayment: 0,
+      };
+    }
+    summary[person].count += 1;
+    summary[person].planned += Number(row.planned_amount || 0);
+    summary[person].achieved += Number(row.achieved_amount || 0);
+    summary[person].minimumPayment += Number(row.minimum_payment_required || 0);
+  });
+
+  const rows = Object.keys(summary).sort().map((person) => {
+    const item = summary[person];
+    return `
+      <tr>
+        <td>${escapeHtml(person)}</td>
+        <td class="text-right">${item.count}</td>
+        <td class="text-right">${formatCurrency(item.planned)}</td>
+        <td class="text-right">${formatCurrency(item.achieved)}</td>
+        <td class="text-right">${formatCurrency(item.minimumPayment)}</td>
+      </tr>`;
+  });
+
+  const total = Object.values(summary).reduce(
+    (acc, item) => {
+      acc.count += item.count;
+      acc.planned += item.planned;
+      acc.achieved += item.achieved;
+      acc.minimumPayment += item.minimumPayment;
+      return acc;
+    },
+    { count: 0, planned: 0, achieved: 0, minimumPayment: 0 }
+  );
+
+  wrapper.html(`
+    <div class="table-responsive">
+      <table class="table table-bordered table-sm">
+        <thead>
+          <tr>
+            <th>${__("Responsible Sales Person")}</th>
+            <th class="text-right">${__("Rows")}</th>
+            <th class="text-right">${__("Planned")}</th>
+            <th class="text-right">${__("Achieved")}</th>
+            <th class="text-right">${__("Min. Payment")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.join("") || `<tr><td colspan="5" class="text-muted">${__("No plan rows added.")}</td></tr>`}
+        </tbody>
+        <tfoot>
+          <tr>
+            <th>${__("Total")}</th>
+            <th class="text-right">${total.count}</th>
+            <th class="text-right">${formatCurrency(total.planned)}</th>
+            <th class="text-right">${formatCurrency(total.achieved)}</th>
+            <th class="text-right">${formatCurrency(total.minimumPayment)}</th>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  `);
+}
+
+function downloadPlanTableCsv(frm) {
+  const columns = [
+    ["customer", "Customer"],
+    ["customer_name", "Customer Name / New Lead"],
+    ["responsible_sales_person", "Responsible Sales Person"],
+    ["customer_city", "City"],
+    ["last_month_sales", "Last Month Sales"],
+    ["credit_limit_available", "Credit Limit Available"],
+    ["planned_amount", "Planned Amount"],
+    ["minimum_payment_required", "Minimum Payment Required"],
+    ["projected_75_plus_outstanding", "75+ Outstanding at Month End"],
+    ["achieved_amount", "Achieved Amount"],
+    ["achievement_percent", "Achievement %"],
+    ["remarks", "Remarks"],
+  ];
+  const lines = [
+    columns.map((column) => csvCell(column[1])).join(","),
+    ...(frm.doc.customers || []).map((row) => columns.map((column) => csvCell(row[column[0]])).join(",")),
+  ];
+  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = getPlanTableFilename(frm);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
+
+function getPlanTableFilename(frm) {
+  const salesPerson = cleanFilenamePart(frm.doc.sales_person_name || frm.doc.sales_person || "Sales Person");
+  const month = cleanFilenamePart(getPlanMonthLabel(frm.doc.plan_month));
+  const planId = cleanFilenamePart(frm.doc.name || "Monthly Sales Plan");
+  return `Monthly Sales Plan Table - ${salesPerson} - ${month} - ${planId}.csv`;
+}
+
+function csvCell(value) {
+  const text = value == null ? "" : String(value);
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function formatCurrency(value) {
+  return frappe.format(Number(value || 0), { fieldtype: "Currency" });
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 async function downloadPlanPdf(frm) {

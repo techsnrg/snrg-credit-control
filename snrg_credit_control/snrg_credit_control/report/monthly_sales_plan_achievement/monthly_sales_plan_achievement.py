@@ -6,6 +6,7 @@ from frappe.utils import flt
 
 from snrg_credit_control.snrg_credit_control.doctype.monthly_sales_plan.monthly_sales_plan import (
     get_month_label,
+    get_plan_sales_people,
     get_sales_invoice_actuals,
     normalize_plan_month,
 )
@@ -72,9 +73,14 @@ def build_rows(plans, filters):
     customer_group_filter = filters.get("customer_group")
     territory_filter = filters.get("territory")
     team_members_by_plan = get_team_members_by_plan([plan.name for plan in plans])
+    team_member_ids_by_plan = get_team_member_ids_by_plan([plan.name for plan in plans])
 
     for plan in plans:
-        actuals = get_sales_invoice_actuals(plan.company, plan.plan_month, plan.sales_person)
+        actuals = get_sales_invoice_actuals(
+            plan.company,
+            plan.plan_month,
+            get_plan_sales_people(plan.sales_person, team_member_ids_by_plan.get(plan.name, [])),
+        )
         previous_amounts = get_previous_plan_amounts(plan.previous_plan)
         child_rows = frappe.get_all(
             "Monthly Sales Plan Customer",
@@ -82,6 +88,8 @@ def build_rows(plans, filters):
             fields=[
                 "customer",
                 "customer_name",
+                "responsible_sales_person",
+                "customer_city",
                 "customer_group",
                 "territory",
                 "last_month_sales",
@@ -117,6 +125,8 @@ def build_rows(plans, filters):
                     "team_members": ", ".join(team_members_by_plan.get(plan.name, [])),
                     "customer": child.customer,
                     "customer_name": child.customer_name or child.customer,
+                    "responsible_sales_person": child.responsible_sales_person,
+                    "customer_city": child.customer_city,
                     "customer_group": child.customer_group,
                     "territory": child.territory,
                     "last_month_sales": child.last_month_sales,
@@ -163,6 +173,23 @@ def get_team_members_by_plan(plan_names):
     team_members = {}
     for row in rows:
         team_members.setdefault(row.parent, []).append(row.sales_person_name or row.sales_person)
+    return team_members
+
+
+def get_team_member_ids_by_plan(plan_names):
+    if not plan_names:
+        return {}
+
+    rows = frappe.get_all(
+        "Monthly Sales Plan Team Member",
+        filters={"parenttype": "Monthly Sales Plan", "parent": ["in", plan_names]},
+        fields=["parent", "sales_person", "idx"],
+        order_by="parent, idx",
+    )
+
+    team_members = {}
+    for row in rows:
+        team_members.setdefault(row.parent, []).append(row.sales_person)
     return team_members
 
 
@@ -216,6 +243,14 @@ def get_columns():
         {"label": _("Team Members"), "fieldname": "team_members", "fieldtype": "Data", "width": 220},
         {"label": _("Customer"), "fieldname": "customer", "fieldtype": "Link", "options": "Customer", "width": 150},
         {"label": _("Customer / New Lead"), "fieldname": "customer_name", "fieldtype": "Data", "width": 220},
+        {
+            "label": _("Responsible Sales Person"),
+            "fieldname": "responsible_sales_person",
+            "fieldtype": "Link",
+            "options": "Sales Person",
+            "width": 180,
+        },
+        {"label": _("City"), "fieldname": "customer_city", "fieldtype": "Data", "width": 120},
         {
             "label": _("Customer Group"),
             "fieldname": "customer_group",

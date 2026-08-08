@@ -7,6 +7,8 @@
  "field_order": [
   "customer",
   "customer_name",
+  "responsible_sales_person",
+  "customer_city",
   "customer_group",
   "territory",
   "last_month_sales",
@@ -33,6 +35,20 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Customer Name / New Lead"
+  },
+  {
+   "fieldname": "responsible_sales_person",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Responsible Sales Person",
+   "options": "Sales Person"
+  },
+  {
+   "fieldname": "customer_city",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "City",
+   "read_only": 1
   },
   {
    "fieldname": "customer_group",

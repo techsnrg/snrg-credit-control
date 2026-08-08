@@ -19,6 +19,8 @@
   "is_current_plan",
   "customers_section",
   "customers",
+  "responsible_summary_section",
+  "responsible_person_summary",
   "totals_section",
   "total_planned_amount",
   "total_achieved_amount",
@@ -196,6 +198,16 @@
    "fieldtype": "Table",
    "label": "Plan Rows",
    "options": "Monthly Sales Plan Customer"
+  },
+  {
+   "fieldname": "responsible_summary_section",
+   "fieldtype": "Section Break",
+   "label": "Responsible Person Summary"
+  },
+  {
+   "fieldname": "responsible_person_summary",
+   "fieldtype": "HTML",
+   "label": "Responsible Person Summary"
   }
  ],
  "index_web_pages_for_search": 0,
