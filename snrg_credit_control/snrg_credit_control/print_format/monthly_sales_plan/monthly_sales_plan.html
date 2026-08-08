@@ -30,12 +30,13 @@
 
 <style>
   @page {
-    margin: 14mm 10mm;
+    size: A4 landscape;
+    margin: 10mm 8mm;
   }
   body, table, td, th {
     font-family: "Inter", "Arial", sans-serif;
     color: #172033;
-    font-size: 10px;
+    font-size: 9px;
   }
   .letter-head {
     margin-bottom: 10px;
@@ -142,15 +143,23 @@
   .msp-table th,
   .msp-table td {
     border: 1px solid #d9e1ec;
-    padding: 5px 5px;
+    padding: 4px 4px;
     vertical-align: top;
   }
   .msp-table th {
     background: #eef3f8;
     color: #20324a;
-    font-size: 8px;
+    font-size: 7.6px;
     font-weight: 800;
     text-transform: uppercase;
+  }
+  .msp-action-table th,
+  .msp-action-table td {
+    font-size: 8.2px;
+    line-height: 1.25;
+  }
+  .msp-action-table .msp-num {
+    font-size: 8px;
   }
   .msp-table tbody tr:nth-child(even) td {
     background: #fbfcfe;
@@ -293,19 +302,19 @@
   </table>
 
   <div class="msp-section-title">Customer Action Plan</div>
-  <table class="msp-table">
+  <table class="msp-table msp-action-table">
     <thead>
       <tr>
-        <th style="width: 4%;">No.</th>
+        <th style="width: 3%;">No.</th>
         <th style="width: 20%;">Customer / Lead</th>
-        <th style="width: 14%;">Responsible</th>
-        <th style="width: 8%;">City</th>
+        <th style="width: 12%;">Responsible</th>
+        <th style="width: 7%;">City</th>
         <th style="width: 10%;">Last Month</th>
         <th style="width: 11%;">Credit Available</th>
         <th style="width: 11%;">Planned</th>
-        <th style="width: 10%;">Min. Payment</th>
-        <th style="width: 8%;">75+ Risk</th>
-        <th style="width: 4%;">Achv.</th>
+        <th style="width: 11%;">Min. Payment</th>
+        <th style="width: 10%;">75+ Risk</th>
+        <th style="width: 5%;">Achv.</th>
       </tr>
     </thead>
     <tbody>
