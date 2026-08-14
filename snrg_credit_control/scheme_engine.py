@@ -12,6 +12,8 @@ LEGACY_SINGLE_INVOICE_AMOUNT_SLAB = "Single Invoice Amount Slab"
 GST_EXCLUDED = "Excluded"
 GST_INCLUDED = "Included"
 LEGACY_BEFORE_GST = "Eligible Item Value Before GST"
+REWARD_POLICY_HIGHEST_ONLY = "Highest Only"
+REWARD_POLICY_CUMULATIVE = "Cumulative"
 
 
 @frappe.whitelist()
@@ -168,6 +170,89 @@ def get_scheme_customer_progress(
     }
 
 
+@frappe.whitelist()
+def download_scheme_customer_item_details(
+    customer,
+    scheme,
+    company=None,
+    as_on_date=None,
+    include_draft_quotations=0,
+    include_submitted_quotations=0,
+):
+    if not customer:
+        frappe.throw(_("Customer is required."))
+    if not scheme:
+        frappe.throw(_("Scheme is required."))
+
+    as_on_date = getdate(as_on_date or getdate())
+    quotation_docstatuses = _get_selected_quotation_docstatuses(
+        include_draft_quotations,
+        include_submitted_quotations,
+    )
+    schemes = _get_active_schemes(
+        {"company": company},
+        as_on_date,
+        scheme_name=scheme,
+        scheme_types=(PERIOD_CUMULATIVE_AMOUNT_SLAB, CATEGORY_TARGET_SLAB),
+    )
+    if not schemes:
+        frappe.throw(_("Scheme {0} was not found for the selected filters.").format(frappe.bold(scheme)))
+
+    scheme_config = schemes[0]
+    period_from = getdate(scheme_config.valid_from)
+    period_upto = min(getdate(scheme_config.valid_upto), as_on_date)
+    rows = _get_scheme_invoice_item_rows(
+        company=company or scheme_config.company,
+        from_date=period_from,
+        upto_date=period_upto,
+    )
+    quotation_rows = _get_scheme_quotation_item_rows(
+        company=company or scheme_config.company,
+        from_date=period_from,
+        upto_date=period_upto,
+        docstatuses=quotation_docstatuses,
+    )
+    quotation_rows = _exclude_invoiced_quotation_rows(quotation_rows)
+    item_map = _get_item_map(
+        [row.item_code for row in rows if row.item_code]
+        + [row.item_code for row in quotation_rows if row.item_code]
+    )
+    group_bounds = _get_item_group_bounds([scheme_config], item_map)
+
+    if scheme_config.scheme_type == CATEGORY_TARGET_SLAB:
+        customer_rows = _evaluate_category_scheme_customers(
+            scheme_config,
+            rows,
+            quotation_rows,
+            item_map,
+            group_bounds,
+            as_on_date,
+            period_from,
+            period_upto,
+        )
+    else:
+        customer_rows = _evaluate_scheme_customers(
+            scheme_config,
+            rows,
+            quotation_rows,
+            item_map,
+            group_bounds,
+            as_on_date,
+            period_from,
+            period_upto,
+        )
+
+    customer_result = next((row for row in customer_rows if row.get("customer") == customer), None)
+    if not customer_result:
+        frappe.throw(_("No eligible rows were found for customer {0}.").format(frappe.bold(customer)))
+
+    xlsx_content, filename = _build_scheme_customer_item_detail_xlsx(scheme_config, customer_result, as_on_date)
+    frappe.local.response["filename"] = filename
+    frappe.local.response["filecontent"] = xlsx_content
+    frappe.local.response["type"] = "download"
+    frappe.local.response["content_type"] = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
 def get_best_sales_invoice_scheme_suggestion(invoice):
     posting_date = _get_invoice_date(invoice)
     schemes = _get_active_schemes(invoice, posting_date)
@@ -285,8 +370,10 @@ def evaluate_customer_amount_scheme(
         "eligible_quotation_count": len(quotation_names),
         "eligible_rows": eligible_rows,
         "quotation_rows": quotation_eligible_rows,
-        "top_items": _summarize_eligible_items(eligible_rows),
-        "projected_top_items": _summarize_eligible_items(eligible_rows + quotation_eligible_rows),
+        "top_items": _summarize_eligible_items(eligible_rows, limit=10),
+        "item_details": _summarize_eligible_items(eligible_rows),
+        "projected_top_items": _summarize_eligible_items(eligible_rows + quotation_eligible_rows, limit=10),
+        "projected_item_details": _summarize_eligible_items(eligible_rows + quotation_eligible_rows),
         "invoice_details": _summarize_eligible_invoices(eligible_rows),
         "quotation_details": _summarize_eligible_quotations(quotation_eligible_rows),
         "payment_summary": _summarize_scheme_payments(eligible_rows),
@@ -497,8 +584,8 @@ def evaluate_customer_category_scheme(
         projected_amount,
     )
 
-    achieved_rewards = [slab["reward"] for slab in achieved_slabs]
-    projected_rewards = [slab["reward"] for slab in projected_slabs]
+    achieved_rewards = _get_scheme_rewards(achieved_slabs, scheme.reward_policy)
+    projected_rewards = _get_scheme_rewards(projected_slabs, scheme.reward_policy)
 
     return {
         "scheme_code": scheme.name,
@@ -523,8 +610,10 @@ def evaluate_customer_category_scheme(
         "eligible_quotation_count": len(quotation_names),
         "eligible_rows": eligible_rows,
         "quotation_rows": quotation_eligible_rows,
-        "top_items": _summarize_eligible_items(eligible_rows),
-        "projected_top_items": _summarize_eligible_items(eligible_rows + quotation_eligible_rows),
+        "top_items": _summarize_eligible_items(eligible_rows, limit=10),
+        "item_details": _summarize_eligible_items(eligible_rows),
+        "projected_top_items": _summarize_eligible_items(eligible_rows + quotation_eligible_rows, limit=10),
+        "projected_item_details": _summarize_eligible_items(eligible_rows + quotation_eligible_rows),
         "invoice_details": _summarize_eligible_invoices(eligible_rows),
         "quotation_details": _summarize_eligible_quotations(quotation_eligible_rows),
         "payment_summary": _summarize_scheme_payments(eligible_rows),
@@ -718,6 +807,7 @@ def _get_scheme_config(name):
         valid_from=doc.valid_from,
         valid_upto=doc.valid_upto,
         gst_treatment=_normalize_gst_treatment(doc.calculation_basis),
+        reward_policy=(doc.reward_policy or REWARD_POLICY_CUMULATIVE),
         notes=doc.notes,
         eligible_items=[
             frappe._dict(item_code=row.item_code, uom=row.uom)
@@ -746,6 +836,80 @@ def _get_scheme_config(name):
         ],
         category_slabs=category_slabs,
     )
+
+
+def _build_scheme_customer_item_detail_xlsx(scheme, customer_result, as_on_date):
+    from frappe.utils.xlsxutils import make_xlsx
+
+    rows = list(customer_result.get("eligible_rows") or []) + list(customer_result.get("quotation_rows") or [])
+    rows.sort(
+        key=lambda row: (
+            row.get("posting_date") or row.get("transaction_date") or "",
+            flt(row.get("amount")),
+        ),
+        reverse=True,
+    )
+
+    data = [
+        [
+            "Customer",
+            "Customer Name",
+            "Scheme",
+            "Scheme Type",
+            "As On Date",
+            "Source",
+            "Document",
+            "Date",
+            "Category",
+            "Item Code",
+            "Item Name",
+            "UOM",
+            "Qty",
+            "Rate",
+            "Eligible Value",
+            "Quotation Status",
+            "Invoice Outstanding",
+        ]
+    ]
+
+    for row in rows:
+        is_quotation = bool(row.get("quotation"))
+        data.append(
+            [
+                customer_result.get("customer") or "",
+                customer_result.get("customer_name") or "",
+                scheme.scheme_name or "",
+                scheme.scheme_type or "",
+                str(as_on_date),
+                "Quotation" if is_quotation else "Invoice",
+                row.get("quotation") or row.get("sales_invoice") or "",
+                row.get("transaction_date") or row.get("posting_date") or "",
+                row.get("category") or "",
+                row.get("item_code") or "",
+                row.get("item_name") or "",
+                row.get("uom") or "",
+                flt(row.get("qty")),
+                flt(row.get("rate")),
+                flt(row.get("amount")),
+                row.get("quotation_status") or "",
+                flt(row.get("invoice_outstanding_amount")),
+            ]
+        )
+
+    xlsx_file = make_xlsx(data, sheet_name="Item Details")
+    customer_slug = frappe.scrub(customer_result.get("customer_name") or customer_result.get("customer") or "customer")
+    scheme_slug = frappe.scrub(scheme.scheme_name or "scheme")
+    filename = f"{customer_slug}_{scheme_slug}_item_details.xlsx"
+    return xlsx_file.getvalue(), filename
+
+
+def _get_scheme_rewards(slabs, reward_policy):
+    rewards = [slab["reward"] for slab in slabs if slab.get("reward")]
+    if not rewards:
+        return []
+    if reward_policy == REWARD_POLICY_HIGHEST_ONLY:
+        return [rewards[-1]]
+    return rewards
 
 
 def _get_item_map(item_codes):
@@ -1322,7 +1486,7 @@ def _build_customer_quantity_suggestions(eligible_rows, next_slab, eligible_amou
     return suggestions[:5]
 
 
-def _summarize_eligible_items(eligible_rows):
+def _summarize_eligible_items(eligible_rows, limit=None):
     summary = {}
 
     for row in eligible_rows:
@@ -1363,7 +1527,9 @@ def _summarize_eligible_items(eligible_rows):
         )
 
     rows.sort(key=lambda row: flt(row.get("amount")), reverse=True)
-    return rows[:10]
+    if limit:
+        return rows[:limit]
+    return rows
 
 
 def _summarize_eligible_invoices(eligible_rows):

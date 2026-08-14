@@ -279,6 +279,10 @@ class SnrgSchemePlanning {
         .snrg-scheme-detail-items {
           grid-column: 1 / -1;
         }
+        .snrg-scheme-detail-actions {
+          display: flex;
+          justify-content: flex-end;
+        }
         .snrg-scheme-dialog-table {
           width: 100%;
           border-collapse: collapse;
@@ -375,6 +379,10 @@ class SnrgSchemePlanning {
     this.wrapper.on("click", "[data-show-details]", (event) => {
       const key = $(event.currentTarget).attr("data-show-details");
       this.open_customer_details(key);
+    });
+    this.wrapper.on("click", "[data-download-item-details]", (event) => {
+      const key = $(event.currentTarget).attr("data-download-item-details");
+      this.download_item_details(key);
     });
     this.wrapper.on("input", "[data-table-filter]", (event) => {
       const input = $(event.currentTarget);
@@ -803,6 +811,16 @@ class SnrgSchemePlanning {
     `;
   }
 
+  render_detail_actions(key) {
+    return `
+      <div class="snrg-scheme-detail-actions">
+        <button class="snrg-scheme-detail-btn" data-download-item-details="${frappe.utils.escape_html(key)}">
+          Download Item Data Excel
+        </button>
+      </div>
+    `;
+  }
+
   open_customer_details(key) {
     const entry = this.customerIndex[key];
     if (!entry) return;
@@ -843,6 +861,7 @@ class SnrgSchemePlanning {
       wide: true,
       message: `
         <div class="snrg-scheme-detail-shell">
+          ${this.render_detail_actions(key)}
           <div class="snrg-scheme-detail-summary">
             ${summaryCards}
           </div>
@@ -954,5 +973,22 @@ class SnrgSchemePlanning {
         </tbody>
       </table>
     `;
+  }
+
+  download_item_details(key) {
+    const entry = this.customerIndex[key];
+    if (!entry) return;
+
+    const values = this.get_values();
+    const params = new URLSearchParams({
+      customer: entry.row.customer || "",
+      scheme: entry.scheme.scheme_code || entry.scheme.scheme_name || "",
+      company: values.company || "",
+      as_on_date: values.as_on_date || "",
+      include_draft_quotations: values.include_draft_quotations ? "1" : "0",
+      include_submitted_quotations: values.include_submitted_quotations ? "1" : "0",
+    });
+
+    window.open(`/api/method/snrg_credit_control.scheme_engine.download_scheme_customer_item_details?${params.toString()}`, "_blank");
   }
 }

@@ -13,6 +13,7 @@
   "scheme_column_break",
   "scheme_type",
   "calculation_basis",
+  "reward_policy",
   "valid_from",
   "valid_upto",
   "item_filter_section",
@@ -79,6 +80,14 @@
    "fieldtype": "Select",
    "label": "GST Treatment",
    "options": "Excluded\nIncluded",
+   "reqd": 1
+  },
+  {
+   "default": "Cumulative",
+   "fieldname": "reward_policy",
+   "fieldtype": "Select",
+   "label": "Reward Policy",
+   "options": "Highest Only\nCumulative",
    "reqd": 1
   },
   {

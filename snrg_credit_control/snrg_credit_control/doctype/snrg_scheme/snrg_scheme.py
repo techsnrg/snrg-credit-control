@@ -5,6 +5,7 @@ from frappe.utils import flt, getdate
 
 
 CATEGORY_TARGET_SCHEME = "Period Cumulative Category Target Slab"
+REWARD_POLICIES = ("Highest Only", "Cumulative")
 
 
 class SNRGScheme(Document):
@@ -12,6 +13,7 @@ class SNRGScheme(Document):
         self._normalize_legacy_values()
         self._validate_scheme_type()
         self._validate_gst_treatment()
+        self._validate_reward_policy()
         self._validate_dates()
         self._validate_item_filters()
         self._validate_slabs()
@@ -21,6 +23,8 @@ class SNRGScheme(Document):
             self.scheme_type = "Invoice Amount Slab"
         if self.calculation_basis == "Eligible Item Value Before GST":
             self.calculation_basis = "Excluded"
+        if not self.reward_policy:
+            self.reward_policy = "Cumulative"
 
     def _validate_scheme_type(self):
         if self.scheme_type not in ("Invoice Amount Slab", "Period Cumulative Amount Slab", CATEGORY_TARGET_SCHEME):
@@ -29,6 +33,10 @@ class SNRGScheme(Document):
     def _validate_gst_treatment(self):
         if self.calculation_basis not in ("Excluded", "Included"):
             frappe.throw(_("Invalid GST Treatment."))
+
+    def _validate_reward_policy(self):
+        if self.reward_policy not in REWARD_POLICIES:
+            frappe.throw(_("Invalid Reward Policy."))
 
     def _validate_dates(self):
         if self.valid_from and self.valid_upto and getdate(self.valid_upto) < getdate(self.valid_from):

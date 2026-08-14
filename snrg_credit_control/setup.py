@@ -686,6 +686,7 @@ def _ensure_summer_bonanza_scheme():
             {
                 "scheme_type": "Period Cumulative Amount Slab",
                 "calculation_basis": "Excluded",
+                "reward_policy": "Highest Only",
             },
             update_modified=False,
         )
@@ -697,6 +698,7 @@ def _ensure_summer_bonanza_scheme():
             "scheme_name": scheme_name,
             "scheme_type": "Period Cumulative Amount Slab",
             "calculation_basis": "Excluded",
+            "reward_policy": "Highest Only",
             "valid_from": "2026-05-28",
             "valid_upto": "2026-06-30",
             "slabs": [
@@ -761,6 +763,7 @@ def _ensure_luxe_scheme():
         "scheme_name": scheme_name,
         "scheme_type": "Period Cumulative Amount Slab",
         "calculation_basis": "Excluded",
+        "reward_policy": "Highest Only",
         "valid_from": "2026-05-01",
         "valid_upto": "2026-08-31",
         "slabs": slabs,
@@ -821,6 +824,7 @@ def _ensure_monsoon_bonanza_scheme():
         "scheme_name": scheme_name,
         "scheme_type": "Period Cumulative Amount Slab",
         "calculation_basis": "Excluded",
+        "reward_policy": "Cumulative",
         "valid_from": "2026-07-01",
         "valid_upto": "2026-08-31",
         "slabs": slabs,
@@ -1002,6 +1006,7 @@ def _ensure_bangkok_bonanza_scheme():
         "scheme_name": scheme_name,
         "scheme_type": "Period Cumulative Category Target Slab",
         "calculation_basis": "Excluded",
+        "reward_policy": "Highest Only",
         "valid_from": "2026-04-01",
         "valid_upto": "2026-08-31",
         "category_slabs": category_slabs,
