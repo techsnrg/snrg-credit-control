@@ -45,7 +45,6 @@ def get_customer_scheme_suggestions(customer, company=None, scheme=None, as_on_d
             from_date=period_from,
             upto_date=period_upto,
         )
-        rows = _apply_invoice_returns(rows, company or scheme_config.company, as_on_date)
         item_map = _get_item_map([row.item_code for row in rows if row.item_code])
         group_bounds = _get_item_group_bounds([scheme_config], item_map)
         suggestions.append(
@@ -106,7 +105,6 @@ def get_scheme_customer_progress(
             from_date=period_from,
             upto_date=period_upto,
         )
-        rows = _apply_invoice_returns(rows, company or scheme_config.company, as_on_date)
         quotation_rows = _get_scheme_quotation_item_rows(
             company=company or scheme_config.company,
             from_date=period_from,
@@ -208,7 +206,6 @@ def download_scheme_customer_item_details(
         from_date=period_from,
         upto_date=period_upto,
     )
-    rows = _apply_invoice_returns(rows, company or scheme_config.company, as_on_date)
     quotation_rows = _get_scheme_quotation_item_rows(
         company=company or scheme_config.company,
         from_date=period_from,
@@ -312,13 +309,15 @@ def evaluate_customer_amount_scheme(
 
         amount = _get_scheme_amount(row, scheme.gst_treatment)
         eligible_amount += amount
-        invoice_names.add(row.get("sales_invoice"))
+        if not frappe.utils.cint(row.get("is_return")):
+            invoice_names.add(row.get("sales_invoice"))
         eligible_rows.append(
             {
                 "sales_invoice": row.get("sales_invoice"),
                 "posting_date": str(row.get("posting_date") or ""),
                 "invoice_grand_total": flt(row.get("invoice_grand_total")),
                 "invoice_outstanding_amount": flt(row.get("invoice_outstanding_amount")),
+                "is_return": frappe.utils.cint(row.get("is_return")),
                 "item_code": row.get("item_code"),
                 "item_name": row.get("item_name") or item.get("item_name"),
                 "uom": row.get("uom"),
@@ -563,7 +562,8 @@ def evaluate_customer_category_scheme(
         item = item_map.get(row.get("item_code")) or {}
         amount = _get_scheme_amount(row, scheme.gst_treatment)
         category_amounts[category] = flt(category_amounts.get(category)) + amount
-        invoice_names.add(row.get("sales_invoice"))
+        if not frappe.utils.cint(row.get("is_return")):
+            invoice_names.add(row.get("sales_invoice"))
         eligible_rows.append(_build_scheme_detail_row(row, item, amount, category=category))
 
     for row, category in quotation_rows_with_category:
@@ -663,6 +663,7 @@ def _build_scheme_detail_row(row, item, amount, category=None, is_quotation=Fals
                 "posting_date": str(row.get("posting_date") or ""),
                 "invoice_grand_total": flt(row.get("invoice_grand_total")),
                 "invoice_outstanding_amount": flt(row.get("invoice_outstanding_amount")),
+                "is_return": frappe.utils.cint(row.get("is_return")),
             }
         )
     return detail
@@ -945,7 +946,6 @@ def _get_slab_progress(slabs, eligible_amount):
 def _get_customer_invoice_item_rows(customer, company, from_date, upto_date):
     conditions = [
         "si.docstatus = 1",
-        "coalesce(si.is_return, 0) = 0",
         "si.customer = %(customer)s",
         "si.posting_date between %(from_date)s and %(upto_date)s",
     ]
@@ -965,6 +965,7 @@ def _get_customer_invoice_item_rows(customer, company, from_date, upto_date):
             sii.name as sales_invoice_item,
             sii.parent as sales_invoice,
             si.posting_date,
+            coalesce(si.is_return, 0) as is_return,
             si.customer,
             si.customer_name,
             si.grand_total as invoice_grand_total,
@@ -1000,7 +1001,6 @@ def _get_customer_invoice_item_rows(customer, company, from_date, upto_date):
 def _get_scheme_invoice_item_rows(company, from_date, upto_date):
     conditions = [
         "si.docstatus = 1",
-        "coalesce(si.is_return, 0) = 0",
         "si.posting_date between %(from_date)s and %(upto_date)s",
     ]
     values = {
@@ -1018,6 +1018,7 @@ def _get_scheme_invoice_item_rows(company, from_date, upto_date):
             sii.name as sales_invoice_item,
             sii.parent as sales_invoice,
             si.posting_date,
+            coalesce(si.is_return, 0) as is_return,
             si.customer,
             si.customer_name,
             si.grand_total as invoice_grand_total,
@@ -1104,155 +1105,6 @@ def _get_scheme_quotation_item_rows(company, from_date, upto_date, docstatuses):
         values,
         as_dict=True,
     )
-
-
-def _apply_invoice_returns(rows, company, upto_date):
-    if not rows:
-        return rows
-
-    invoice_names = sorted({row.get("sales_invoice") for row in rows if row.get("sales_invoice")})
-    if not invoice_names:
-        return rows
-
-    return_rows = _get_return_invoice_item_rows(invoice_names, company, upto_date)
-    if not return_rows:
-        return rows
-
-    adjusted_rows = [frappe._dict(dict(row)) for row in rows]
-    detail_map = {}
-    item_map = {}
-    for row in adjusted_rows:
-        if row.get("sales_invoice") and row.get("sales_invoice_item"):
-            detail_map[(row.get("sales_invoice"), row.get("sales_invoice_item"))] = row
-        if row.get("sales_invoice") and row.get("item_code"):
-            item_map.setdefault((row.get("sales_invoice"), row.get("item_code"), row.get("uom")), []).append(row)
-            item_map.setdefault((row.get("sales_invoice"), row.get("item_code"), None), []).append(row)
-
-    for candidates in item_map.values():
-        candidates.sort(key=lambda row: (flt(row.get("idx")), row.get("sales_invoice_item") or ""))
-
-    for return_row in return_rows:
-        original_invoice = return_row.get("original_invoice")
-        original_detail = return_row.get("original_detail")
-        target = detail_map.get((original_invoice, original_detail)) if original_detail else None
-        if target:
-            _subtract_return_from_row(target, return_row)
-            continue
-
-        candidates = item_map.get((original_invoice, return_row.get("item_code"), return_row.get("uom"))) or item_map.get(
-            (original_invoice, return_row.get("item_code"), None)
-        ) or []
-        _allocate_return_across_rows(candidates, return_row)
-
-    return [row for row in adjusted_rows if _row_has_remaining_scheme_value(row)]
-
-
-def _get_return_invoice_item_rows(invoice_names, company, upto_date):
-    if not invoice_names:
-        return []
-
-    detail_link_fieldname = _get_sales_invoice_return_item_link_config()
-    detail_select = f"rsii.{detail_link_fieldname} as original_detail," if detail_link_fieldname else "NULL as original_detail,"
-    conditions = [
-        "rsi.docstatus = 1",
-        "coalesce(rsi.is_return, 0) = 1",
-        "rsi.return_against in %(invoice_names)s",
-        "rsi.posting_date <= %(upto_date)s",
-    ]
-    values = {
-        "invoice_names": tuple(invoice_names),
-        "upto_date": upto_date,
-        "company": company,
-    }
-    if company:
-        conditions.append("rsi.company = %(company)s")
-
-    return frappe.db.sql(
-        """
-        select
-            rsi.return_against as original_invoice,
-            {detail_select}
-            rsii.item_code,
-            rsii.uom,
-            rsii.qty,
-            {gross_amount_fields}
-            rsii.base_net_amount,
-            rsii.net_amount,
-            rsii.base_amount,
-            rsii.amount
-        from `tabSales Invoice Item` rsii
-        inner join `tabSales Invoice` rsi on rsi.name = rsii.parent
-        where {conditions}
-        order by rsi.posting_date asc, rsii.idx asc
-        """.format(
-            detail_select=detail_select,
-            conditions=" and ".join(conditions),
-            gross_amount_fields=_get_optional_item_gross_amount_fields("Sales Invoice Item", "rsii"),
-        ),
-        values,
-        as_dict=True,
-    )
-
-
-def _get_sales_invoice_return_item_link_config():
-    meta = frappe.get_meta("Sales Invoice Item")
-    for candidate in ("si_detail", "sales_invoice_item"):
-        if meta.has_field(candidate):
-            return candidate
-    return None
-
-
-def _subtract_return_from_row(target_row, return_row, factor=1):
-    factor = flt(factor)
-    if factor <= 0:
-        return
-
-    qty_to_subtract = abs(flt(return_row.get("qty"))) * factor
-    target_row["qty"] = max(flt(target_row.get("qty")) - qty_to_subtract, 0)
-
-    for fieldname in ("base_net_amount", "net_amount", "base_amount", "amount", "base_gross_amount", "gross_amount"):
-        if target_row.get(fieldname) is None:
-            continue
-        target_row[fieldname] = max(flt(target_row.get(fieldname)) - (abs(flt(return_row.get(fieldname))) * factor), 0)
-
-
-def _allocate_return_across_rows(candidates, return_row):
-    if not candidates:
-        return
-
-    total_return_qty = abs(flt(return_row.get("qty")))
-    remaining_qty = total_return_qty
-
-    for row in candidates:
-        row_qty = max(flt(row.get("qty")), 0)
-        if row_qty <= 0:
-            continue
-
-        if total_return_qty > 0:
-            consumed_qty = min(row_qty, remaining_qty)
-            factor = consumed_qty / total_return_qty if total_return_qty else 0
-            remaining_qty = max(remaining_qty - consumed_qty, 0)
-        else:
-            amount = _get_pre_gst_amount(row)
-            return_amount = abs(_get_pre_gst_amount(return_row))
-            if amount <= 0 or return_amount <= 0:
-                continue
-            factor = min(return_amount / amount, 1)
-
-        _subtract_return_from_row(row, return_row, factor=factor)
-
-        if remaining_qty <= 0:
-            break
-
-
-def _row_has_remaining_scheme_value(row):
-    if flt(row.get("qty")) > 0.0001:
-        return True
-    if abs(_get_pre_gst_amount(row)) > 0.0001:
-        return True
-    if abs(_get_scheme_amount(row, GST_INCLUDED)) > 0.0001:
-        return True
-    return False
 
 
 def _exclude_invoiced_quotation_rows(rows):
@@ -1699,6 +1551,7 @@ def _summarize_eligible_invoices(eligible_rows):
             {
                 "sales_invoice": invoice,
                 "posting_date": row.get("posting_date"),
+                "is_return": frappe.utils.cint(row.get("is_return")),
                 "qty": 0,
                 "amount": 0,
                 "invoice_grand_total": 0,
@@ -1708,6 +1561,7 @@ def _summarize_eligible_invoices(eligible_rows):
         )
         current["qty"] += flt(row.get("qty"))
         current["amount"] += flt(row.get("amount"))
+        current["is_return"] = max(frappe.utils.cint(current.get("is_return")), frappe.utils.cint(row.get("is_return")))
         current["invoice_grand_total"] = flt(row.get("invoice_grand_total"))
         current["invoice_outstanding_amount"] = flt(row.get("invoice_outstanding_amount"))
         if row.get("item_code"):
@@ -1715,15 +1569,20 @@ def _summarize_eligible_invoices(eligible_rows):
 
     rows = []
     for row in summary.values():
-        payment = _get_invoice_payment_allocation(
-            row["amount"],
-            row["invoice_grand_total"],
-            row["invoice_outstanding_amount"],
+        payment = (
+            {"paid_amount": 0, "outstanding_amount": 0, "payment_status": "Return"}
+            if frappe.utils.cint(row.get("is_return"))
+            else _get_invoice_payment_allocation(
+                row["amount"],
+                row["invoice_grand_total"],
+                row["invoice_outstanding_amount"],
+            )
         )
         rows.append(
             {
                 "sales_invoice": row["sales_invoice"],
                 "posting_date": row["posting_date"],
+                "is_return": frappe.utils.cint(row.get("is_return")),
                 "qty": row["qty"],
                 "amount": row["amount"],
                 "paid_amount": payment["paid_amount"],
@@ -1780,11 +1639,12 @@ def _summarize_eligible_quotations(eligible_rows):
 
 def _summarize_scheme_payments(eligible_rows):
     invoice_rows = _summarize_eligible_invoices(eligible_rows)
-    paid_amount = sum(flt(row.get("paid_amount")) for row in invoice_rows)
-    outstanding_amount = sum(flt(row.get("outstanding_amount")) for row in invoice_rows)
-    eligible_amount = sum(flt(row.get("amount")) for row in invoice_rows)
+    payment_rows = [row for row in invoice_rows if not frappe.utils.cint(row.get("is_return"))]
+    paid_amount = sum(flt(row.get("paid_amount")) for row in payment_rows)
+    outstanding_amount = sum(flt(row.get("outstanding_amount")) for row in payment_rows)
+    eligible_amount = sum(flt(row.get("amount")) for row in payment_rows)
 
-    if not invoice_rows:
+    if not payment_rows:
         payment_status = "No Invoices"
     elif outstanding_amount <= 0.01:
         payment_status = "Paid"
