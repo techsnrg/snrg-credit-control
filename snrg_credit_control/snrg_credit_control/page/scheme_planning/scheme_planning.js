@@ -380,10 +380,6 @@ class SnrgSchemePlanning {
       const key = $(event.currentTarget).attr("data-show-details");
       this.open_customer_details(key);
     });
-    this.wrapper.on("click", "[data-download-item-details]", (event) => {
-      const key = $(event.currentTarget).attr("data-download-item-details");
-      this.download_item_details(key);
-    });
     this.wrapper.on("input", "[data-table-filter]", (event) => {
       const input = $(event.currentTarget);
       const tableKey = input.attr("data-table-filter");
@@ -883,6 +879,10 @@ class SnrgSchemePlanning {
       `,
     });
     dialog.$wrapper.addClass("snrg-scheme-detail-modal");
+    dialog.$wrapper.on("click", "[data-download-item-details]", (event) => {
+      const detailKey = $(event.currentTarget).attr("data-download-item-details");
+      this.download_item_details(detailKey);
+    });
   }
 
   render_invoice_details(rows) {
