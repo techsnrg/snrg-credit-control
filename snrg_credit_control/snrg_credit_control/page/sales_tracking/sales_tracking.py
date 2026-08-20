@@ -339,44 +339,112 @@ def _get_sales_orders(quotation_names):
 
 def _get_invoices(sales_orders_by_quote):
     grouped = defaultdict(list)
-    sales_order_to_quote = {}
+    sales_order_to_quotes = defaultdict(set)
+    quotation_names = set()
     for quotation_name, sales_orders in sales_orders_by_quote.items():
+        quotation_names.add(quotation_name)
         for sales_order in sales_orders:
-            sales_order_to_quote[sales_order["name"]] = quotation_name
+            sales_order_to_quotes[sales_order["name"]].add(quotation_name)
 
-    sales_order_names = list(sales_order_to_quote)
+    sales_order_names = list(sales_order_to_quotes)
     if not sales_order_names:
         return grouped
 
-    placeholders = ", ".join(["%s"] * len(sales_order_names))
+    sales_order_item_to_quote = _get_sales_order_item_quote_map(
+        sales_order_names,
+        sorted(quotation_names),
+    )
+    quotation_item_to_quote = _get_quotation_item_quote_map(sorted(quotation_names))
+    invoice_item_link_config = _get_sales_invoice_item_tracker_link_config()
+    source_conditions = []
+    values = []
+
+    if invoice_item_link_config["sales_order_fieldname"]:
+        source_conditions.append(
+            f"sii.{invoice_item_link_config['sales_order_fieldname']} IN ({', '.join(['%s'] * len(sales_order_names))})"
+        )
+        values.extend(sales_order_names)
+
+    sales_order_item_names = list(sales_order_item_to_quote)
+    if invoice_item_link_config["sales_order_item_fieldname"] and sales_order_item_names:
+        source_conditions.append(
+            f"sii.{invoice_item_link_config['sales_order_item_fieldname']} IN ({', '.join(['%s'] * len(sales_order_item_names))})"
+        )
+        values.extend(sales_order_item_names)
+
+    quotation_names = sorted(quotation_names)
+    if invoice_item_link_config["quotation_fieldname"] and quotation_names:
+        source_conditions.append(
+            f"sii.{invoice_item_link_config['quotation_fieldname']} IN ({', '.join(['%s'] * len(quotation_names))})"
+        )
+        values.extend(quotation_names)
+
+    quotation_item_names = list(quotation_item_to_quote)
+    if invoice_item_link_config["quotation_item_fieldname"] and quotation_item_names:
+        source_conditions.append(
+            f"sii.{invoice_item_link_config['quotation_item_fieldname']} IN ({', '.join(['%s'] * len(quotation_item_names))})"
+        )
+        values.extend(quotation_item_names)
+
+    if not source_conditions:
+        return grouped
+
+    sales_order_select = (
+        f"sii.{invoice_item_link_config['sales_order_fieldname']}"
+        if invoice_item_link_config["sales_order_fieldname"]
+        else "NULL"
+    )
+    sales_order_item_select = (
+        f"sii.{invoice_item_link_config['sales_order_item_fieldname']}"
+        if invoice_item_link_config["sales_order_item_fieldname"]
+        else "NULL"
+    )
+    quotation_select = (
+        f"sii.{invoice_item_link_config['quotation_fieldname']}"
+        if invoice_item_link_config["quotation_fieldname"]
+        else "NULL"
+    )
+    quotation_item_select = (
+        f"sii.{invoice_item_link_config['quotation_item_fieldname']}"
+        if invoice_item_link_config["quotation_item_fieldname"]
+        else "NULL"
+    )
     rows = frappe.db.sql(
         f"""
-        SELECT DISTINCT
+        SELECT
             sii.parent AS invoice_name,
-            sii.sales_order
+            {sales_order_select} AS sales_order,
+            {sales_order_item_select} AS sales_order_item_ref,
+            {quotation_select} AS quotation,
+            {quotation_item_select} AS quotation_item_ref,
+            sii.amount AS item_amount
         FROM `tabSales Invoice Item` sii
         INNER JOIN `tabSales Invoice` si ON si.name = sii.parent
-        WHERE sii.sales_order IN ({placeholders})
+        WHERE ({' OR '.join(source_conditions)})
           AND si.docstatus = 1
           AND COALESCE(si.is_return, 0) = 0
         """,
-        tuple(sales_order_names),
+        tuple(values),
         as_dict=True,
     )
 
-    invoice_to_quotes = defaultdict(set)
-    invoice_names = []
+    invoice_quote_item_amounts = defaultdict(lambda: defaultdict(float))
     for row in rows:
-        quotation_name = sales_order_to_quote.get(row.sales_order)
+        quotation_name = _resolve_invoice_item_quotation(
+            row,
+            quotation_names=set(quotation_names),
+            quotation_item_to_quote=quotation_item_to_quote,
+            sales_order_item_to_quote=sales_order_item_to_quote,
+            sales_order_to_quotes=sales_order_to_quotes,
+        )
         if not quotation_name:
             continue
-        invoice_to_quotes[row.invoice_name].add(quotation_name)
-        invoice_names.append(row.invoice_name)
+        invoice_quote_item_amounts[row.invoice_name][quotation_name] += flt(row.item_amount)
 
-    if not invoice_names:
+    if not invoice_quote_item_amounts:
         return grouped
 
-    unique_invoice_names = list(set(invoice_names))
+    unique_invoice_names = list(invoice_quote_item_amounts)
 
     invoice_docs = frappe.get_all(
         "Sales Invoice",
@@ -398,6 +466,7 @@ def _get_invoices(sales_orders_by_quote):
         order_by="posting_date desc, modified desc",
     )
     pod_date_map = _get_pod_received_dates(invoice_docs)
+    invoice_item_totals = _get_sales_invoice_item_totals(unique_invoice_names)
 
     invoice_map = {
         doc.name: {
@@ -419,12 +488,21 @@ def _get_invoices(sales_orders_by_quote):
         for doc in invoice_docs
     }
 
-    for invoice_name, quotation_names in invoice_to_quotes.items():
+    for invoice_name, quote_item_amounts in invoice_quote_item_amounts.items():
         invoice_detail = invoice_map.get(invoice_name)
         if not invoice_detail:
             continue
-        for quotation_name in quotation_names:
-            grouped[quotation_name].append(invoice_detail.copy())
+        invoice_item_total = flt(invoice_item_totals.get(invoice_name))
+        for quotation_name, item_amount in quote_item_amounts.items():
+            quotation_invoice_detail = invoice_detail.copy()
+            quotation_invoice_detail["invoice_grand_total"] = flt(invoice_detail.get("grand_total"))
+            quotation_invoice_detail["allocated_item_amount"] = flt(item_amount)
+            quotation_invoice_detail["grand_total"] = _allocate_invoice_grand_total(
+                invoice_detail.get("grand_total"),
+                item_amount,
+                invoice_item_total,
+            )
+            grouped[quotation_name].append(quotation_invoice_detail)
 
     for quotation_name, details in grouped.items():
         details.sort(
@@ -436,6 +514,111 @@ def _get_invoices(sales_orders_by_quote):
         )
 
     return grouped
+
+
+def _get_sales_order_item_quote_map(sales_order_names, quotation_names):
+    if not sales_order_names or not quotation_names:
+        return {}
+
+    quotation_link_fieldname, has_prevdoc_doctype = _get_sales_order_item_quotation_link_config()
+    if not quotation_link_fieldname:
+        return {}
+
+    sales_order_placeholders = ", ".join(["%s"] * len(sales_order_names))
+    quotation_placeholders = ", ".join(["%s"] * len(quotation_names))
+    extra_condition = "AND prevdoc_doctype = 'Quotation'" if has_prevdoc_doctype else ""
+    rows = frappe.db.sql(
+        f"""
+        SELECT
+            name,
+            {quotation_link_fieldname} AS quotation
+        FROM `tabSales Order Item`
+        WHERE parent IN ({sales_order_placeholders})
+          AND {quotation_link_fieldname} IN ({quotation_placeholders})
+          {extra_condition}
+        """,
+        tuple(sales_order_names) + tuple(quotation_names),
+        as_dict=True,
+    )
+    return {row.name: row.quotation for row in rows if row.name and row.quotation}
+
+
+def _get_quotation_item_quote_map(quotation_names):
+    if not quotation_names:
+        return {}
+
+    rows = frappe.get_all(
+        "Quotation Item",
+        filters={"parent": ["in", quotation_names]},
+        fields=["name", "parent"],
+    )
+    return {row.name: row.parent for row in rows if row.name and row.parent}
+
+
+def _get_sales_invoice_item_tracker_link_config():
+    meta = frappe.get_meta("Sales Invoice Item")
+    return {
+        "sales_order_fieldname": "sales_order" if meta.has_field("sales_order") else None,
+        "sales_order_item_fieldname": next(
+            (candidate for candidate in ("so_detail", "sales_order_item") if meta.has_field(candidate)),
+            None,
+        ),
+        "quotation_fieldname": "quotation" if meta.has_field("quotation") else None,
+        "quotation_item_fieldname": "quotation_item" if meta.has_field("quotation_item") else None,
+    }
+
+
+def _resolve_invoice_item_quotation(
+    row,
+    quotation_names,
+    quotation_item_to_quote,
+    sales_order_item_to_quote,
+    sales_order_to_quotes,
+):
+    quotation = row.get("quotation")
+    if quotation and quotation in quotation_names:
+        return quotation
+
+    quotation_item_ref = row.get("quotation_item_ref")
+    if quotation_item_ref and quotation_item_ref in quotation_item_to_quote:
+        return quotation_item_to_quote[quotation_item_ref]
+
+    sales_order_item_ref = row.get("sales_order_item_ref")
+    if sales_order_item_ref and sales_order_item_ref in sales_order_item_to_quote:
+        return sales_order_item_to_quote[sales_order_item_ref]
+
+    sales_order = row.get("sales_order")
+    sales_order_quotes = sales_order_to_quotes.get(sales_order) or set()
+    if len(sales_order_quotes) == 1:
+        return next(iter(sales_order_quotes))
+
+    return None
+
+
+def _get_sales_invoice_item_totals(invoice_names):
+    if not invoice_names:
+        return {}
+
+    placeholders = ", ".join(["%s"] * len(invoice_names))
+    rows = frappe.db.sql(
+        f"""
+        SELECT
+            parent AS invoice_name,
+            SUM(amount) AS item_total
+        FROM `tabSales Invoice Item`
+        WHERE parent IN ({placeholders})
+        GROUP BY parent
+        """,
+        tuple(invoice_names),
+        as_dict=True,
+    )
+    return {row.invoice_name: flt(row.item_total) for row in rows}
+
+
+def _allocate_invoice_grand_total(invoice_grand_total, item_amount, invoice_item_total):
+    if flt(invoice_item_total):
+        return flt(invoice_grand_total) * flt(item_amount) / flt(invoice_item_total)
+    return flt(item_amount)
 
 
 def _build_tracker_row(quotation, salespeople, sales_orders, invoices, sla_settings):
