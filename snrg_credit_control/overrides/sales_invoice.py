@@ -24,6 +24,13 @@ class CustomSalesInvoice(SalesInvoice):
         super().validate()
         validate_minimum_selling_rates(self)
 
+    def onload(self):
+        super_onload = getattr(super(), "onload", None)
+        if callable(super_onload):
+            super_onload()
+
+        _ensure_pod_attachment_link(self.name, self.custom_pod_attachment)
+
     def check_credit_limit(self):
         if self._is_backed_by_approved_sales_orders():
             return
@@ -84,7 +91,7 @@ def update_fulfillment_details(name, values=None):
 
     _validate_fulfillment_dates(doc, updates)
     frappe.db.set_value("Sales Invoice", doc.name, updates, update_modified=True)
-    _link_pod_attachment(doc.name, updates)
+    _ensure_pod_attachment_link(doc.name, updates.get("custom_pod_attachment"))
     doc.reload()
     doc.add_comment("Comment", _build_fulfillment_audit_comment(changes))
     doc.notify_update()
@@ -126,6 +133,7 @@ def get_pod_preview(name):
         "preview_kind": preview_kind,
         "mime_type": mime_type,
         "is_private": cint_or_none(file_doc.is_private) or 0,
+        "is_linked": _is_file_linked_to_sales_invoice(file_doc, doc.name),
     }
 
 
@@ -229,7 +237,12 @@ def _get_pod_file(doc):
     if not doc.custom_pod_attachment:
         return None
 
-    return _find_file_by_url(doc.name, doc.custom_pod_attachment)
+    file_doc = _find_file_by_url(doc.name, doc.custom_pod_attachment)
+    if not file_doc:
+        return None
+
+    _attach_file_to_sales_invoice(file_doc, doc.name)
+    return file_doc
 
 
 def _find_file_by_url(docname, file_url):
@@ -261,18 +274,18 @@ def _find_file_by_url(docname, file_url):
     return frappe.get_doc("File", file_name)
 
 
-def _link_pod_attachment(docname, updates):
-    if "custom_pod_attachment" not in updates:
-        return
-
-    file_url = updates.get("custom_pod_attachment")
-    if not file_url:
+def _ensure_pod_attachment_link(docname, file_url):
+    if not docname or not file_url:
         return
 
     file_doc = _find_file_by_url(docname, file_url)
     if not file_doc:
         return
 
+    _attach_file_to_sales_invoice(file_doc, docname)
+
+
+def _attach_file_to_sales_invoice(file_doc, docname):
     values = {}
     if file_doc.attached_to_doctype != "Sales Invoice":
         values["attached_to_doctype"] = "Sales Invoice"
@@ -283,6 +296,16 @@ def _link_pod_attachment(docname, updates):
 
     if values:
         frappe.db.set_value("File", file_doc.name, values, update_modified=True)
+        for key, value in values.items():
+            setattr(file_doc, key, value)
+
+
+def _is_file_linked_to_sales_invoice(file_doc, docname):
+    return (
+        file_doc.attached_to_doctype == "Sales Invoice"
+        and file_doc.attached_to_name == docname
+        and getattr(file_doc, "attached_to_field", None) == "custom_pod_attachment"
+    )
 
 
 def _validate_fulfillment_dates(doc, updates):

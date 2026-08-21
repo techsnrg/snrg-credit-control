@@ -180,6 +180,11 @@ async function render_pod_attachment_link(frm) {
 
     if (!message?.preview_url) return;
 
+    if (message.is_linked && frm.sidebar?.reload_docinfo) {
+      await frm.sidebar.reload_docinfo();
+      if (has_native_pod_attachment(frm)) return;
+    }
+
     insert_pod_attachment_link(frm, message);
   } catch (error) {
     console.warn("[SNRG POD] Unable to render POD attachment link", error);
