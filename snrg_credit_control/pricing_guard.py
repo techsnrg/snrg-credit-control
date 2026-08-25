@@ -201,20 +201,23 @@ def _throw_minimum_rate_error(doc, violations):
 
     frappe.throw(
         """
-        <p>{message}</p>
-        <table class="table table-bordered table-condensed">
-            <thead>
-                <tr>
-                    <th>{row_label}</th>
-                    <th>{item_label}</th>
-                    <th>{uom_label}</th>
-                    <th>{rate_label}</th>
-                    <th>{minimum_label}</th>
-                    <th>{issue_label}</th>
-                </tr>
-            </thead>
-            <tbody>{rows}</tbody>
-        </table>
+        <p style="margin-bottom: 12px;">{message}</p>
+        <div style="max-width: 100%; overflow-x: auto;">
+            <table class="table table-bordered table-sm"
+                style="width: 100%; min-width: 760px; margin-bottom: 0; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: var(--subtle-fg, #f7f7f7);">
+                        <th scope="col" style="padding: 8px 10px; border: 1px solid var(--border-color, #d1d8dd); white-space: nowrap;">{row_label}</th>
+                        <th scope="col" style="padding: 8px 10px; border: 1px solid var(--border-color, #d1d8dd); white-space: nowrap;">{item_label}</th>
+                        <th scope="col" style="padding: 8px 10px; border: 1px solid var(--border-color, #d1d8dd); white-space: nowrap;">{uom_label}</th>
+                        <th scope="col" style="padding: 8px 10px; border: 1px solid var(--border-color, #d1d8dd); text-align: right; white-space: nowrap;">{rate_label}</th>
+                        <th scope="col" style="padding: 8px 10px; border: 1px solid var(--border-color, #d1d8dd); text-align: right; white-space: nowrap;">{minimum_label}</th>
+                        <th scope="col" style="padding: 8px 10px; border: 1px solid var(--border-color, #d1d8dd); min-width: 240px;">{issue_label}</th>
+                    </tr>
+                </thead>
+                <tbody>{rows}</tbody>
+            </table>
+        </div>
         """.format(
             message=message,
             row_label=_("Row"),
@@ -232,12 +235,12 @@ def _throw_minimum_rate_error(doc, violations):
 def _format_violation_row(row, currency):
     return """
         <tr>
-            <td>{idx}</td>
-            <td>{item_code}</td>
-            <td>{uom}</td>
-            <td class="text-right">{entered_rate}</td>
-            <td class="text-right">{minimum_rate}</td>
-            <td>{issue}</td>
+            <td style="padding: 8px 10px; border: 1px solid var(--border-color, #d1d8dd); white-space: nowrap;">{idx}</td>
+            <td style="padding: 8px 10px; border: 1px solid var(--border-color, #d1d8dd); white-space: nowrap;">{item_code}</td>
+            <td style="padding: 8px 10px; border: 1px solid var(--border-color, #d1d8dd); white-space: nowrap;">{uom}</td>
+            <td class="text-right" style="padding: 8px 10px; border: 1px solid var(--border-color, #d1d8dd); text-align: right; white-space: nowrap;">{entered_rate}</td>
+            <td class="text-right" style="padding: 8px 10px; border: 1px solid var(--border-color, #d1d8dd); text-align: right; white-space: nowrap;">{minimum_rate}</td>
+            <td style="padding: 8px 10px; border: 1px solid var(--border-color, #d1d8dd); min-width: 240px;">{issue}</td>
         </tr>
     """.format(
         idx=frappe.utils.escape_html(row.get("idx") or ""),
