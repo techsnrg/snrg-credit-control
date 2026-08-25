@@ -798,17 +798,21 @@ def _ensure_monsoon_bonanza_scheme():
     ]
 
     eligible_item_groups = []
-    for group_name in ("G-Star", "G-Max", "G-Icon", "G-Curvy", "G-Woody"):
+    for group_name in (
+        "GC Cube G-Curvy Plates",
+        "GC Cube G-Max Plates",
+        "GC Cube G-Icon Plates",
+        "GC Cube G-Woody Plates",
+        "GC Cube G-One Plates",
+        "GC Cube G-Star Plates",
+    ):
         if frappe.db.exists("Item Group", group_name):
             eligible_item_groups.append({"item_group": group_name})
-
-    if not eligible_item_groups and frappe.db.exists("Item Group", "All Item Groups"):
-        eligible_item_groups.append({"item_group": "All Item Groups"})
 
     notes = (
         "<p><strong>Monsoon Bonanza Scheme Terms &amp; Conditions:</strong></p>"
         "<ul>"
-        "<li>This scheme is available on <strong>G-Star, G-Max, G-Icon, G-Curvy &amp; G-Woody plates</strong>. All colors included.</li>"
+        "<li>This scheme is available on <strong>G-Curvy, G-Max, G-Icon, G-Woody, G-One &amp; G-Star plates</strong>. All colors included.</li>"
         "<li>Multiple slab qualifications allowed for increased value. For example, customer achieving 4L Slab shall qualify for 1 Scooty slab and 1 Washing Machine Slab.</li>"
         "<li>No Credit Note (CN) will be issued under this scheme.</li>"
         "<li>Payments must be completed within 60 days to qualify for the scheme.</li>"
@@ -836,17 +840,6 @@ def _ensure_monsoon_bonanza_scheme():
     frappe.get_doc(doc_data).insert(ignore_permissions=True)
 
 
-def _ensure_item_group(group_name):
-    if not frappe.db.exists("Item Group", group_name):
-        parent = "All Item Groups" if frappe.db.exists("Item Group", "All Item Groups") else None
-        frappe.get_doc({
-            "doctype": "Item Group",
-            "item_group_name": group_name,
-            "parent_item_group": parent,
-            "is_group": 0
-        }).insert(ignore_permissions=True)
-
-
 def _ensure_bangkok_bonanza_scheme():
     if not frappe.db.exists("DocType", "SNRG Scheme"):
         return
@@ -870,11 +863,6 @@ def _ensure_bangkok_bonanza_scheme():
     ):
         if frappe.db.exists("Item", code):
             excluded_items.append({"item_code": code, "reason": "Excluded as per Bangkok Bonanza Scheme flyer terms"})
-
-    # Ensure required category target item groups exist
-    _ensure_item_group("Cube")
-    _ensure_item_group("Switchgear")
-    _ensure_item_group("Non Modular and Essentials")
 
     # Category slab configuration list
     category_slabs = []
@@ -916,59 +904,17 @@ def _ensure_bangkok_bonanza_scheme():
     # Category Rules
     category_rules = []
 
-    # Cube Group Resolver
-    cube_group = "Cube"
-    for candidate in ("GC Cube", "Cube", "Gold Coast Cube"):
-        if frappe.db.exists("Item Group", candidate):
-            cube_group = candidate
-            break
-    category_rules.append({
-        "category": "Cube",
-        "apply_on": "Item Group",
-        "item_group": cube_group,
-        "exclude": 0,
-    })
-
-    # Switchgear Group Resolver
-    switchgear_group = "Switchgear"
-    for candidate in ("Switchgear", "Gold Coast Switchgear", "GC Switchgear"):
-        if frappe.db.exists("Item Group", candidate):
-            switchgear_group = candidate
-            break
-    category_rules.append({
-        "category": "Switchgear",
-        "apply_on": "Item Group",
-        "item_group": switchgear_group,
-        "exclude": 0,
-    })
-
-    # Non Modular and Essentials
-    essentials_added = False
-    for candidate in ("Non-Modular Switches", "Non Modular Switches", "Non Modular"):
-        if frappe.db.exists("Item Group", candidate):
-            category_rules.append({
-                "category": "Non Modular and Essentials",
-                "apply_on": "Item Group",
-                "item_group": candidate,
-                "exclude": 0,
-            })
-            essentials_added = True
-
-    for candidate in ("Essential Range of Products", "Essentials", "Essential Range"):
-        if frappe.db.exists("Item Group", candidate):
-            category_rules.append({
-                "category": "Non Modular and Essentials",
-                "apply_on": "Item Group",
-                "item_group": candidate,
-                "exclude": 0,
-            })
-            essentials_added = True
-
-    if not essentials_added:
+    for category, item_group in (
+        ("Cube", "GC Cube Range"),
+        ("Switchgear", "GC Protection Range"),
+        ("Non Modular and Essentials", "GC Essentials Range"),
+    ):
+        if not frappe.db.exists("Item Group", item_group):
+            continue
         category_rules.append({
-            "category": "Non Modular and Essentials",
+            "category": category,
             "apply_on": "Item Group",
-            "item_group": "Non Modular and Essentials",
+            "item_group": item_group,
             "exclude": 0,
         })
 
