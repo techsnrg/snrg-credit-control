@@ -5,7 +5,7 @@ description = "Credit Control workflow for Sales Orders — SNRG India"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"
-dependencies = []
+dependencies = ["PyJWT[crypto]>=2.10,<3"]
 
 [tool.bench.frappe-dependencies]
 frappe = ">=15.0.0,<17.0.0"

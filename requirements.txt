@@ -1,2 +1,3 @@
 frappe
 erpnext
+PyJWT[crypto]>=2.10,<3
