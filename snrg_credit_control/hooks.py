@@ -52,3 +52,11 @@ doc_events = {
         "on_cancel": "snrg_credit_control.ptp.remove_payment_entry_ptp_allocations",
     },
 }
+
+# Microsoft identity is accepted only for the dedicated POST approval endpoint.
+auth_hooks = ["snrg_credit_control.outlook_approvals.authenticate"]
+
+# Request cards are opt-in separately from the authentication endpoint.
+doc_events.setdefault("Purchase Order", {})["on_update"] = "snrg_credit_control.outlook_approvals.on_request_saved"
+doc_events["Sales Order"]["on_update"] = "snrg_credit_control.outlook_approvals.on_request_saved"
+doc_events.setdefault("Credit PTP", {})["after_insert"] = "snrg_credit_control.outlook_approvals.on_request_saved"
