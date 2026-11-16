@@ -78,39 +78,33 @@ function render_quotation_credit_chip(frm) {
     if (frm.dashboard.clear_headline) frm.dashboard.clear_headline();
 
     const model = get_quotation_credit_view_model(frm);
-    const { status, reason, overdueCount, overdueAmount, exposure, creditLimit, quotationValue, currency, checkedOn, details } = model;
+    const {
+      status,
+      reason,
+      overdueCount,
+      overdueAmount,
+      exposure,
+      creditLimit,
+      quotationValue,
+      currency,
+      checkedOn,
+      details,
+    } = model;
     const reasonUi = get_quotation_credit_reason_ui(reason, overdueCount);
     const fmt = value => frappe.format(value, { fieldtype: "Currency", options: currency });
     const fmtSigned = value => {
-      const formatted = fmt(Math.abs(value)).replace(/^-+/, "");
-      return value < 0 ? `-\u00a0${formatted}` : formatted;
+      const formatted = fmt(Math.abs(value));
+      return value < 0 ? `-${formatted}` : formatted;
     };
     const formatCheckedOn = value => value ? frappe.datetime.str_to_user(value) : "Not refreshed yet";
-    const metricCard = (label, value, valueStyle = "") => `
-      <div style="min-width:0;padding:12px 14px;border-radius:8px;background:rgba(255,255,255,.7);border:1px solid rgba(148,163,184,.14);">
-        <div style="font-size:10px;font-weight:700;opacity:.52;letter-spacing:.04em;text-transform:uppercase;margin-bottom:6px;">${label}</div>
-        <div style="font-size:16px;font-weight:700;line-height:1.2;word-break:break-word;${valueStyle}">${value}</div>
-      </div>
-    `;
-    const metricOp = symbol => `
-      <div style="display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;opacity:.42;min-width:22px;">${symbol}</div>
-    `;
-    const infoCard = (label, value) => `
-      <div style="min-width:0;padding:10px 12px;border-radius:8px;background:rgba(15,23,42,.04);border:1px solid rgba(148,163,184,.12);">
-        <div style="font-size:10px;font-weight:700;opacity:.52;letter-spacing:.04em;text-transform:uppercase;margin-bottom:5px;">${label}</div>
-        <div style="font-size:14px;font-weight:600;line-height:1.2;word-break:break-word;">${value}</div>
-      </div>
-    `;
-    const overduePreview = parse_credit_detail_preview(details);
-    const overduePreviewHtml = overduePreview.length
-      ? overduePreview.map(line => `<div style="font-size:13px;font-weight:600;line-height:1.35;">${frappe.utils.escape_html(line)}</div>`).join("")
-      : `<div style="font-size:13px;opacity:.72;">No overdue invoice lines</div>`;
+    const metricCard = (label, value, tone = "", emphasis = false) => `
+      <div style="flex:1 1 105px;min-width:0;${emphasis ? "border-left:2px solid var(--border-color, #d1d8dd);padding-left:12px;" : ""}">
+        <div style="font-size:12px;color:var(--text-muted, #64748b);margin-bottom:1px;">${label}</div>
+        <div style="font-size:15px;font-weight:600;line-height:1.4;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;${tone}">${value}</div>
+      </div>`;
     const availableCredit = creditLimit ? (creditLimit - exposure) : 0;
-    const projectedAvailable = creditLimit ? (creditLimit - exposure - quotationValue) : 0;
-    const availableTone = availableCredit < 0
-      ? "color:#ef4444;"
-      : (availableCredit === 0 ? "color:#f59e0b;" : "color:#22c55e;");
-    const projectedTone = projectedAvailable < 0 ? "color:#ef4444;" : "color:#22c55e;";
+    const projectedBalance = creditLimit ? (creditLimit - exposure - quotationValue) : 0;
+    const projectedTone = projectedBalance < 0 ? "color:var(--red-600, #b42318);" : "color:var(--green-600, #18733b);";
 
     const themes = {
       "Not Run": {
@@ -133,39 +127,28 @@ function render_quotation_credit_chip(frm) {
     const theme = themes[status];
     if (!theme) return;
 
-    const pill = `<span style="display:inline-flex;align-items:center;background:rgba(${theme.rgb},.10);border:1px solid rgba(${theme.rgb},.22);color:rgba(${theme.rgb},1);font-size:10px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap;">${frappe.utils.escape_html(theme.badge)}</span>`;
-
+    const esc = value => frappe.utils.escape_html(String(value || ""));
     frm.dashboard.set_headline(`
-      <div style="background:var(--control-bg, #f8f9fa);border:1px solid var(--border-color, #d1d8dd);border-radius:10px;padding:12px 14px;line-height:1.35;color:var(--text-color, #36414c);box-shadow:none;">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;">
-          <div style="min-width:0;">
-            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-              <div style="font-size:16px;font-weight:700;">${theme.title}</div>
-              <div style="font-size:11px;opacity:.68;">Last Refresh: ${formatCheckedOn(checkedOn)}</div>
-            </div>
+      <section aria-label="Credit status" style="background:var(--card-bg, #fff);border:1px solid var(--border-color, #d1d8dd);border-left:3px solid rgba(${theme.rgb},.75);border-radius:7px;padding:7px 12px;color:var(--text-color, #36414c);line-height:1.4;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:3px 14px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <strong style="font-size:14px;font-weight:600;">${esc(status === "Not Run" ? "Credit · Not checked" : status)}</strong>
+            ${reasonUi.badge ? `<span style="font-size:12px;color:var(--text-muted, #64748b);">${esc(reasonUi.badge)}</span>` : ""}
           </div>
-          ${pill}
+          <span style="font-size:12px;color:var(--text-muted, #64748b);">Checked: ${esc(formatCheckedOn(checkedOn))}</span>
         </div>
-        <div style="margin-top:10px;overflow-x:auto;">
-          <div style="display:grid;grid-template-columns:minmax(150px,1fr) 26px minmax(150px,1fr) 26px minmax(150px,1fr) 26px minmax(150px,1fr) 26px minmax(150px,1fr);gap:10px;align-items:stretch;min-width:900px;">
-          ${metricCard("Credit Limit", fmt(creditLimit))}
-          ${metricOp("-")}
-          ${metricCard("Current Exposure", fmtSigned(exposure))}
-          ${metricOp("=")}
-          ${metricCard("Available Credit", fmtSigned(availableCredit), availableTone)}
-          ${metricOp("-")}
-          ${metricCard("Quotation Value", fmt(quotationValue))}
-          ${metricOp("=")}
-          ${metricCard("Projected Balance", fmtSigned(projectedAvailable), projectedTone)}
-          </div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px 16px;margin-top:5px;">
+          ${metricCard("Credit limit", fmt(creditLimit))}
+          ${metricCard("AR exposure", fmtSigned(exposure))}
+          ${metricCard("Available credit", fmtSigned(availableCredit))}
+          ${metricCard("This quotation", fmt(quotationValue))}
+          ${metricCard(projectedBalance < 0 ? "Shortfall after quotation" : "Balance after quotation", fmt(Math.abs(projectedBalance)), projectedTone, true)}
         </div>
-        <div style="margin-top:10px;display:grid;grid-template-columns:minmax(120px,.75fr) minmax(150px,.9fr) minmax(260px,1.35fr) minmax(260px,1.4fr);gap:10px 12px;align-items:stretch;">
-          ${infoCard("Overdue Invoices", String(overdueCount))}
-          ${infoCard("Overdue Amount", fmt(overdueAmount))}
-          ${infoCard("Top Overdue Invoices", overduePreviewHtml)}
-          ${infoCard("Reason", frappe.utils.escape_html(reasonUi.detail))}
+        <div style="display:flex;align-items:baseline;flex-wrap:wrap;gap:3px 16px;margin-top:5px;padding-top:4px;border-top:1px solid var(--border-color, #d1d8dd);font-size:12px;color:var(--text-muted, #64748b);">
+          <span>${overdueCount ? `Overdue: <strong style="color:var(--text-color, #36414c);font-weight:600;">${overdueCount} invoice${overdueCount === 1 ? "" : "s"} · ${fmt(overdueAmount)}</strong>` : "No overdue invoices"}</span>
         </div>
-      </div>
+        ${details ? `<details style="margin-top:4px;font-size:12px;"><summary style="color:var(--text-muted, #64748b);cursor:pointer;">Invoice details</summary><div style="margin-top:6px;overflow-wrap:anywhere;">${esc(details)}</div></details>` : ""}
+      </section>
     `);
 
     const box = frm.dashboard.wrapper.find(".dashboard-headline");
