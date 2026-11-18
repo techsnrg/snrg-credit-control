@@ -26,7 +26,43 @@ def run():
         customer = frappe.get_doc({"doctype": "Customer", "customer_name": "Workspace integration " + frappe.generate_hash(length=8), "customer_type": "Company"})
         customer.flags.ignore_mandatory = True
         customer.insert(ignore_permissions=True)
+        from snrg_credit_control.customer_workspace.directory import customer_directory
+        from snrg_credit_control.customer_workspace.receivables import customer_ar, customer_ar_invoices
+        contact = frappe.get_doc({"doctype": "Contact", "first_name": "Workspace directory test"}).insert(ignore_permissions=True)
+        contact.db_set("mobile_no", "9876543210", update_modified=False)
+        customer.db_set("customer_primary_contact", contact.name, update_modified=False)
+        customer.db_set("mobile_no", "", update_modified=False)
+        if frappe.get_meta("Customer").has_field("custom_mobile_number"):
+            customer.db_set("custom_mobile_number", "", update_modified=False)
+        found = customer_directory(search="9876543210", status="all")
+        assert any(row.name == customer.name and row.mobile_number == "9876543210" for row in found["rows"])
+        allowed = frappe.get_list("Company", fields=["name", "default_currency"], limit_page_length=1)
+        if allowed:
+            company = allowed[0].name
+            # Exercise the real permission-checked engine against the staging ledger.
+            actual = customer_ar(company, customer=customer.name, balance="all")
+            assert actual["currency"] == allowed[0].default_currency
+            assert customer_ar_invoices(company, customer.name, balance="all")["rows"] == []
+            with patch("frappe.desk.query_report.run", return_value={"result": [{"party": customer.name, "outstanding": 1000, "total_due": 600, "range0": 400, "advance": 50, "range1": 400, "range2": 100, "range4": 40, "range5": 60}, {"party": "Total", "outstanding": 1000}]}):
+                ar = customer_ar(company, balance="all", search="9876543210")
+                assert len(ar["rows"]) == 1
+                assert ar["totals"]["outstanding"] == 1000 and ar["totals"]["due_now"] == 600
+                assert ar["totals"]["not_yet_due"] == 400 and ar["totals"]["advance"] == 50
+                assert ar["rows"][0]["age_0_30"] == 400 and ar["rows"][0]["age_over_90"] == 100
+                assert not customer_ar(company, balance="credit")["rows"]
+            with patch("frappe.desk.query_report.run", return_value={"result": [{"voucher_type": "Sales Invoice", "voucher_no": "AGE-TEST", "posting_date": "2026-11-01", "due_date": "2026-11-10", "outstanding": 100}, {"voucher_type": "Sales Invoice", "voucher_no": "FUTURE-TEST", "posting_date": "2026-11-01", "due_date": "2026-11-26", "outstanding": 200}]}):
+                aged = customer_ar_invoices(company, customer.name, report_date="2026-11-19")
+                assert aged["rows"][0]["age_days"] == 9 and aged["rows"][1]["age_days"] == -7
+            results.append("customer phone fallback/search + real AR engine + compact AR totals, ageing and filters")
         frappe.set_user(owner)
+        assert not api.bootstrap()["can_ar"]
+        if allowed:
+            try:
+                customer_ar(allowed[0].name)
+                raise AssertionError("Employee could read financial balances without report access")
+            except frappe.PermissionError:
+                pass
+        results.append("shared directory does not grant financial report access")
         with patch("frappe.desk.doctype.notification_log.notification_log.enqueue_create_notification") as notifications:
             result = api.log_interaction({"customer": customer.name, "summary": "Discussed damaged cartons. @assignee arrange collection.", "mentions": [employees[1][1]], "actions": [{"subject": "Collect cartons", "assigned_to": assignee, "due_date": today(), "due_time": "14:00", "action_type": "Return pickup"}]})
             assert len(result["actions"]) == 1

@@ -1,11 +1,11 @@
 import { build } from 'esbuild';
 import { createHash } from 'node:crypto';
-import { readFile, writeFile, readdir, unlink } from 'node:fs/promises';
+import { readFile, writeFile, readdir, rm } from 'node:fs/promises';
 const output='snrg_credit_control/public/dist';
 await build({entryPoints:['snrg_credit_control/public/customer_workspace/app.js'],outfile:output+'/customer_workspace.js',bundle:true,minify:true,format:'iife',globalName:'snrgCustomerWorkspace',alias:{vue:'vue/dist/vue.esm-bundler.js'},define:{'process.env.NODE_ENV':'"production"',__VUE_OPTIONS_API__:'true',__VUE_PROD_DEVTOOLS__:'false',__VUE_PROD_HYDRATION_MISMATCH_DETAILS__:'false'}});
 // Content-addressed filenames bypass Desk's asset cache and the browser HTTP cache.
 for(const name of await readdir(output)){
-  if(/^customer_workspace\.[a-f0-9]{12}\.(js|css)$/.test(name))await unlink(output+'/'+name);
+  if(/^customer_workspace\.[a-f0-9]{12}\.(js|css)$/.test(name))await rm(output+'/'+name,{force:true});
 }
 const assets={};
 for(const extension of ['js','css']){

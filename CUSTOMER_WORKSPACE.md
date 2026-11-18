@@ -79,3 +79,34 @@ The personal calendar reads all pending actions for the logged-in employee,
 independently of list pagination. Attachments,
 telephony/WhatsApp ingestion and desktop push delivery are not part of this first
 release. This workspace logs manually recorded interactions.
+
+## Customer directory and compact AR
+
+All Customers is now a full-page directory with name/code/mobile search,
+territory, customer group and active/disabled filters, plus pagination. Parent
+territories/groups include their descendants. Mobile numbers resolve from the
+Customer, the site's custom mobile field when present, then its primary Contact.
+The smaller Switch Customer picker uses the same directory and displays the
+contact number separately from the customer identity.
+
+Customer AR provides company, report-date, balance-status, customer/mobile,
+territory and customer-group filters. It calls the standard permission-checked
+Accounts Receivable Summary report and presents only a compact customer table.
+Amounts remain in company currency. Due now includes balances due on the chosen
+date; the report's due-date ageing and payment-ledger calculations are retained.
+Selecting a customer opens its Receivables tab. Users who also have Accounts
+Receivable report access can drill into outstanding documents there.
+
+Financial access is independent of shared interaction history: native Report
+roles, Sales Invoice report permission, company access and report user filters
+are preserved. Customer Workspace Manager alone does not grant financial access.
+The outer Desk sidebar and native page header are hidden only while this page is
+visible; there is a single main screen title and an ERPNext return link in the
+workspace navigation.
+
+AR rows include due-date ageing buckets (0–30, 31–60, 61–90, 91+ days) and a
+Log interaction action that opens a preselected customer conversation without
+leaving the AR list. Invoice days use the selected report date, not today's date;
+future due dates are labelled accordingly, and posting-date fallbacks are explicit.
+Filter controls use uniform heights and a responsive grid. Customer identity and
+actions remain pinned while wider ageing columns scroll.

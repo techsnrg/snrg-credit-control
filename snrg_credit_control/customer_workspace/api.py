@@ -54,13 +54,16 @@ def _directory():
 @frappe.whitelist()
 def bootstrap():
     guard()
-    return {"user": frappe.session.user, "is_manager": manager(), "today": today(), "employees": _directory()}
+    from snrg_credit_control.customer_workspace.directory import filter_options
+    from snrg_credit_control.customer_workspace.receivables import can_read, allowed_companies
+    return {"user": frappe.session.user, "is_manager": manager(), "today": today(), "employees": _directory(), "can_ar": can_read(), "can_ar_detail": bool(can_read() and frappe.db.exists("Report", "Accounts Receivable") and not frappe.get_doc("Report", "Accounts Receivable").disabled and frappe.get_doc("Report", "Accounts Receivable").is_permitted()), "companies": allowed_companies(), **filter_options()}
 
 
 @frappe.whitelist()
 def customers(search="", start=0):
     guard()
-    return frappe.get_all("Customer", or_filters={"name": ["like", f"%{search}%"], "customer_name": ["like", f"%{search}%"]}, fields=["name", "customer_name", "territory", "mobile_no", "customer_primary_contact"], order_by="customer_name asc", start=max(0, int(start)), limit_page_length=50)
+    from snrg_credit_control.customer_workspace.directory import customer_directory
+    return customer_directory(search=search, start=start, status="all")["rows"]
 
 
 @frappe.whitelist()
