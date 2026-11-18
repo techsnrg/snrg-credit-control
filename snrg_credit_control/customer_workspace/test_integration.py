@@ -68,6 +68,40 @@ def run():
         assert any(row.name == supplier.name and row.party_type == "Supplier" and row.mobile_number == "9876543210" for row in supplier_directory(search="9876543210", status="all")["rows"])
         if allowed:
             assert supplier_ap(allowed[0].name, supplier=supplier.name, balance="all")["rows"] == []
+        # Active-only lists and ordering must hold on the server, before pagination.
+        extra_customer = frappe.get_doc({"doctype": "Customer", "customer_name": customer.customer_name + " Z", "customer_type": "Company"})
+        extra_customer.flags.ignore_mandatory = True
+        extra_customer.insert(ignore_permissions=True)
+        disabled_customer = frappe.get_doc({"doctype": "Customer", "customer_name": customer.customer_name + " Hidden", "customer_type": "Company", "disabled": 1})
+        disabled_customer.flags.ignore_mandatory = True
+        disabled_customer.insert(ignore_permissions=True)
+        disabled_supplier = frappe.get_doc({"doctype": "Supplier", "supplier_name": supplier.supplier_name + " Hidden", "supplier_type": "Company", "disabled": 1})
+        disabled_supplier.flags.ignore_mandatory = True
+        disabled_supplier.insert(ignore_permissions=True)
+        for status_filter in ("active", "all", "disabled"):
+            assert disabled_customer.name not in [r.name for r in customer_directory(search=customer.customer_name, status=status_filter)["rows"]]
+            assert not supplier_directory(search=disabled_supplier.name, status=status_filter)["rows"]
+        assert [r.name for r in customer_directory(search=customer.customer_name, sort="name_desc")["rows"]] == [extra_customer.name, customer.name]
+        assert customer_directory(search=customer.customer_name, sort="name_asc", start=1)["rows"][0].name == extra_customer.name
+        if allowed:
+            mocked = {"result": [{"party": customer.name, "outstanding": 100, "total_due": 70}, {"party": extra_customer.name, "outstanding": 200, "total_due": 120}, {"party": disabled_customer.name, "outstanding": 900, "total_due": 900}]}
+            with patch("frappe.desk.query_report.run", return_value=mocked):
+                rows = customer_ar(company, balance="all", search=customer.customer_name, sort="outstanding_asc")
+                assert [r["name"] for r in rows["rows"]] == [customer.name, extra_customer.name]
+                assert rows["totals"]["outstanding"] == 300
+                assert customer_ar(company, balance="all", search=customer.customer_name, sort="outstanding_desc", start=1)["rows"][0]["name"] == customer.name
+            with patch("frappe.desk.query_report.run", return_value={"result": [{"party": supplier.name, "outstanding": 100}, {"party": disabled_supplier.name, "outstanding": 900}]}):
+                assert supplier_ap(company, balance="all", search=supplier.supplier_name)["totals"]["outstanding"] == 100
+            from snrg_credit_control.customer_workspace.receivables import customer_ar_snapshot
+            def snapshot_report(name, **kwargs):
+                return {"result": [{"party": customer.name, "outstanding": 80, "total_due": 80}]} if name.endswith("Summary") else {"result": [
+                    {"voucher_type": "Sales Invoice", "posting_date": add_days(today(), -40), "due_date": add_days(today(), -5), "outstanding": 80},
+                    {"voucher_type": "Sales Invoice", "posting_date": add_days(today(), -90), "outstanding": 0},
+                    {"voucher_type": "Sales Invoice", "posting_date": add_days(today(), -100), "outstanding": -10}]}
+            with patch("frappe.desk.query_report.run", side_effect=snapshot_report):
+                snapshot = customer_ar_snapshot(company, customer.name)
+                assert snapshot["outstanding"] == 80 and snapshot["oldest_bill_days"] == 40
+        results.append("disabled parties hidden across selectors and finance; stable sorting before pagination; oldest unpaid bill uses invoice date")
         frappe.set_user(owner)
         supplier_result = api.log_interaction({"supplier": supplier.name, "summary": "Supplier confirmed dispatch. @assignee coordinate delivery.", "mentions": [employees[1][1]], "actions": [{"subject": "Confirm supplier delivery", "assigned_to": assignee, "due_date": add_days(today(), 2), "due_time": "11:30", "action_type": "Delivery"}]})
         standalone = api.create_action({"supplier": supplier.name, "subject": "Standalone supplier plan", "assigned_to": assignee, "due_date": add_days(today(), 3)})

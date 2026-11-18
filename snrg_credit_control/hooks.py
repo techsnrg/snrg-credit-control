@@ -76,5 +76,5 @@ doc_events["Event"]["on_trash"] = "snrg_credit_control.customer_workspace.contro
 
 scheduler_events = {"daily": ["snrg_credit_control.customer_workspace.reminders.daily"]}
 
-# Short, authenticated entry point; native Desk URLs remain compatible.
-website_redirects = [{"source": "/teamspace", "target": "/desk/snrg-credit-control/customer-workspace", "redirect_http_status": 302}]
+# The short route renders the same authenticated Desk shell and native Page.
+app_include_js = ["/assets/snrg_credit_control/js/teamspace_route.js"]

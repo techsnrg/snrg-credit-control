@@ -25,7 +25,32 @@ def allowed_companies():
 
 
 @frappe.whitelist()
-def customer_ar(company, report_date=None, search="", territory=None, customer_group=None, balance="outstanding", customer=None, start=0):
+def customer_ar_snapshot(company, customer):
+    """Current balance and oldest still-unpaid invoice, with native report access."""
+    data = customer_ar(company, customer=customer, balance="all")
+    if customer not in customer_cards([customer]):
+        frappe.throw(_("Choose an active customer."))
+    detail_allowed = bool(frappe.db.exists("Report", "Accounts Receivable") and
+                          not frappe.get_doc("Report", "Accounts Receivable").disabled and
+                          frappe.get_doc("Report", "Accounts Receivable").is_permitted())
+    oldest = None
+    if detail_allowed:
+        from frappe.desk.query_report import run
+        result = run("Accounts Receivable", filters={"company": company, "party": [customer],
+                     "report_date": today(), "ageing_based_on": "Posting Date", "age_as_on": "Report Date",
+                     "range": "30,60,90,120", "in_party_currency": 0}, ignore_prepared_report=True)
+        dates = [getdate(row["posting_date"]) for row in result.get("result", [])
+                 if isinstance(row, dict) and row.get("voucher_type") == "Sales Invoice"
+                 and row.get("posting_date") and flt(row.get("outstanding")) > 0 and not row.get("is_total_row")]
+        oldest = min(dates) if dates else None
+    return {"company": company, "currency": data["currency"], "outstanding": data["totals"]["outstanding"],
+            "oldest_bill_date": str(oldest) if oldest else None,
+            "oldest_bill_days": date_diff(today(), oldest) if oldest else None,
+            "can_read_age": detail_allowed, "as_of": today()}
+
+
+@frappe.whitelist()
+def customer_ar(company, report_date=None, search="", territory=None, customer_group=None, balance="outstanding", customer=None, start=0, sort="due_desc"):
     guard()
     if not can_read():
         frappe.throw(_("Accounts Receivable report access is required."), frappe.PermissionError)
@@ -71,7 +96,8 @@ def customer_ar(company, report_date=None, search="", territory=None, customer_g
                      "age_61_90": flt(aged.get("range3")),
                      "age_91_120": flt(aged.get("range4")), "age_over_120": flt(aged.get("range5")),
                      "currency": companies[company]})
-    rows.sort(key=lambda row: (-row["due_now"], -row["outstanding"], row["customer_name"]))
+    from snrg_credit_control.customer_workspace.sorting import financial_rows
+    financial_rows(rows, sort, "customer_name")
     totals = {key: sum(row[key] for row in rows) for key in ("outstanding", "due_now", "advance", "not_yet_due")}
     start = max(0, cint(start))
     return {"rows": rows[start:start + 50], "count": len(rows), "has_more": len(rows) > start + 50,

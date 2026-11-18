@@ -81,7 +81,9 @@ independently of list pagination. Telephony/WhatsApp ingestion and desktop push 
 ## Customer directory and compact AR
 
 All Customers is now a full-page directory with name/code/mobile search,
-territory, customer group and active/disabled filters, plus pagination. Parent
+territory and customer-group filters, sorting and pagination. Disabled customers
+and suppliers are excluded by the server from directories, selectors and compact
+AR/AP lists, including requests from older clients. Parent
 territories/groups include their descendants. Mobile numbers resolve from the
 Customer, the site's custom mobile field when present, then its primary Contact.
 The smaller Switch Customer picker uses the same directory and displays the
@@ -188,3 +190,29 @@ permissions. The approved launch restriction payload is stored separately in
 installation. Apply it through the manager-guarded settings API after migration,
 then fetch the settings record and verify excluded and allowed user sessions.
 Native ERPNext report roles are unchanged by these Teamspace exclusions.
+
+
+## Short route and list presentation
+
+`/teamspace` renders the native authenticated Desk boot context without a redirect.
+A narrowly scoped Desk route adapter maps that address to the existing
+customer-workspace Page, retains the short address on refresh and browser Back,
+and preserves native document routing. Existing long bookmarks still work.
+
+Directories sort by name A–Z/Z–A, recently updated or newest added. AR/AP sort by
+name, outstanding balance or due-now amount in either direction. Ordering happens
+before pagination, with deterministic tie-breakers. SNRG Electricals India Private
+Limited is the initial company when available to the user; otherwise the first
+accessible company is used. Users can still choose another accessible company.
+
+The customer header shows current AR balance and the age of the oldest unpaid
+Sales Invoice, calculated from its posting date. Paid invoices and credit notes
+do not determine that age. Both native summary/detail report permissions and
+Teamspace AR exclusions remain enforced. The company is explicitly selectable.
+
+Call outcomes use keyboard-accessible, toggleable buttons with a pressed state
+and mobile wrapping. Choosing the selected outcome again clears it.
+
+Visibility settings are production database records. Ordinary migrations do not
+reset them. The launch payload is applied once; subsequent deployments must
+verify existing settings without overwriting changes made by the user.

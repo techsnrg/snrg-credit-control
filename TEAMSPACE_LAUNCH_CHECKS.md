@@ -52,3 +52,20 @@ Both excluded users were verified as active live Employees. They do not exist in
 6. If reverting, retain the additive call_outcome column and immutable interaction data unless restoring the pre-deployment database and files as an explicit rollback. Reverting code alone must not delete submitted history. Document any records created after backup before a database restore.
 
 No production code, roles, ledger records or settings were changed during this preflight.
+
+
+## Follow-up release checks — 19 November
+
+- Full isolated transactional integration suite passed after adding active-only
+  directory/finance filtering, server sorting before pagination, and current AR
+  snapshot using the oldest unpaid invoice posting date. Fixtures rolled back.
+- Short-route unit checks passed: alias, old bookmarks, native document routes,
+  query/hash preservation and idempotent installation.
+- Native staging browser: /teamspace retained after refresh and browser Back from
+  Customer Master; an old long bookmark canonicalized to /teamspace.
+- Native staging browser: customer header matched ₹3,940 and 2-day invoice age;
+  directory Z–A and AP name sorting worked; no disabled status selector remains.
+- Outcome selection showed pressed state; Tab moved from No answer to Busy.
+  Narrow mobile buttons wrapped with 44px targets. Verification draft discarded.
+- Production rollout of this follow-up remains pending until the corresponding
+  commit and Cloud migration are recorded in the external rollout log.

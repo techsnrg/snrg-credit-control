@@ -25,7 +25,7 @@ def allowed_companies():
 
 
 @frappe.whitelist()
-def supplier_ap(company, report_date=None, search="", country=None, supplier_group=None, balance="outstanding", supplier=None, start=0):
+def supplier_ap(company, report_date=None, search="", country=None, supplier_group=None, balance="outstanding", supplier=None, start=0, sort="due_desc"):
     guard()
     if not can_read():
         frappe.throw(_("Accounts Payable report access is required."), frappe.PermissionError)
@@ -71,7 +71,8 @@ def supplier_ap(company, report_date=None, search="", country=None, supplier_gro
                      "age_61_90": flt(aged.get("range3")),
                      "age_91_120": flt(aged.get("range4")), "age_over_120": flt(aged.get("range5")),
                      "currency": companies[company]})
-    rows.sort(key=lambda row: (-row["due_now"], -row["outstanding"], row["supplier_name"]))
+    from snrg_credit_control.customer_workspace.sorting import financial_rows
+    financial_rows(rows, sort, "supplier_name")
     totals = {key: sum(row[key] for row in rows) for key in ("outstanding", "due_now", "advance", "not_yet_due")}
     start = max(0, cint(start))
     return {"rows": rows[start:start + 50], "count": len(rows), "has_more": len(rows) > start + 50,

@@ -1,5 +1,6 @@
 """Minimal customer directory, including mobile fallbacks and server-side filters."""
 import frappe
+from pypika import Order
 from frappe.utils import cint
 from frappe.utils.nestedset import get_descendants_of
 from snrg_credit_control.customer_workspace.api import guard
@@ -14,7 +15,7 @@ def filter_options():
     }
 
 
-def _query(search="", territory=None, customer_group=None, status="active", names=None):
+def _query(search="", territory=None, customer_group=None, status="active", names=None, sort="name_asc"):
     customer = frappe.qb.DocType("Customer")
     contact = frappe.qb.DocType("Contact")
     fields = [customer.name, customer.customer_name, customer.territory, customer.customer_group,
@@ -31,15 +32,23 @@ def _query(search="", territory=None, customer_group=None, status="active", name
         query = query.where(customer.territory.isin([territory, *get_descendants_of("Territory", territory)]))
     if customer_group:
         query = query.where(customer.customer_group.isin([customer_group, *get_descendants_of("Customer Group", customer_group)]))
-    if status in ("active", "disabled"):
-        query = query.where(customer.disabled == (1 if status == "disabled" else 0))
+    query = query.where(customer.disabled == 0)
     if search:
         pattern = "%" + str(search).strip()[:100] + "%"
         condition = customer.name.like(pattern) | customer.customer_name.like(pattern) | customer.mobile_no.like(pattern) | contact.mobile_no.like(pattern) | contact.phone.like(pattern)
         if meta.has_field("custom_mobile_number"):
             condition |= customer.custom_mobile_number.like(pattern)
         query = query.where(condition)
-    return query.orderby(customer.customer_name)
+    return _ordered(query, customer, customer.customer_name, sort)
+
+
+def _ordered(query, table, label, sort):
+    choices = {"name_asc": (label, Order.asc), "name_desc": (label, Order.desc),
+               "updated_desc": (table.modified, Order.desc), "created_desc": (table.creation, Order.desc)}
+    if sort not in choices:
+        frappe.throw("Choose a valid sort order.")
+    field, direction = choices[sort]
+    return query.orderby(field, order=direction).orderby(table.name)
 
 
 def cards(rows):
@@ -64,16 +73,16 @@ def customer_cards(names):
 
 
 @frappe.whitelist()
-def customer_directory(search="", territory=None, customer_group=None, status="active", start=0):
+def customer_directory(search="", territory=None, customer_group=None, status="active", start=0, sort="name_asc"):
     guard()
     if status not in ("active", "disabled", "all"):
         frappe.throw("Choose a valid customer status.")
     start = max(0, cint(start))
-    rows = _query(search, territory, customer_group, status).offset(start).limit(51).run(as_dict=True)
+    rows = _query(search, territory, customer_group, status, sort=sort).offset(start).limit(51).run(as_dict=True)
     return {"rows": cards(rows[:50]), "has_more": len(rows) > 50, "start": start}
 
 
-def _supplier_query(search="", country=None, supplier_group=None, status="active", names=None):
+def _supplier_query(search="", country=None, supplier_group=None, status="active", names=None, sort="name_asc"):
     supplier, contact = frappe.qb.DocType("Supplier"), frappe.qb.DocType("Contact")
     fields = [supplier.name, supplier.supplier_name, supplier.country, supplier.supplier_group,
               supplier.disabled, supplier.mobile_no, contact.mobile_no.as_("contact_mobile"),
@@ -88,15 +97,14 @@ def _supplier_query(search="", country=None, supplier_group=None, status="active
         query = query.where(supplier.country == country)
     if supplier_group:
         query = query.where(supplier.supplier_group.isin([supplier_group, *get_descendants_of("Supplier Group", supplier_group)]))
-    if status in ("active", "disabled"):
-        query = query.where(supplier.disabled == (1 if status == "disabled" else 0))
+    query = query.where(supplier.disabled == 0)
     if search:
         pattern = "%" + str(search).strip()[:100] + "%"
         condition = supplier.name.like(pattern) | supplier.supplier_name.like(pattern) | supplier.mobile_no.like(pattern) | contact.mobile_no.like(pattern) | contact.phone.like(pattern)
         if meta.has_field("custom_mobile_number"):
             condition |= supplier.custom_mobile_number.like(pattern)
         query = query.where(condition)
-    return query.orderby(supplier.supplier_name)
+    return _ordered(query, supplier, supplier.supplier_name, sort)
 
 
 def supplier_card_rows(rows):
@@ -114,10 +122,10 @@ def supplier_cards(names):
 
 
 @frappe.whitelist()
-def supplier_directory(search="", country=None, supplier_group=None, status="active", start=0):
+def supplier_directory(search="", country=None, supplier_group=None, status="active", start=0, sort="name_asc"):
     guard()
     if status not in ("active", "disabled", "all"):
         frappe.throw("Choose a valid supplier status.")
     start = max(0, cint(start))
-    rows = _supplier_query(search, country, supplier_group, status).offset(start).limit(51).run(as_dict=True)
+    rows = _supplier_query(search, country, supplier_group, status, sort=sort).offset(start).limit(51).run(as_dict=True)
     return {"rows": supplier_card_rows(rows[:50]), "has_more": len(rows) > 50, "start": start}
