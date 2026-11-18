@@ -561,3 +561,13 @@ body:has(#page-customer-workspace.snrg-customer-workspace-page:not(.hide):not(.h
 #cw .outcome-unanswered{background:color-mix(in srgb,#ca8a04 12%,var(--surface));color:var(--yellow-700,#986800)}
 
 @media(max-width:420px){#cw .footer:has(>button:nth-child(3)){display:grid;grid-template-columns:1fr 1fr}#cw .footer:has(>button:nth-child(3))>.primary{grid-column:1/-1;min-width:0;width:100%}}
+
+/* Preserve the original emblem and GOLD COAST artwork; retypeset only its descriptor. */
+#cw nav .teamspace-brand{display:flex;flex-direction:column;align-items:flex-start;gap:11px;padding:5px 8px 7px;min-height:0}
+#cw nav .teamspace-brand>.brand-artwork{display:block;position:relative;width:160px;max-width:100%;height:auto;aspect-ratio:9661/2205;clip-path:none;overflow:hidden;mix-blend-mode:multiply}
+#cw .brand-artwork img{display:block;width:100%;height:auto;max-width:none;mix-blend-mode:normal}
+#cw .brand-electricals{position:absolute;left:23%;top:58%;width:77%;height:32%;display:flex;align-items:center;padding-left:1.5%;background:#fff;color:#2d3e69;font-size:8px;line-height:1;font-weight:750;letter-spacing:1.2px;white-space:nowrap}
+#cw nav .teamspace-brand>.teamspace-signature{position:static;display:flex;align-items:center;gap:6px;width:auto;height:auto;clip-path:none;overflow:visible;color:var(--muted);font-size:12px;font-weight:550;letter-spacing:.1px}
+#cw .teamspace-signature svg{width:14px;height:14px;color:var(--accent)}
+[data-theme="dark"] #cw .brand-artwork{mix-blend-mode:normal!important;background:#fff;border-radius:3px}
+@media(max-width:720px){#cw nav .teamspace-brand{gap:5px;padding:0}#cw nav .teamspace-brand>.brand-artwork{width:150px}#cw .brand-electricals{font-size:7.5px;letter-spacing:1px}#cw nav .teamspace-brand>.teamspace-signature{font-size:10px;gap:4px}#cw .teamspace-signature svg{width:12px;height:12px}}
