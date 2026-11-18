@@ -43,16 +43,18 @@ def run():
             actual = customer_ar(company, customer=customer.name, balance="all")
             assert actual["currency"] == allowed[0].default_currency
             assert customer_ar_invoices(company, customer.name, balance="all")["rows"] == []
-            with patch("frappe.desk.query_report.run", return_value={"result": [{"party": customer.name, "outstanding": 1000, "total_due": 600, "range0": 400, "advance": 50, "range1": 400, "range2": 100, "range4": 40, "range5": 60}, {"party": "Total", "outstanding": 1000}]}):
+            with patch("frappe.desk.query_report.run", return_value={"result": [{"party": customer.name, "outstanding": 1000, "total_due": 600, "range0": 400, "advance": 50, "range1": 400, "range2": 100, "range4": 40, "range5": 60}, {"party": "Total", "outstanding": 1000}]}) as report_run:
                 ar = customer_ar(company, balance="all", search="9876543210")
+                assert report_run.call_args_list[0].kwargs["filters"]["ageing_based_on"] == "Due Date"
+                assert report_run.call_args_list[1].kwargs["filters"]["ageing_based_on"] == "Posting Date"
                 assert len(ar["rows"]) == 1
                 assert ar["totals"]["outstanding"] == 1000 and ar["totals"]["due_now"] == 600
                 assert ar["totals"]["not_yet_due"] == 400 and ar["totals"]["advance"] == 50
-                assert ar["rows"][0]["age_0_30"] == 400 and ar["rows"][0]["age_over_90"] == 100
+                assert ar["rows"][0]["age_0_30"] == 400 and ar["rows"][0]["age_91_120"] == 40 and ar["rows"][0]["age_over_120"] == 60
                 assert not customer_ar(company, balance="credit")["rows"]
             with patch("frappe.desk.query_report.run", return_value={"result": [{"voucher_type": "Sales Invoice", "voucher_no": "AGE-TEST", "posting_date": "2026-11-01", "due_date": "2026-11-10", "outstanding": 100}, {"voucher_type": "Sales Invoice", "voucher_no": "FUTURE-TEST", "posting_date": "2026-11-01", "due_date": "2026-11-26", "outstanding": 200}]}):
                 aged = customer_ar_invoices(company, customer.name, report_date="2026-11-19")
-                assert aged["rows"][0]["age_days"] == 9 and aged["rows"][1]["age_days"] == -7
+                assert aged["rows"][0]["age_days"] == 18 and aged["rows"][1]["age_days"] == 18
             results.append("customer phone fallback/search + real AR engine + compact AR totals, ageing and filters")
         frappe.set_user(owner)
         assert not api.bootstrap()["can_ar"]

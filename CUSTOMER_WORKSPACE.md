@@ -104,9 +104,18 @@ The outer Desk sidebar and native page header are hidden only while this page is
 visible; there is a single main screen title and an ERPNext return link in the
 workspace navigation.
 
-AR rows include due-date ageing buckets (0–30, 31–60, 61–90, 91+ days) and a
+AR rows include invoice-date ageing buckets (0–30, 31–60, 61–90, 91–120, 120+ days) and a
 Log interaction action that opens a preselected customer conversation without
 leaving the AR list. Invoice days use the selected report date, not today's date;
-future due dates are labelled accordingly, and posting-date fallbacks are explicit.
+invoice posting dates determine age. The 120+ bucket covers ages above 120 days.
+Due now and not yet due remain based on payment due dates. The calendar Today
+button returns to the current month and selects today's date.
 Filter controls use uniform heights and a responsive grid. Customer identity and
 actions remain pinned while wider ageing columns scroll.
+
+AR filters refresh on selection; customer search refreshes after a short typing pause.
+All balances are included without a balance-type selector.
+
+All workspace date fields share a roomy themed date picker with month/year selection
+and Today. Agenda dates use stronger type; redundant AR and agenda subtitles are
+removed. The styled ERPNext Desk navigation link opens /desk in a new tab.

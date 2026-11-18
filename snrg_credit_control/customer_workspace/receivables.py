@@ -42,6 +42,8 @@ def customer_ar(company, report_date=None, search="", territory=None, customer_g
     # Preserve ERPNext Report roles, Sales Invoice report permission, company and
     # user-permission filters. Do not read Sales Invoice balances with get_all.
     result = run(REPORT, filters=filters, ignore_prepared_report=True)
+    aged_result = run(REPORT, filters={**filters, "ageing_based_on": "Posting Date"}, ignore_prepared_report=True)
+    aged_rows = {row["party"]: row for row in aged_result.get("result", []) if isinstance(row, dict) and row.get("party") and not row.get("is_total_row")}
     native = [row for row in result.get("result", []) if isinstance(row, dict) and row.get("party") and not row.get("is_total_row")]
     identities = customer_cards([row["party"] for row in native])
     rows = []
@@ -50,6 +52,7 @@ def customer_ar(company, report_date=None, search="", territory=None, customer_g
         identity = identities.get(source["party"])
         if not identity:  # skip report totals/non-Customer rows
             continue
+        aged = aged_rows.get(source["party"], {})
         outstanding, due = flt(source.get("outstanding")), flt(source.get("total_due"))
         if balance == "outstanding" and outstanding <= 0:
             continue
@@ -61,9 +64,9 @@ def customer_ar(company, report_date=None, search="", territory=None, customer_g
             continue
         rows.append({**identity, "outstanding": outstanding, "due_now": due,
                      "not_yet_due": flt(source.get("range0")), "advance": flt(source.get("advance")),
-                     "age_0_30": flt(source.get("range1")), "age_31_60": flt(source.get("range2")),
-                     "age_61_90": flt(source.get("range3")),
-                     "age_over_90": flt(source.get("range4")) + flt(source.get("range5")),
+                     "age_0_30": flt(aged.get("range1")), "age_31_60": flt(aged.get("range2")),
+                     "age_61_90": flt(aged.get("range3")),
+                     "age_91_120": flt(aged.get("range4")), "age_over_120": flt(aged.get("range5")),
                      "currency": companies[company]})
     rows.sort(key=lambda row: (-row["due_now"], -row["outstanding"], row["customer_name"]))
     totals = {key: sum(row[key] for row in rows) for key in ("outstanding", "due_now", "advance", "not_yet_due")}
@@ -90,9 +93,9 @@ def customer_ar_invoices(company, customer, report_date=None, balance="all", sta
         if balance == "outstanding" and outstanding <= 0 or balance == "credit" and outstanding >= 0 or balance == "due" and flt(row.get("total_due")) <= 0:
             continue
         item = {key: row.get(key) for key in ("voucher_type", "voucher_no", "posting_date", "due_date", "outstanding", "currency")}
-        basis = row.get("due_date") or row.get("posting_date")
-        item["age_days"] = cint(row["age"]) if row.get("age") is not None else date_diff(report_date or today(), basis) if basis else None
-        item["age_basis"] = "due_date" if row.get("due_date") else "posting_date" if basis else None
+        basis = row.get("posting_date")
+        item["age_days"] = date_diff(report_date or today(), basis) if basis else None
+        item["age_basis"] = "posting_date" if basis else None
         rows.append(item)
     rows.sort(key=lambda row: str(row.get("due_date") or row.get("posting_date") or ""))
     start = max(0, cint(start))
