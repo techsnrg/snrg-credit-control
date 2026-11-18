@@ -516,3 +516,9 @@ body:has(#page-customer-workspace.snrg-customer-workspace-page:not(.hide):not(.h
 
 /* Calendar overlays stay above sticky form actions in every shared date field. */
 #cw .date-popover{z-index:120;overscroll-behavior:contain}
+/* Use the original wordmark without a badge or distorted fixed dimensions. */
+#cw nav .teamspace-brand{width:100%;height:auto;min-height:48px;padding:4px 8px;margin:0 0 18px;justify-content:flex-start;background:transparent;border:0;border-radius:0;box-shadow:none}
+#cw nav .teamspace-brand:hover{background:transparent}
+#cw .teamspace-brand img{display:block;width:100%;max-width:160px;height:auto;max-height:none;object-fit:contain;object-position:center;padding:0;background:transparent;border-radius:0;mix-blend-mode:multiply}
+[data-theme="dark"] #cw .teamspace-brand img{mix-blend-mode:normal;background:#fff;border-radius:3px}
+@media(max-width:720px){#cw nav .teamspace-brand{width:150px;min-height:34px;margin:0;padding:0}#cw .teamspace-brand img{max-width:150px;height:auto}}
