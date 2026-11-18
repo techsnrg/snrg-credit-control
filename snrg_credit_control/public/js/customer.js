@@ -1,7 +1,7 @@
 frappe.ui.form.on("Customer", {
   refresh(frm) {
     addRecommendedRefreshButton(frm);
-    if (!frm.is_new()) frm.add_custom_button(__("Customer Activity"), () => {
+    if (!frm.is_new()) frm.add_custom_button(__("Teamspace"), () => {
       frappe.route_options = {customer: frm.doc.name};
       frappe.set_route("customer-workspace");
     });

@@ -9,6 +9,9 @@ REPORT = "Accounts Receivable Summary"
 
 
 def can_read():
+    from snrg_credit_control.customer_workspace.settings import allowed
+    if not allowed("AR"):
+        return False
     if not frappe.db.exists("Report", REPORT):
         return False
     report = frappe.get_doc("Report", REPORT)

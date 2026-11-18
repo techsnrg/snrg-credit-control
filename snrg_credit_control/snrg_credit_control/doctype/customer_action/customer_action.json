@@ -8,6 +8,8 @@
   "field_order": [
     "customer",
     "customer_name",
+    "supplier",
+    "supplier_name",
     "subject",
     "interaction",
     "assigned_to",
@@ -27,16 +29,37 @@
       "label": "Customer",
       "fieldtype": "Link",
       "options": "Customer",
-      "reqd": 1,
+      "reqd": 0,
       "in_list_view": 1,
-      "search_index": 1
+      "search_index": 1,
+      "mandatory_depends_on": "eval:!doc.supplier",
+      "depends_on": "eval:!doc.supplier"
     },
     {
       "fieldname": "customer_name",
       "label": "Customer name",
       "fieldtype": "Data",
       "fetch_from": "customer.customer_name",
-      "read_only": 1
+      "read_only": 1,
+      "depends_on": "eval:doc.customer"
+    },
+    {
+      "fieldname": "supplier",
+      "label": "Supplier",
+      "fieldtype": "Link",
+      "options": "Supplier",
+      "search_index": 1,
+      "in_list_view": 1,
+      "mandatory_depends_on": "eval:!doc.customer",
+      "depends_on": "eval:!doc.customer"
+    },
+    {
+      "fieldname": "supplier_name",
+      "label": "Supplier name",
+      "fieldtype": "Data",
+      "fetch_from": "supplier.supplier_name",
+      "read_only": 1,
+      "depends_on": "eval:doc.supplier"
     },
     {
       "fieldname": "subject",
@@ -94,7 +117,7 @@
       "fieldname": "action_type",
       "label": "Action type",
       "fieldtype": "Select",
-      "options": "Follow-up\nSales\nCollection\nReturn pickup\nDispatch\nService\nOther",
+      "options": "Follow-up\nSales\nCollection\nReturn pickup\nDispatch\nService\nOther\nPurchase\nDelivery\nQuality\nPayment",
       "default": "Follow-up"
     },
     {

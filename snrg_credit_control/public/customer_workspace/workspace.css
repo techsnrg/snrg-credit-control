@@ -312,3 +312,122 @@ body:has(#page-customer-workspace.snrg-customer-workspace-page:not(.hide):not(.h
 #cw nav>a.erp-back:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 @media(min-width:721px) and (max-width:1150px){#cw nav>a.erp-back{padding:11px;justify-content:center}#cw nav>a.erp-back span{position:absolute;width:1px;height:1px;clip-path:inset(50%);overflow:hidden}#cw nav>a.erp-back .erp-arrow{display:none}}
 @media(max-width:720px){#cw nav>a.erp-back{margin-top:0;margin-left:auto}}
+
+#cw .transaction-toggle,#cw .feature-restrict,#cw .employee-access{display:flex;align-items:center;gap:8px;margin:0;font-size:12px;font-weight:500}
+#cw .transaction-toggle input,#cw .feature-restrict input,#cw .employee-access input{width:16px;height:16px;min-height:0;padding:0;margin:0;accent-color:var(--accent);flex-shrink:0}
+#cw .timeline-access{margin:-8px 0 22px}
+#cw .planned-event .eventbody{padding:14px 16px;background:var(--accent-soft);border:1px dashed color-mix(in srgb,var(--accent) 45%,var(--line));border-radius:10px}
+#cw .planned-event>.avatar{background:var(--accent-soft);color:var(--accent)}
+#cw .plan-badge{display:inline-block;margin-left:8px;color:var(--accent);font-size:10px;letter-spacing:.3px;font-weight:650;text-transform:uppercase}
+#cw .plan-owner{margin:8px 0!important;font-size:12px}
+#cw .transaction-event .eventbody{border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+#cw .transaction-body{display:flex;justify-content:space-between;gap:12px;align-items:center;margin:8px 0}
+#cw .transaction-body>strong{font-size:15px;white-space:nowrap}
+#cw .allocation{font-size:11px;color:var(--muted);margin-top:5px}
+#cw .party-kind{color:var(--accent);background:var(--accent-soft);border-radius:5px;padding:2px 7px;font-size:10px;font-weight:600}
+#cw .feature-setting{border:1px solid var(--line);border-radius:10px;padding:16px;margin:16px 0}
+#cw .feature-setting .hint{margin:8px 0 12px}
+#cw .employee-access{padding:8px 0}
+#cw .employee-access small{display:block;color:var(--muted);font-size:10px;font-weight:400}
+
+#cw .party-picker{position:relative;font-weight:400}
+#cw .party-search{display:flex;align-items:center;position:relative}
+#cw .party-search>svg:first-child{position:absolute;left:12px;color:var(--muted)}
+#cw .party-search input{padding-left:37px;padding-right:34px;width:100%;height:42px}
+#cw .party-selected{position:absolute;right:12px;color:var(--accent)}
+#cw .party-options{position:absolute;top:calc(100% + 5px);left:0;right:0;max-height:280px;overflow:auto;border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px #0002;background:var(--surface);z-index:65;padding:5px}
+#cw .party-options>button{display:block;text-align:left;width:100%;padding:10px 12px}
+#cw .party-options strong{display:block;font-size:12px}
+#cw .party-options small{display:block;font-size:10px;color:var(--muted);margin-top:3px}
+#cw .party-options .party-option-active{background:var(--accent-soft)}
+#cw .party-options>p{padding:10px}
+
+#cw .relationship-type{display:flex;gap:3px;margin:0 0 18px;width:max-content;padding:3px;background:var(--soft);border-radius:8px}
+#cw .relationship-type button{font-size:11px;padding:5px 12px}
+#cw .relationship-type button.active{color:var(--accent);background:var(--surface);box-shadow:0 1px 3px #0001;font-weight:600}
+#cw .interaction-parties{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+#cw .interaction-parties input{height:42px}
+#cw .summary-composer{border:1px solid var(--line);border-radius:10px;overflow:visible;margin:2px 0 10px}
+#cw .summary-composer:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+#cw .summary-toolbar{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;gap:12px;border-bottom:1px solid var(--line);background:var(--soft);border-radius:10px 10px 0 0;font-weight:500;font-size:12px}
+#cw .summary-toolbar .channel-picker{display:flex;align-items:center;gap:5px;margin:0;flex:0 0 auto}
+#cw .summary-toolbar select{height:30px;min-height:30px;width:auto;margin:0;padding:3px 23px 3px 7px;font-size:12px;background:var(--surface);border:1px solid var(--line);border-radius:6px}
+#cw .summary-composer textarea{display:block;border:0;border-radius:0 0 10px 10px;margin:0;min-height:150px;padding:14px;outline:0}
+#cw .summary-composer textarea:focus-visible{outline:0}
+@media(max-width:600px){#cw .interaction-parties{grid-template-columns:1fr;gap:0}}
+
+/* Frappe CRM-inspired hierarchy, using Desk's existing InterVariable face and theme. */
+#cw{font-size:14px;line-height:1.55;font-weight:400}
+#cw h1{font-size:24px;font-weight:600;letter-spacing:-.4px}
+#cw h2{font-size:15px;font-weight:600;letter-spacing:-.1px}
+#cw .heading .muted{font-size:13px}
+#cw .primary{font-size:13px;padding:9px 14px;font-weight:500;box-shadow:none}
+#cw nav button,#cw nav>a.erp-back{font-size:13px}
+#cw .navlabel{font-size:11px;letter-spacing:.7px}
+#cw label{font-size:13px;font-weight:500}
+#cw input,#cw select,#cw textarea{font-size:14px}
+#cw .hint,#cw .contact,#cw .list-caption{font-size:12px}
+#cw .tabs button{font-size:14px;font-weight:500}
+#cw .composer{padding:14px 16px;box-shadow:none;margin-bottom:25px;background:var(--soft);border-color:transparent}
+#cw .composer strong{font-size:14px;font-weight:500}
+#cw .composer small{font-size:12px}
+#cw .event{gap:14px;padding-bottom:28px}
+#cw .eventhead{font-size:14px;margin-bottom:9px}
+#cw .eventhead strong{font-weight:550}
+#cw .eventhead time{font-size:12px}
+#cw .channel-chip,#cw .plan-badge{font-size:11px;font-weight:500}
+#cw .note{border:0;border-radius:9px;background:var(--soft);padding:13px 16px}
+#cw .note p{font-size:14px;line-height:1.65}
+#cw .eventbody>.customerlink{font-size:12px}
+#cw .transaction-event .eventbody{border:0;padding:2px 0 14px;border-bottom:1px solid var(--line);border-radius:0}
+#cw .transaction-body>strong{font-size:16px;font-weight:550}
+#cw .plan-owner{font-size:13px}
+#cw .transaction-toggle{font-size:12px}
+#cw .tasktitle{font-size:14px;font-weight:500}
+#cw .taskmeta,#cw .time,#cw .time small,#cw .status-pill{font-size:12px}
+#cw .directory-row strong,#cw .compact-table td{font-size:13px}
+#cw .directory-row small,#cw .directory-columns,#cw .compact-table th{font-size:12px}
+#cw .sidegroup{padding-top:22px;margin-top:22px}
+#cw .sidegroup h2{font-size:14px;font-weight:550}
+#cw .sidegroup .hint{font-size:13px;line-height:1.6}
+#cw .agenda{font-size:13px}
+#cw .agenda small,#cw .agenda-time{font-size:12px}
+#cw .viewall{font-size:13px;font-weight:500}
+#cw .calendar button{font-size:14px;font-weight:500}
+#cw .calendar>span{font-size:12px}
+#cw .month strong{font-size:13px;font-weight:550}
+#cw .drawer{width:650px;padding:26px 30px 0}
+#cw .drawer-heading h2{font-size:22px;font-weight:600}
+#cw .summary-toolbar{font-size:13px}
+#cw .summary-toolbar select{font-size:13px}
+#cw .rich-editor .form-group{margin:0}
+#cw .rich-editor .control-label,#cw .rich-editor .help-box,#cw .rich-editor .clearfix{display:none}
+#cw .rich-editor .ql-container{border:0;font:14px/1.65 inherit}
+#cw .rich-editor .ql-editor{min-height:190px;font:14px/1.65 var(--font-stack,Inter,sans-serif);padding:15px}
+#cw .rich-editor .ql-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:3px;border:0;border-top:1px solid var(--line);border-radius:0;padding:7px 9px;background:var(--soft)}
+#cw .rich-editor .ql-toolbar button{padding:4px;width:28px;height:28px;border-radius:5px}
+#cw .rich-editor .ql-toolbar .ql-formats{margin-right:7px}
+#cw .rich-editor .ql-toolbar select{width:auto;padding:0;margin:0}
+#cw .rich-editor .ql-editor p{font-size:14px;line-height:1.65}
+#cw .editor-attachments{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:7px 11px;border-top:1px solid var(--line)}
+#cw .attach-button{font-size:12px;color:var(--accent);padding:5px}
+#cw .editor-attachments .hint{font-size:11px}
+#cw .uploaded-files{padding:0 12px 10px;display:flex;gap:6px;flex-wrap:wrap}
+#cw .uploaded-files>div{display:flex;align-items:center;background:var(--soft);border-radius:6px;padding:3px 6px;font-size:12px;gap:6px}
+#cw .uploaded-files a,#cw .timeline-attachments a{color:var(--accent);overflow-wrap:anywhere}
+#cw .uploaded-files button{padding:1px 4px}
+#cw .timeline-attachments{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0;font-size:12px}
+#cw .rich-note .ql-editor{padding:0;white-space:normal;font-size:14px;line-height:1.65}
+#cw .rich-note img{max-width:100%;height:auto;border-radius:7px;margin:8px 0}
+#cw .rich-note h1,#cw .rich-note h2,#cw .rich-note h3{font-size:17px;margin:8px 0;font-weight:600}
+#cw .rich-note ul,#cw .rich-note ol{padding-left:22px;margin:8px 0}
+#cw .rich-note blockquote{border-left:3px solid var(--line);padding-left:12px;margin:8px 0}
+@media(max-width:600px){#cw .drawer{padding:22px 18px 0}#cw .eventhead{font-size:13px}#cw .editor-attachments .hint{display:none}}
+
+#cw input[type="checkbox"]{appearance:auto!important;-webkit-appearance:checkbox!important;accent-color:var(--accent)}
+#cw .ql-mention-list-container{z-index:80;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px #0002;font-size:13px}
+#cw .ql-mention-list-item{padding:9px 12px}
+#cw .ql-mention-list-item.selected{background:var(--accent-soft)}
+
+#cw .rich-editor .ql-container{height:auto;min-height:0}
+#cw .rich-editor .ql-editor{height:210px;min-height:180px;max-height:360px;overflow-y:auto}

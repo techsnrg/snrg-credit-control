@@ -56,6 +56,92 @@ def run():
                 aged = customer_ar_invoices(company, customer.name, report_date="2026-11-19")
                 assert aged["rows"][0]["age_days"] == 18 and aged["rows"][1]["age_days"] == 18
             results.append("customer phone fallback/search + real AR engine + compact AR totals, ageing and filters")
+        supplier = frappe.get_doc({"doctype": "Supplier", "supplier_name": "Teamspace integration " + frappe.generate_hash(length=8), "supplier_type": "Company"})
+        supplier.flags.ignore_mandatory = True
+        supplier.insert(ignore_permissions=True)
+        supplier.db_set("supplier_primary_contact", contact.name, update_modified=False)
+        supplier.db_set("mobile_no", "", update_modified=False)
+        from snrg_credit_control.customer_workspace.directory import supplier_directory
+        from snrg_credit_control.customer_workspace.payables import supplier_ap
+        from snrg_credit_control.customer_workspace.timeline import timeline
+        from snrg_credit_control.customer_workspace.settings import save_visibility_settings, allowed as feature_allowed
+        assert any(row.name == supplier.name and row.party_type == "Supplier" and row.mobile_number == "9876543210" for row in supplier_directory(search="9876543210", status="all")["rows"])
+        if allowed:
+            assert supplier_ap(allowed[0].name, supplier=supplier.name, balance="all")["rows"] == []
+        frappe.set_user(owner)
+        supplier_result = api.log_interaction({"supplier": supplier.name, "summary": "Supplier confirmed dispatch. @assignee coordinate delivery.", "mentions": [employees[1][1]], "actions": [{"subject": "Confirm supplier delivery", "assigned_to": assignee, "due_date": add_days(today(), 2), "due_time": "11:30", "action_type": "Delivery"}]})
+        standalone = api.create_action({"supplier": supplier.name, "subject": "Standalone supplier plan", "assigned_to": assignee, "due_date": add_days(today(), 3)})
+        assert not standalone.interaction
+        assert len(api.history(supplier=supplier.name)["interactions"]) == 1
+        supplier_action = frappe.get_doc(api.ACTION, supplier_result["actions"][0])
+        assert not supplier_action.customer and supplier_action.supplier == supplier.name
+        assert supplier_action.supplier_name == supplier.supplier_name and supplier_action.event
+        assert api.history(supplier=supplier.name)["interactions"][0].name == supplier_result["name"]
+        assert all(row.supplier == supplier.name for row in api.actions(scope="customer", supplier=supplier.name))
+        combined = timeline(supplier=supplier.name, include_transactions=0)
+        assert {row["kind"] for row in combined["events"]} == {"interaction", "plan"}
+        assert combined["events"][0]["kind"] == "plan" and combined["events"][0]["action"].assigned_to == assignee
+        with patch("snrg_credit_control.customer_workspace.timeline._transactions") as hidden_transactions:
+            timeline(supplier=supplier.name, include_transactions=0)
+            hidden_transactions.assert_not_called()
+        try:
+            api.log_interaction({"customer": customer.name, "supplier": supplier.name, "summary": "invalid mixed party"})
+            raise AssertionError("Mixed customer/supplier interaction was allowed")
+        except frappe.ValidationError:
+            pass
+        try:
+            save_visibility_settings({"restrict_ar": 1})
+            raise AssertionError("Employee could change visibility settings")
+        except frappe.PermissionError:
+            pass
+        frappe.set_user(assignee)
+        assert any(row.party_type == "Supplier" and row.party == supplier.name for row in api.personal_agenda())
+        api.update_action(supplier_action.name, {"status": "Completed", "update": "Delivery confirmed"}, str(supplier_action.modified))
+        assert len(api.history(supplier=supplier.name)["interactions"]) == 2
+        attachment = frappe.get_doc({"doctype": "File", "file_name": "teamspace-fixture-" + frappe.generate_hash(length=8) + ".txt", "is_private": 1, "content": "Private Teamspace fixture"}).insert(ignore_permissions=True)
+        rich = api.log_interaction({"supplier": supplier.name, "summary": "Dispatch confirmed", "summary_html": "<p><strong>Dispatch confirmed</strong><script>alert(1)</script></p>", "attachments": [attachment.name]})
+        rich_doc = frappe.get_doc(api.INTERACTION, rich["name"])
+        assert "<strong>" in rich_doc.summary_html and "<script" not in rich_doc.summary_html
+        saved_file = frappe.get_doc("File", attachment.name)
+        assert saved_file.is_private and saved_file.attached_to_name == rich_doc.name and saved_file.attached_to_doctype == api.INTERACTION
+        try:
+            api.log_interaction({"supplier": supplier.name, "summary": "invalid reuse", "attachments": [attachment.name]})
+            raise AssertionError("Already-linked file was reused")
+        except frappe.PermissionError:
+            pass
+        try:
+            api.log_interaction({"supplier": supplier.name, "summary": "invalid image", "summary_html": '<p><img src="https://example.invalid/track.png"></p>'})
+            raise AssertionError("External image tracking was allowed")
+        except frappe.ValidationError:
+            pass
+        frappe.set_user("Administrator")
+        # A selected employee still needs native financial roles; excluded admins are blocked too.
+        save_visibility_settings({"restrict_ar": 1, "restrict_ap": 1, "restrict_transactions": 1, "access": [{"feature": "AR", "user": owner}]})
+        assert not feature_allowed("AR") and not api.bootstrap()["can_ar"]
+        assert not api.bootstrap()["can_ap"]
+        with patch("snrg_credit_control.customer_workspace.timeline._transactions") as hidden_transactions:
+            timeline(supplier=supplier.name, include_transactions=1)
+            hidden_transactions.assert_not_called()
+        frappe.set_user(owner)
+        assert feature_allowed("AR") and not api.bootstrap()["can_ar"]
+        frappe.set_user("Administrator")
+        save_visibility_settings({"access": []})
+        # The native document projection uses permission-checked get_list and keeps draft status explicit.
+        from snrg_credit_control.customer_workspace.timeline import _transactions
+        with patch("frappe.get_list", side_effect=lambda doctype, **kwargs: [frappe._dict(name="TIMELINE-INV", owner="Administrator", creation="2026-11-18 10:00:00", posting_date="2026-11-18", posting_time="10:00:00", status="Draft", docstatus=0, grand_total=20000, currency="INR")] if doctype == "Sales Invoice" else []):
+            tx, sources = _transactions("Customer", customer.name, 51)
+            assert len(tx) == 1 and tx[0]["amount"] == 20000 and tx[0]["status"] == "Draft"
+        payment = frappe._dict(references=[frappe._dict(reference_doctype="Sales Invoice", reference_name="VISIBLE", allocated_amount=15000), frappe._dict(reference_doctype="Sales Invoice", reference_name="HIDDEN", allocated_amount=5000)])
+        payment.check_permission = lambda permission: None
+        original_get_doc = frappe.get_doc
+        with patch("frappe.has_permission", side_effect=lambda doctype, ptype, **kwargs: doctype == "Payment Entry" or (doctype == "Sales Invoice" and kwargs.get("doc") == "VISIBLE")), patch("frappe.get_doc", side_effect=lambda *args, **kwargs: payment if args and args[0] == "Payment Entry" else original_get_doc(*args, **kwargs)), patch("frappe.get_list", return_value=[frappe._dict(name="PAY-TEST", owner="Administrator", creation="2026-11-18 10:00:00", posting_date="2026-11-18", status="Submitted", docstatus=1, payment_type="Receive", paid_amount=20000, received_amount=20000, paid_from_account_currency="INR", paid_to_account_currency="INR")]):
+            tx, sources = _transactions("Customer", customer.name, 51)
+            assert tx[0]["summary"] == "Payment received" and tx[0]["amount"] == 20000
+            assert tx[0]["allocations"] == [{"doctype": "Sales Invoice", "name": "VISIBLE", "amount": 15000}]
+        with patch("frappe.has_permission", return_value=False), patch("frappe.get_list") as unreadable:
+            assert _transactions("Customer", customer.name, 51)[0] == []
+            unreadable.assert_not_called()
+        results.append("supplier directory, mentions, plans, unified agenda, completion audit, native AP and employee visibility restrictions")
         frappe.set_user(owner)
         assert not api.bootstrap()["can_ar"]
         if allowed:
@@ -121,5 +207,6 @@ def run():
             results.append("calendar projection protected and guest directory denied")
     finally:
         frappe.db.rollback()
+        frappe.clear_document_cache("Teamspace Settings", "Teamspace Settings")
         frappe.set_user(original)
     print({"passed": results, "fixtures": "rolled back"})

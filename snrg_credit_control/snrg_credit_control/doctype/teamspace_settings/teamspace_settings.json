@@ -1,0 +1,52 @@
+{
+  "doctype": "DocType",
+  "name": "Teamspace Settings",
+  "module": "Snrg Credit Control",
+  "istable": 0,
+  "issingle": 1,
+  "engine": "InnoDB",
+  "field_order": [
+    "restrict_ar",
+    "restrict_ap",
+    "restrict_transactions",
+    "access"
+  ],
+  "fields": [
+    {
+      "fieldname": "restrict_ar",
+      "label": "Limit customer AR to selected employees",
+      "fieldtype": "Check"
+    },
+    {
+      "fieldname": "restrict_ap",
+      "label": "Limit supplier AP to selected employees",
+      "fieldtype": "Check"
+    },
+    {
+      "fieldname": "restrict_transactions",
+      "label": "Limit transaction timeline to selected employees",
+      "fieldtype": "Check"
+    },
+    {
+      "fieldname": "access",
+      "label": "Selected employees",
+      "fieldtype": "Table",
+      "options": "Teamspace Feature Access"
+    }
+  ],
+  "permissions": [
+    {
+      "role": "System Manager",
+      "read": 1,
+      "write": 1,
+      "create": 1
+    },
+    {
+      "role": "Customer Workspace Manager",
+      "read": 1,
+      "write": 1,
+      "create": 1
+    }
+  ],
+  "track_changes": 1
+}

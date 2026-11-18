@@ -2,7 +2,7 @@
   "doctype": "Page",
   "name": "customer-workspace",
   "page_name": "customer-workspace",
-  "title": "Customer Workspace",
+  "title": "Teamspace",
   "module": "Snrg Credit Control",
   "standard": "Yes",
   "roles": [
@@ -10,7 +10,7 @@
       "role": "Employee"
     },
     {
-      "role": "Customer Workspace Manager"
+      "role": "Teamspace Manager"
     },
     {
       "role": "System Manager"

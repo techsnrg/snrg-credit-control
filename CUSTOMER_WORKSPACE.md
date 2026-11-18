@@ -119,3 +119,45 @@ All balances are included without a balance-type selector.
 All workspace date fields share a roomy themed date picker with month/year selection
 and Today. Agenda dates use stronger type; redundant AR and agenda subtitles are
 removed. The styled ERPNext Desk navigation link opens /desk in a new tab.
+
+## Teamspace: customers, suppliers and one timeline
+
+The visible workspace and Page are now called **Teamspace**. The existing
+`customer-workspace` URL, Customer Interaction/Action records and manager role
+remain compatible. The migration renames the generated Customer Relationships
+workspace; existing customer links and history are preserved. Each new activity
+or plan must link to exactly one Customer or Supplier. Supplier actions share the
+same personal agenda, assignment rules, notifications and calendar projection.
+
+The Activity timeline combines conversations, submitted/draft/cancelled ERPNext
+transaction records and highlighted pending plans. **Show transactions** starts
+checked and can be switched off temporarily without hiding conversations or
+plans. Customer sources include quotations, orders, deliveries, invoices/credit
+notes and Payment Entries; supplier sources include quotations, purchase orders,
+receipts/returns, invoices/debit notes and Payment Entries. Native read, field,
+company and user permissions remain enforced. Payment receipt amounts and visible
+allocations are separate; the timeline does not claim a call caused a payment.
+
+Managers can open **Visibility settings** to optionally allowlist employees for
+Customer AR, Supplier AP and transaction history. These are additional Teamspace
+restrictions, not ERPNext role grants or changes to native report access. The
+settings default to existing ERPNext permissions. Supplier AP uses the native
+permission-checked Accounts Payable reports, independently of AR access.
+
+Primary actions are contextual: **Assign task** on team/assigned work,
+**New follow-up** on personal work, and **Log interaction** on Activity. A task can
+be created without inventing a conversation. Relationship selection is one
+searchable combobox, including name/code/mobile and keyboard navigation.
+
+Interaction composition uses ERPNext's Quill editor with headings, formatting,
+lists, links, alignment, images and attachments. Active Employee mentions use the
+Teamspace directory. Formatting is sanitized on the server. Uploaded files are
+private, must belong to the current uploader, and are linked to the immutable
+interaction on save. External inline images and reusing another record's files
+are rejected. The plain-text summary remains for compatibility and searching.
+
+Validation includes transactional staging tests for supplier isolation, mentions,
+calendar sync, standalone tasks, permission-checked transaction projection,
+payment allocation visibility, allowlists and private rich-text attachments.
+`test_preview.seed` creates clearly labelled demo fixtures only on staging/test
+sites; it is never called by migrations or on production.

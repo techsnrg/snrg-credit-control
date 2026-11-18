@@ -17,7 +17,7 @@ for(const extension of ['js','css']){
 }
 await writeFile('snrg_credit_control/snrg_credit_control/page/customer_workspace/customer_workspace.js',`frappe.pages["customer-workspace"].on_page_load = function(wrapper) {
   wrapper.classList.add("snrg-customer-workspace-page");
-  const page = frappe.ui.make_app_page({parent: wrapper, title: __("Customer Workspace"), single_column: true});
+  const page = frappe.ui.make_app_page({parent: wrapper, title: __("Teamspace"), single_column: true});
   frappe.require(["${assets.css}", "${assets.js}"], () => window.snrgCustomerWorkspace.mount(page.main[0]));
 };
 `);

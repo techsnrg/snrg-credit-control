@@ -10,6 +10,23 @@ INTERACTION = "Customer Interaction"
 ACTION = "Customer Action"
 
 
+def party_values(customer=None, supplier=None):
+    if bool(customer) == bool(supplier):
+        frappe.throw(_("Choose exactly one customer or supplier."))
+    kind, name = ("Supplier", supplier) if supplier else ("Customer", customer)
+    record = frappe.get_doc(kind, name)
+    return {"customer": customer or None, "supplier": supplier or None,
+            "customer_name": record.customer_name if customer else None,
+            "supplier_name": record.supplier_name if supplier else None}
+
+
+def present_action(row):
+    row["party_type"] = "Supplier" if row.get("supplier") else "Customer"
+    row["party"] = row.get("supplier") or row.get("customer")
+    row["party_name"] = row.get("supplier_name") or row.get("customer_name")
+    return row
+
+
 def manager(user=None):
     return bool(set(frappe.get_roles(user or frappe.session.user)) & {MANAGER_ROLE, "System Manager"})
 
@@ -56,7 +73,9 @@ def bootstrap():
     guard()
     from snrg_credit_control.customer_workspace.directory import filter_options
     from snrg_credit_control.customer_workspace.receivables import can_read, allowed_companies
-    return {"user": frappe.session.user, "is_manager": manager(), "today": today(), "employees": _directory(), "can_ar": can_read(), "can_ar_detail": bool(can_read() and frappe.db.exists("Report", "Accounts Receivable") and not frappe.get_doc("Report", "Accounts Receivable").disabled and frappe.get_doc("Report", "Accounts Receivable").is_permitted()), "companies": allowed_companies(), **filter_options()}
+    from snrg_credit_control.customer_workspace import payables
+    from snrg_credit_control.customer_workspace.settings import allowed
+    return {"user": frappe.session.user, "is_manager": manager(), "today": today(), "employees": _directory(), "can_ar": can_read(), "can_ar_detail": bool(can_read() and frappe.db.exists("Report", "Accounts Receivable") and not frappe.get_doc("Report", "Accounts Receivable").disabled and frappe.get_doc("Report", "Accounts Receivable").is_permitted()), "can_transactions": allowed("Transactions"), "can_ap": payables.can_read(), "can_ap_detail": payables.can_read_detail(), "ap_companies": payables.allowed_companies(), "companies": allowed_companies(), **filter_options()}
 
 
 @frappe.whitelist()
@@ -67,7 +86,7 @@ def customers(search="", start=0):
 
 
 @frappe.whitelist()
-def actions(scope="mine", employee=None, customer=None, status="pending", start=0):
+def actions(scope="mine", employee=None, customer=None, status="pending", start=0, supplier=None):
     guard()
     if scope not in ("mine", "assigned", "team", "customer"):
         frappe.throw(_("Invalid work view."))
@@ -80,24 +99,26 @@ def actions(scope="mine", employee=None, customer=None, status="pending", start=
         filters["owner"] = frappe.session.user
     elif scope == "team" and employee:
         filters["assigned_to"] = employee
-    if customer:
-        filters["customer"] = customer
+    if customer or supplier:
+        party_values(customer, supplier)
+        filters["supplier" if supplier else "customer"] = supplier or customer
     elif scope == "customer":
-        frappe.throw(_("Choose a customer."))
-    return frappe.get_all(ACTION, filters=filters, fields=["name", "customer", "customer_name", "subject", "assigned_to", "due_date", "due_time", "status", "action_type", "priority", "description", "interaction", "modified", "owner", "event"], order_by="due_date asc, due_time asc", start=max(0, int(start)), limit_page_length=100)
+        frappe.throw(_("Choose a customer or supplier."))
+    return [present_action(row) for row in frappe.get_all(ACTION, filters=filters, fields=["supplier", "supplier_name", "name", "customer", "customer_name", "subject", "assigned_to", "due_date", "due_time", "status", "action_type", "priority", "description", "interaction", "modified", "owner", "event"], order_by="due_date asc, due_time asc", start=max(0, int(start)), limit_page_length=100)]
 
 
 @frappe.whitelist()
-def history(customer, start=0):
+def history(customer=None, start=0, supplier=None):
     guard()
-    frappe.get_doc("Customer", customer)  # validate existence without exposing the full record
+    party_values(customer, supplier)
+    party_filter = {"supplier": supplier} if supplier else {"customer": customer}
     start = max(0, int(start))
-    rows = frappe.get_all(INTERACTION, filters={"customer": customer}, fields=["name", "summary", "channel", "contact_name", "spoken_by", "interaction_on", "owner", "creation", "action_reference"], order_by="interaction_on desc", start=start, limit_page_length=50)
+    rows = frappe.get_all(INTERACTION, filters=party_filter, fields=["name", "summary", "channel", "contact_name", "spoken_by", "interaction_on", "owner", "creation", "action_reference"], order_by="interaction_on desc", start=start, limit_page_length=50)
     for row in rows:
         row.mentions = frappe.get_all("Customer Interaction Mention", filters={"parent": row.name, "parenttype": INTERACTION}, fields=["employee", "employee_name", "user"], limit_page_length=0)
     # Legacy calls are a separate paginated stream so neither history can starve the other.
     legacy = []
-    if frappe.db.exists("DocType", "Calls"):
+    if customer and frappe.db.exists("DocType", "Calls"):
         legacy = frappe.get_all("Calls", filters={"call_to": "Customer", "lead__party": customer}, fields=["name", "short_notes", "long_notes", "date", "call_time", "employee_id", "employee_name", "follow_up_date"], order_by="date desc, call_time desc", start=start, limit_page_length=50)
     return {"interactions": rows, "calls": legacy}
 
@@ -108,20 +129,26 @@ def log_interaction(payload):
     data = frappe.parse_json(payload)
     if not str(data.get("summary", "")).strip():
         frappe.throw(_("Enter a discussion summary."))
-    customer = data.get("customer")
-    frappe.get_doc("Customer", customer)
+    party = party_values(data.get("customer"), data.get("supplier"))
     spoken_by = data.get("spoken_by") or frappe.session.user
     if spoken_by != frappe.session.user and not manager():
         frappe.throw(_("Only managers may record a conversation on someone else's behalf."), frappe.PermissionError)
     if not internal(spoken_by):
         frappe.throw(_("Choose an active internal employee as the speaker."))
-    doc = frappe.get_doc({"doctype": INTERACTION, "customer": customer, "summary": data["summary"].strip(), "channel": data.get("channel", "Call"), "contact_name": data.get("contact_name"), "spoken_by": spoken_by, "interaction_on": data.get("interaction_on") or now_datetime()})
+    from snrg_credit_control.customer_workspace.rich_text import uploads
+    files = uploads(data.get("attachments"))
+    doc = frappe.get_doc({"doctype": INTERACTION, **party, "summary_html": data.get("summary_html"), "summary": data["summary"].strip(), "channel": data.get("channel", "Call"), "contact_name": data.get("contact_name"), "spoken_by": spoken_by, "interaction_on": data.get("interaction_on") or now_datetime()})
+    doc.flags.teamspace_uploads = files
     for employee in set(data.get("mentions") or []):
         doc.append("mentions", {"employee": employee})
     doc.insert(ignore_permissions=True)  # guard + controller validation enforce workspace policy
+    for file in files:
+        file.attached_to_doctype = INTERACTION
+        file.attached_to_name = doc.name
+        file.save(ignore_permissions=True)
     created = []
     for item in data.get("actions") or []:
-        created.append(frappe.get_doc({"doctype": ACTION, "customer": customer, "interaction": doc.name, **{k: item.get(k) for k in ("subject", "assigned_to", "due_date", "due_time", "action_type", "priority", "description") if item.get(k)}}).insert(ignore_permissions=True).name)
+        created.append(frappe.get_doc({"doctype": ACTION, **party, "interaction": doc.name, **{k: item.get(k) for k in ("subject", "assigned_to", "due_date", "due_time", "action_type", "priority", "description") if item.get(k)}}).insert(ignore_permissions=True).name)
     return {"name": doc.name, "actions": created}
 
 
@@ -143,7 +170,7 @@ def update_action(name, payload, modified):
                 frappe.throw(_("Only the creator or a manager can reassign an action."), frappe.PermissionError)
             doc.set(field, data[field])
     doc.save(ignore_permissions=True)
-    return doc.as_dict()
+    return present_action(doc.as_dict())
 
 
 def notify(users, subject, doctype, name):
@@ -157,4 +184,24 @@ def notify(users, subject, doctype, name):
 def personal_agenda():
     """All personal pending deadlines, so the calendar never hides later pages."""
     guard()
-    return frappe.get_all(ACTION, filters={"assigned_to": frappe.session.user, "status": ["in", ["Open", "In Progress"]]}, fields=["name", "customer", "customer_name", "subject", "assigned_to", "due_date", "due_time", "status", "action_type", "priority", "description", "interaction", "modified", "owner", "event"], order_by="due_date asc, due_time asc", limit_page_length=0)
+    return [present_action(row) for row in frappe.get_all(ACTION, filters={"assigned_to": frappe.session.user, "status": ["in", ["Open", "In Progress"]]}, fields=["supplier", "supplier_name", "name", "customer", "customer_name", "subject", "assigned_to", "due_date", "due_time", "status", "action_type", "priority", "description", "interaction", "modified", "owner", "event"], order_by="due_date asc, due_time asc", limit_page_length=0)]
+
+
+@frappe.whitelist(methods=["POST"])
+def create_action(payload):
+    """Create a plan without fabricating a conversation."""
+    guard()
+    data = frappe.parse_json(payload)
+    party = party_values(data.get("customer"), data.get("supplier"))
+    if not str(data.get("subject") or "").strip():
+        frappe.throw(_("Enter what needs to happen."))
+    doc = frappe.get_doc({"doctype": ACTION, **party, **{key: data.get(key) for key in ("subject", "assigned_to", "due_date", "due_time", "action_type", "priority", "description") if data.get(key)}})
+    doc.insert(ignore_permissions=True)
+    return present_action(doc.as_dict())
+
+
+@frappe.whitelist()
+def employee_mentions(search_term=""):
+    guard()
+    query = str(search_term or "").casefold()
+    return [{"id": row.name, "value": row.employee_name, "email": row.department or "", "can_notify": row.can_notify} for row in _directory() if query in (row.employee_name or "").casefold()]
