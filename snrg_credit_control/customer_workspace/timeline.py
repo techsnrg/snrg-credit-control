@@ -70,7 +70,7 @@ def timeline(customer=None, supplier=None, start=0, include_transactions=True):
     start = max(0, cint(start))
     limit = start + 51
     events = []
-    interactions = frappe.get_all(INTERACTION, filters=filters, fields=["name", "summary", "summary_html", "channel", "contact_name", "spoken_by", "interaction_on", "action_reference"], order_by="interaction_on desc, name desc", limit_page_length=limit)
+    interactions = frappe.get_all(INTERACTION, filters=filters, fields=["name", "summary", "summary_html", "channel", "call_outcome", "contact_name", "spoken_by", "interaction_on", "action_reference"], order_by="interaction_on desc, name desc", limit_page_length=limit)
     for row in interactions:
         from snrg_credit_control.customer_workspace.rich_text import attachment_rows
         row.attachments = attachment_rows(row.name)

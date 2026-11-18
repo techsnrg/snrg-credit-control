@@ -9,6 +9,6 @@ class TeamspaceSettings(Document):
         guard()
         if not manager():
             frappe.throw(_("Manager access required."), frappe.PermissionError)
-        for row in self.access:
+        for row in list(self.access) + list(self.get("excluded", [])):
             if row.feature not in ("AR", "AP", "Transactions") or not internal(row.user):
                 frappe.throw(_("Choose an active internal team member and a valid feature."))

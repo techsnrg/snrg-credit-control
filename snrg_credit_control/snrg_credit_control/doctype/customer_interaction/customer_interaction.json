@@ -11,6 +11,7 @@
     "supplier",
     "supplier_name",
     "channel",
+    "call_outcome",
     "contact_name",
     "spoken_by",
     "interaction_on",
@@ -108,6 +109,13 @@
       "fieldname": "summary_html",
       "label": "Formatted discussion",
       "fieldtype": "Text Editor"
+    },
+    {
+      "fieldname": "call_outcome",
+      "label": "Call outcome",
+      "fieldtype": "Select",
+      "options": "\nConnected\nNo answer\nBusy\nCall back\nWrong number",
+      "depends_on": "eval:doc.channel == 'Call'"
     }
   ],
   "permissions": [

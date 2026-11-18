@@ -126,6 +126,20 @@ def run():
         assert feature_allowed("AR") and not api.bootstrap()["can_ar"]
         frappe.set_user("Administrator")
         save_visibility_settings({"access": []})
+        save_visibility_settings({"excluded": [{"feature": "AR", "user": owner}, {"feature": "AP", "user": owner}, {"feature": "AP", "user": assignee}]})
+        assert not feature_allowed("AR", owner) and not feature_allowed("AP", owner)
+        assert feature_allowed("AR", assignee) and not feature_allowed("AP", assignee)
+        assert feature_allowed("AR", other) and feature_allowed("AP", other) and feature_allowed("Transactions", other)
+        save_visibility_settings({"restrict_ar": 1, "access": [{"feature": "AR", "user": "Administrator"}], "excluded": [{"feature": "AR", "user": "Administrator"}]})
+        assert not feature_allowed("AR") and not api.bootstrap()["can_ar"]
+        if allowed:
+            try:
+                customer_ar(allowed[0].name)
+                raise AssertionError("Excluded administrator could read AR directly")
+            except frappe.PermissionError:
+                pass
+        save_visibility_settings({"access": [], "excluded": []})
+        results.append("per-user AR/AP exclusions, unaffected-user access and exclusion precedence over allowlist/native admin access")
         # The native document projection uses permission-checked get_list and keeps draft status explicit.
         from snrg_credit_control.customer_workspace.timeline import _transactions
         with patch("frappe.get_list", side_effect=lambda doctype, **kwargs: [frappe._dict(name="TIMELINE-INV", owner="Administrator", creation="2026-11-18 10:00:00", posting_date="2026-11-18", posting_time="10:00:00", status="Draft", docstatus=0, grand_total=20000, currency="INR")] if doctype == "Sales Invoice" else []):
@@ -150,6 +164,16 @@ def run():
                 raise AssertionError("Employee could read financial balances without report access")
             except frappe.PermissionError:
                 pass
+        for outcome in ("Connected", "No answer", "Busy", "Call back", "Wrong number"):
+            logged = api.log_interaction({"supplier": supplier.name, "channel": "Call", "call_outcome": outcome, "summary": "Connected discussion" if outcome == "Connected" else ""})
+            assert frappe.get_doc(api.INTERACTION, logged["name"]).call_outcome == outcome
+            assert any(row.get("call_outcome") == outcome for row in timeline(supplier=supplier.name, include_transactions=0)["events"])
+        try:
+            api.log_interaction({"supplier": supplier.name, "channel": "Call", "call_outcome": "Invalid", "summary": "Invalid outcome"})
+            raise AssertionError("Invalid call outcome was accepted")
+        except frappe.ValidationError:
+            pass
+        results.append("call outcomes saved and returned in timeline; unanswered calls allow an empty note; invalid outcomes rejected")
         results.append("shared directory does not grant financial report access")
         with patch("frappe.desk.doctype.notification_log.notification_log.enqueue_create_notification") as notifications:
             result = api.log_interaction({"customer": customer.name, "summary": "Discussed damaged cartons. @assignee arrange collection.", "mentions": [employees[1][1]], "actions": [{"subject": "Collect cartons", "assigned_to": assignee, "due_date": today(), "due_time": "14:00", "action_type": "Return pickup"}]})

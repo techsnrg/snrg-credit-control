@@ -128,7 +128,10 @@ def log_interaction(payload):
     guard()
     data = frappe.parse_json(payload)
     if not str(data.get("summary", "")).strip():
-        frappe.throw(_("Enter a discussion summary."))
+        if data.get("channel", "Call") == "Call" and data.get("call_outcome") in ("No answer", "Busy", "Call back", "Wrong number"):
+            data["summary"] = data["call_outcome"]
+        else:
+            frappe.throw(_("Enter a discussion summary."))
     party = party_values(data.get("customer"), data.get("supplier"))
     spoken_by = data.get("spoken_by") or frappe.session.user
     if spoken_by != frappe.session.user and not manager():
@@ -137,7 +140,7 @@ def log_interaction(payload):
         frappe.throw(_("Choose an active internal team member as the speaker."))
     from snrg_credit_control.customer_workspace.rich_text import uploads
     files = uploads(data.get("attachments"))
-    doc = frappe.get_doc({"doctype": INTERACTION, **party, "summary_html": data.get("summary_html"), "summary": data["summary"].strip(), "channel": data.get("channel", "Call"), "contact_name": data.get("contact_name"), "spoken_by": spoken_by, "interaction_on": data.get("interaction_on") or now_datetime()})
+    doc = frappe.get_doc({"doctype": INTERACTION, **party, "call_outcome": data.get("call_outcome") if data.get("channel", "Call") == "Call" else None, "summary_html": data.get("summary_html"), "summary": data["summary"].strip(), "channel": data.get("channel", "Call"), "contact_name": data.get("contact_name"), "spoken_by": spoken_by, "interaction_on": data.get("interaction_on") or now_datetime()})
     doc.flags.teamspace_uploads = files
     for employee in set(data.get("mentions") or []):
         doc.append("mentions", {"employee": employee})

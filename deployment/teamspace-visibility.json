@@ -1,0 +1,11 @@
+{
+  "restrict_ar": 0,
+  "restrict_ap": 0,
+  "restrict_transactions": 0,
+  "access": [],
+  "excluded": [
+    {"feature": "AR", "user": "pankaj.kumar@snrgindia.com"},
+    {"feature": "AP", "user": "pankaj.kumar@snrgindia.com"},
+    {"feature": "AP", "user": "operations2@snrgindia.com"}
+  ]
+}

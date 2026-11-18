@@ -76,9 +76,7 @@ must be enabled on the deployed site. No duplicate ToDo records are created.
 Customer searches show 50 matches and can be refined. Action lists page in sets
 of 100, and interaction and legacy-call streams page separately in sets of 50.
 The personal calendar reads all pending actions for the logged-in employee,
-independently of list pagination. Attachments,
-telephony/WhatsApp ingestion and desktop push delivery are not part of this first
-release. This workspace logs manually recorded interactions.
+independently of list pagination. Telephony/WhatsApp ingestion and desktop push delivery are not part of this release. Private attachments are supported. This workspace logs manually recorded interactions.
 
 ## Customer directory and compact AR
 
@@ -161,3 +159,32 @@ calendar sync, standalone tasks, permission-checked transaction projection,
 payment allocation visibility, allowlists and private rich-text attachments.
 `test_preview.seed` creates clearly labelled demo fixtures only on staging/test
 sites; it is never called by migrations or on production.
+
+
+## Recovery and call outcomes
+
+Call interactions support Connected, No answer, Busy, Call back and Wrong number.
+Unanswered calls need no discussion note. The optional outcome is stored on the
+Customer Interaction and shown in the unified timeline. Migrate before loading
+this frontend against an older site.
+
+Open relationship tabs and the active relationship restore from sessionStorage
+after refresh, with directory permissions checked again. Unsent interaction and
+new-follow-up drafts use browser localStorage, keyed by signed-in user and origin.
+They retain rich HTML, mention IDs, private upload references and nested actions;
+they expire after seven days of browser activity. Close retains, Discard removes,
+and successful submission clears a draft. This is browser-local recovery, not
+server-side or cross-device draft storage. Private attachments are revalidated
+for ownership and unattached status when submitted.
+
+Read-only staging reconciliation:
+`bench --site TEST_SITE execute snrg_credit_control.customer_workspace.preflight.run`.
+See TEAMSPACE_LAUNCH_CHECKS.md for completed evidence and production deployment gates.
+
+
+Visibility exclusions are evaluated before optional allowlists and native report
+permissions. The approved launch restriction payload is stored separately in
+`deployment/teamspace-visibility.json`; it is not automatically applied during
+installation. Apply it through the manager-guarded settings API after migration,
+then fetch the settings record and verify excluded and allowed user sessions.
+Native ERPNext report roles are unchanged by these Teamspace exclusions.

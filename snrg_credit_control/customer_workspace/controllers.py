@@ -11,6 +11,8 @@ class CustomerInteraction(Document):
         self.update(party_values(self.customer, self.supplier))
         if not self.is_new():
             frappe.throw(_("Interactions are permanent history. Add a new update instead of editing."))
+        if self.call_outcome and (self.channel != "Call" or self.call_outcome not in ("Connected", "No answer", "Busy", "Call back", "Wrong number")):
+            frappe.throw(_("Choose a valid call outcome for a Call interaction."))
         if self.summary_html:
             from snrg_credit_control.customer_workspace.rich_text import clean
             self.summary_html = clean(self.summary_html, self.flags.teamspace_uploads or [])

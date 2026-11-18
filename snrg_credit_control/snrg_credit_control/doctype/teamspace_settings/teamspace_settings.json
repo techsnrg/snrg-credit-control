@@ -9,7 +9,8 @@
     "restrict_ar",
     "restrict_ap",
     "restrict_transactions",
-    "access"
+    "access",
+    "excluded"
   ],
   "fields": [
     {
@@ -30,6 +31,12 @@
     {
       "fieldname": "access",
       "label": "Selected team members",
+      "fieldtype": "Table",
+      "options": "Teamspace Feature Access"
+    },
+    {
+      "fieldname": "excluded",
+      "label": "Excluded team members",
       "fieldtype": "Table",
       "options": "Teamspace Feature Access"
     }
