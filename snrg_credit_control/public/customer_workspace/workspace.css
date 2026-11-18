@@ -91,3 +91,20 @@
 #cw .mention-option{background:var(--popover-bg)}
 #cw .mention-option.mention-active{background:var(--control-bg)}
 #cw input::placeholder,#cw textarea::placeholder{color:var(--text-muted);opacity:1}
+
+/* Clear customer views and a simpler conversation flow. */
+#cw .drawer{width:520px;max-width:100%;padding:32px}
+#cw .conversation-details{margin-top:26px;padding-top:17px;border-top:1px solid var(--border-color)}
+#cw .conversation-details summary{cursor:pointer;color:var(--text-muted);font-size:12px;padding:7px 0}
+#cw .conversation-details[open] summary{color:var(--text-color);margin-bottom:9px}
+#cw .add-followup{margin:21px 0 7px;background:var(--control-bg);padding:10px 13px;font-size:12px}
+#cw .actionblock{margin-top:25px;padding-top:4px}
+#cw .actionblock .group{margin-top:16px}
+#cw .remove-action{font-size:11px;color:var(--text-muted);padding:4px 6px}
+#cw .taskend{display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0}
+#cw .task-open{font-size:11px;padding:3px 0;color:var(--text-muted)}
+#cw .task-open:hover{color:var(--text-color);background:transparent;text-decoration:underline}
+#cw .task{align-items:center;gap:14px}
+#cw .tasktitle{font-weight:500}
+#cw .footer{position:sticky;bottom:-32px;background:var(--modal-bg);padding:17px 0 10px;border-top:1px solid var(--border-color)}
+@media(max-width:700px){#cw .drawer{padding:24px}#cw .taskend{max-width:105px}#cw .time{white-space:normal;text-align:right}#cw .footer{bottom:-24px;flex-wrap:wrap}}
