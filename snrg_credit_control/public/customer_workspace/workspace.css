@@ -571,3 +571,6 @@ body:has(#page-customer-workspace.snrg-customer-workspace-page:not(.hide):not(.h
 #cw .teamspace-signature svg{width:14px;height:14px;color:var(--accent)}
 [data-theme="dark"] #cw .brand-artwork{mix-blend-mode:normal!important;background:#fff;border-radius:3px}
 @media(max-width:720px){#cw nav .teamspace-brand{gap:5px;padding:0}#cw nav .teamspace-brand>.brand-artwork{width:150px}#cw .brand-electricals{font-size:7.5px;letter-spacing:1px}#cw nav .teamspace-brand>.teamspace-signature{font-size:10px;gap:4px}#cw .teamspace-signature svg{width:12px;height:12px}}
+#cw nav .teamspace-brand>.teamspace-signature{font-size:16px;font-weight:600;gap:8px}
+#cw .teamspace-signature svg{width:19px;height:19px}
+@media(max-width:720px){#cw nav .teamspace-brand>.teamspace-signature{font-size:13px;gap:6px}#cw .teamspace-signature svg{width:16px;height:16px}}
