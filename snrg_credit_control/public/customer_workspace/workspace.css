@@ -513,3 +513,6 @@ body:has(#page-customer-workspace.snrg-customer-workspace-page:not(.hide):not(.h
  #cw .relationship-tab-close{padding:5px;justify-content:center}
 }
 @media(min-width:721px) and (max-width:1000px){#cw .layout{grid-template-columns:188px minmax(0,1fr)}#cw aside{display:none}}
+
+/* Calendar overlays stay above sticky form actions in every shared date field. */
+#cw .date-popover{z-index:120;overscroll-behavior:contain}
