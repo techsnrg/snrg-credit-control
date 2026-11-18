@@ -76,7 +76,7 @@
     },
     {
       "fieldname": "assigned_to",
-      "label": "Responsible employee",
+      "label": "Responsible team member",
       "fieldtype": "Link",
       "options": "User",
       "reqd": 1,

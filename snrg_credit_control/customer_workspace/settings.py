@@ -1,4 +1,4 @@
-"""Optional employee allowlists, additional to native ERPNext permissions."""
+"""Optional team member allowlists, additional to native ERPNext permissions."""
 import frappe
 from frappe import _
 from frappe.utils import cint
@@ -41,7 +41,7 @@ def save_visibility_settings(payload):
         if key in seen:
             continue
         if key[0] not in FEATURES or not internal(key[1]):
-            frappe.throw(_("Choose an active internal employee and a valid feature."))
+            frappe.throw(_("Choose an active internal team member and a valid feature."))
         seen.add(key)
         access.append({"feature": key[0], "user": key[1]})
     settings.set("access", access)

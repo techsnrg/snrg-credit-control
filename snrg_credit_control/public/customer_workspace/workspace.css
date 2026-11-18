@@ -431,3 +431,47 @@ body:has(#page-customer-workspace.snrg-customer-workspace-page:not(.hide):not(.h
 
 #cw .rich-editor .ql-container{height:auto;min-height:0}
 #cw .rich-editor .ql-editor{height:210px;min-height:180px;max-height:360px;overflow-y:auto}
+/* Compact branded navigation; the mobile menu is opened only when needed. */
+#cw .nav-menu{display:contents}
+#cw nav .teamspace-brand{padding:3px 5px;margin:0 0 14px;justify-content:flex-start;background:transparent;border:0}
+#cw .teamspace-brand img{display:block;width:140px;height:34px;object-fit:contain;background:#fff;border-radius:5px;padding:3px}
+#cw nav .mobile-nav-toggle{display:none}
+#cw nav .nav-menu>.erp-back{display:flex;align-items:center;justify-content:flex-start;gap:9px;margin-top:auto;margin-bottom:8px;padding:10px 12px;min-height:42px;border:1px solid var(--line);border-radius:8px;background:var(--surface);font-size:13px;font-weight:500;text-decoration:none;color:var(--ink)}
+#cw .nav-menu>.erp-back .erp-arrow{margin-left:auto;width:14px;height:14px}
+#cw nav>.me{margin-top:0}
+#cw .contact-missing{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:12px}
+#cw .contact-missing svg{width:14px;height:14px}
+#cw .add-followup{display:inline-flex;align-items:center;gap:8px;padding:9px 13px;margin:17px 0 4px;min-height:38px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-size:13px;font-weight:500;box-shadow:none}
+#cw .add-followup:hover{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+#cw .followup-count{background:var(--accent-soft);color:var(--accent);padding:1px 6px;border-radius:5px;font-size:11px}
+#cw .actionblock{scroll-margin-top:18px}
+#cw .footer{isolation:isolate;z-index:90;flex-wrap:nowrap;gap:10px;padding-bottom:max(18px,env(safe-area-inset-bottom));overflow:visible}
+#cw .footer>button{min-width:0;flex:0 0 auto;white-space:nowrap;transition:background .15s,color .15s}
+#cw .footer>.primary{min-width:150px}
+@media(min-width:721px) and (max-width:1150px){
+ #cw nav .teamspace-brand{padding:0;margin:0 0 13px;justify-content:center}
+ #cw .teamspace-brand img{width:32px;height:32px;object-fit:cover;object-position:left;padding:0}
+ #cw nav .nav-menu>.erp-back{padding:10px;justify-content:center}
+ #cw .nav-menu>.erp-back span,#cw .nav-menu>.erp-back .erp-arrow{display:none}
+}
+@media(max-width:720px){
+ #cw nav{display:flex;flex-direction:row;align-items:center;justify-content:space-between;flex-wrap:nowrap;position:sticky;top:0;z-index:40;padding:10px 16px;min-height:56px;gap:12px}
+ #cw nav .teamspace-brand{margin:0;padding:0;min-height:34px}
+ #cw .teamspace-brand img{width:135px;height:32px;padding:3px}
+ #cw nav .mobile-nav-toggle{display:inline-flex;align-items:center;gap:7px;font-size:13px;padding:9px 11px;min-height:40px;border:1px solid var(--line);background:var(--surface);margin:0}
+ #cw nav .mobile-nav-toggle>span{position:static;clip-path:none;width:auto;height:auto;overflow:visible}
+ #cw .nav-menu{display:none}
+ #cw .nav-menu.mobile-open{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;position:absolute;top:100%;left:0;right:0;padding:10px 12px;max-height:70dvh;overflow:auto;background:var(--surface);border-bottom:1px solid var(--line);box-shadow:0 10px 20px #0001}
+ #cw nav .nav-menu>.navlabel,#cw nav .nav-menu>.recent-customer{display:none}
+ #cw nav .nav-menu>button{justify-content:flex-start;min-height:44px;width:100%;padding:10px;font-size:13px;gap:8px;margin:0;white-space:normal;text-align:left}
+ #cw nav .nav-menu>button>span:not(.nav-count){position:static;clip-path:none;width:auto;height:auto;overflow:visible}
+ #cw nav .nav-menu>.erp-back{grid-column:1/-1;margin:2px 0 0;min-height:40px;border:0;background:var(--soft);padding:10px;font-size:13px}
+ #cw nav>.me{display:none}
+ #cw .heading{gap:12px;align-items:center}
+ #cw .heading>div{min-width:0;flex:1}
+ #cw .heading h1{font-size:22px;overflow-wrap:anywhere}
+ #cw .heading>.primary{flex:0 0 auto;font-size:12px}
+ #cw .contact{gap:10px 13px;margin-top:-5px;margin-bottom:20px;font-size:12px}
+ #cw .footer>.primary{min-width:0;flex:1;font-size:13px;padding:10px 12px}
+ #cw .footer>button:not(.primary){padding:10px 12px;font-size:13px}
+}

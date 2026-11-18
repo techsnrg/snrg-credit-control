@@ -20,7 +20,7 @@
     },
     {
       "fieldname": "user",
-      "label": "Employee login",
+      "label": "Team member login",
       "fieldtype": "Link",
       "options": "User",
       "reqd": 1,

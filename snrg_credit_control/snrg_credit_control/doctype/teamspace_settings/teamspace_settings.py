@@ -11,4 +11,4 @@ class TeamspaceSettings(Document):
             frappe.throw(_("Manager access required."), frappe.PermissionError)
         for row in self.access:
             if row.feature not in ("AR", "AP", "Transactions") or not internal(row.user):
-                frappe.throw(_("Choose an active internal employee and a valid feature."))
+                frappe.throw(_("Choose an active internal team member and a valid feature."))

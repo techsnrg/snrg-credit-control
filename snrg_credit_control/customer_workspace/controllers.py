@@ -17,13 +17,13 @@ class CustomerInteraction(Document):
         if not (self.summary or "").strip():
             frappe.throw(_("A discussion summary is required."))
         if self.spoken_by != frappe.session.user and not manager():
-            frappe.throw(_("Only managers may record a conversation for another employee."), frappe.PermissionError)
+            frappe.throw(_("Only managers may record a conversation for another team member."), frappe.PermissionError)
         if not internal(self.spoken_by):
-            frappe.throw(_("The speaker must be an active internal employee."))
+            frappe.throw(_("The speaker must be an active internal team member."))
         for row in self.mentions:
             employee = frappe.get_doc("Employee", row.employee)
             if employee.status != "Active":
-                frappe.throw(_("Only active employees can be mentioned."))
+                frappe.throw(_("Only active team members can be mentioned."))
             row.employee_name = employee.employee_name
             row.user = employee.user_id if employee.user_id and internal(employee.user_id) else None
 
@@ -36,7 +36,7 @@ class CustomerAction(Document):
         guard()
         self.update(party_values(self.customer, self.supplier))
         if not internal(self.assigned_to):
-            frappe.throw(_("Assign the action to an active employee with an enabled internal login."))
+            frappe.throw(_("Assign the action to an active team member with an enabled internal login."))
         if self.interaction and tuple(value or None for value in (frappe.db.get_value(INTERACTION, self.interaction, ["customer", "supplier"]) or ())) != (self.customer or None, self.supplier or None):
             frappe.throw(_("The originating interaction belongs to a different customer or supplier."))
         old = self.get_doc_before_save()

@@ -75,3 +75,6 @@ doc_events.setdefault("Event", {})["validate"] = "snrg_credit_control.customer_w
 doc_events["Event"]["on_trash"] = "snrg_credit_control.customer_workspace.controllers.protect_event"
 
 scheduler_events = {"daily": ["snrg_credit_control.customer_workspace.reminders.daily"]}
+
+# Short, authenticated entry point; native Desk URLs remain compatible.
+website_redirects = [{"source": "/teamspace", "target": "/desk/snrg-credit-control/customer-workspace", "redirect_http_status": 302}]

@@ -38,7 +38,7 @@ def internal(user=None):
 
 def guard():
     if not internal():
-        frappe.throw(_("This workspace is for active internal employees."), frappe.PermissionError)
+        frappe.throw(_("This workspace is for active internal team members."), frappe.PermissionError)
 
 
 def permission(doc, user=None, permission_type=None, ptype=None, **kwargs):
@@ -134,7 +134,7 @@ def log_interaction(payload):
     if spoken_by != frappe.session.user and not manager():
         frappe.throw(_("Only managers may record a conversation on someone else's behalf."), frappe.PermissionError)
     if not internal(spoken_by):
-        frappe.throw(_("Choose an active internal employee as the speaker."))
+        frappe.throw(_("Choose an active internal team member as the speaker."))
     from snrg_credit_control.customer_workspace.rich_text import uploads
     files = uploads(data.get("attachments"))
     doc = frappe.get_doc({"doctype": INTERACTION, **party, "summary_html": data.get("summary_html"), "summary": data["summary"].strip(), "channel": data.get("channel", "Call"), "contact_name": data.get("contact_name"), "spoken_by": spoken_by, "interaction_on": data.get("interaction_on") or now_datetime()})
