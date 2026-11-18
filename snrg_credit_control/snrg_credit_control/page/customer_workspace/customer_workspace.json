@@ -1,0 +1,19 @@
+{
+  "doctype": "Page",
+  "name": "customer-workspace",
+  "page_name": "customer-workspace",
+  "title": "Customer Workspace",
+  "module": "Snrg Credit Control",
+  "standard": "Yes",
+  "roles": [
+    {
+      "role": "Employee"
+    },
+    {
+      "role": "Customer Workspace Manager"
+    },
+    {
+      "role": "System Manager"
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+frappe.pages["customer-workspace"].on_page_load = function(wrapper) {
+  const page = frappe.ui.make_app_page({parent: wrapper, title: __("Customer Workspace"), single_column: true});
+  frappe.require(["/assets/snrg_credit_control/dist/customer_workspace.css", "/assets/snrg_credit_control/dist/customer_workspace.js"], () => window.snrgCustomerWorkspace.mount(page.main[0]));
+};

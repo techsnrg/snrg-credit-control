@@ -1,0 +1,38 @@
+{
+  "doctype": "DocType",
+  "name": "Customer Interaction Mention",
+  "module": "Snrg Credit Control",
+  "engine": "InnoDB",
+  "istable": 1,
+  "track_changes": 0,
+  "field_order": [
+    "employee",
+    "employee_name",
+    "user"
+  ],
+  "fields": [
+    {
+      "fieldname": "employee",
+      "label": "Employee",
+      "fieldtype": "Link",
+      "options": "Employee",
+      "reqd": 1
+    },
+    {
+      "fieldname": "employee_name",
+      "label": "Employee name",
+      "fieldtype": "Data",
+      "read_only": 1
+    },
+    {
+      "fieldname": "user",
+      "label": "User",
+      "fieldtype": "Link",
+      "options": "User",
+      "read_only": 1
+    }
+  ],
+  "permissions": [],
+  "sort_field": "modified",
+  "sort_order": "DESC"
+}

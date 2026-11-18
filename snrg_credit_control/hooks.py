@@ -60,3 +60,17 @@ auth_hooks = ["snrg_credit_control.outlook_approvals.authenticate"]
 doc_events.setdefault("Purchase Order", {})["on_update"] = "snrg_credit_control.outlook_approvals.on_request_saved"
 doc_events["Sales Order"]["on_update"] = "snrg_credit_control.outlook_approvals.on_request_saved"
 doc_events.setdefault("Credit PTP", {})["after_insert"] = "snrg_credit_control.outlook_approvals.on_request_saved"
+
+# Customer workspace: shared internal history with controlled action edits.
+has_permission = {
+    "Customer Interaction": "snrg_credit_control.customer_workspace.api.permission",
+    "Customer Action": "snrg_credit_control.customer_workspace.api.permission",
+}
+permission_query_conditions = {
+    "Customer Interaction": "snrg_credit_control.customer_workspace.api.query_conditions",
+    "Customer Action": "snrg_credit_control.customer_workspace.api.query_conditions",
+}
+doc_events.setdefault("Event", {})["validate"] = "snrg_credit_control.customer_workspace.controllers.protect_event"
+doc_events["Event"]["on_trash"] = "snrg_credit_control.customer_workspace.controllers.protect_event"
+
+scheduler_events = {"daily": ["snrg_credit_control.customer_workspace.reminders.daily"]}

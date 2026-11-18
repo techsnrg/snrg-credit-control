@@ -1,0 +1,111 @@
+{
+  "doctype": "DocType",
+  "name": "Customer Interaction",
+  "module": "Snrg Credit Control",
+  "engine": "InnoDB",
+  "istable": 0,
+  "track_changes": 1,
+  "field_order": [
+    "customer",
+    "customer_name",
+    "channel",
+    "contact_name",
+    "spoken_by",
+    "interaction_on",
+    "summary",
+    "mentions",
+    "action_reference"
+  ],
+  "fields": [
+    {
+      "fieldname": "customer",
+      "label": "Customer",
+      "fieldtype": "Link",
+      "options": "Customer",
+      "reqd": 1,
+      "in_list_view": 1,
+      "search_index": 1
+    },
+    {
+      "fieldname": "customer_name",
+      "label": "Customer name",
+      "fieldtype": "Data",
+      "fetch_from": "customer.customer_name",
+      "read_only": 1
+    },
+    {
+      "fieldname": "channel",
+      "label": "Channel",
+      "fieldtype": "Select",
+      "options": "Call\nVisit\nWhatsApp\nEmail\nMeeting\nNote\nUpdate",
+      "default": "Call",
+      "reqd": 1
+    },
+    {
+      "fieldname": "contact_name",
+      "label": "Contact spoken to",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "spoken_by",
+      "label": "Spoken by",
+      "fieldtype": "Link",
+      "options": "User",
+      "reqd": 1
+    },
+    {
+      "fieldname": "interaction_on",
+      "label": "Interaction time",
+      "fieldtype": "Datetime",
+      "reqd": 1,
+      "default": "Now",
+      "search_index": 1
+    },
+    {
+      "fieldname": "summary",
+      "label": "Discussion summary",
+      "fieldtype": "Long Text",
+      "reqd": 1
+    },
+    {
+      "fieldname": "mentions",
+      "label": "Mentions",
+      "fieldtype": "Table",
+      "options": "Customer Interaction Mention"
+    },
+    {
+      "fieldname": "action_reference",
+      "label": "Action",
+      "fieldtype": "Link",
+      "options": "Customer Action",
+      "read_only": 1
+    }
+  ],
+  "permissions": [
+    {
+      "role": "Employee",
+      "read": 1,
+      "create": 1,
+      "write": 1,
+      "report": 1
+    },
+    {
+      "role": "Customer Workspace Manager",
+      "read": 1,
+      "create": 1,
+      "write": 1,
+      "report": 1
+    },
+    {
+      "role": "System Manager",
+      "read": 1,
+      "create": 1,
+      "write": 1,
+      "report": 1
+    }
+  ],
+  "sort_field": "modified",
+  "sort_order": "DESC",
+  "autoname": "CI-.YYYY.-.#####",
+  "title_field": "summary"
+}

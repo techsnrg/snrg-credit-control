@@ -39,6 +39,8 @@ def after_install():
         _ensure_scheme_management_workspace()
         _ensure_demand_notice_default_print_format()
         _ensure_monthly_sales_plan_default_print_format()
+        from snrg_credit_control.customer_workspace.setup import setup as setup_customer_workspace
+        setup_customer_workspace()
         frappe.db.commit()
     except Exception:
         frappe.log_error(title="Credit Control after_install Failed", message=frappe.get_traceback())
@@ -69,6 +71,8 @@ def after_migrate():
         _ensure_scheme_management_workspace()
         _ensure_demand_notice_default_print_format()
         _ensure_monthly_sales_plan_default_print_format()
+        from snrg_credit_control.customer_workspace.setup import setup as setup_customer_workspace
+        setup_customer_workspace()
         frappe.db.commit()
     except Exception:
         frappe.log_error(title="Credit Control after_migrate Failed", message=frappe.get_traceback())
@@ -928,6 +932,10 @@ def _ensure_bangkok_bonanza_scheme():
                     "item_group": group,
                     "exclude": 1,
                 })
+
+    # A fresh site may not yet contain the scheme's item groups. Retry on a later migrate.
+    if not any(not row.get("exclude") for row in category_rules):
+        return
 
     notes = (
         "<p><strong>5 Month Bangkok Bonanza Terms &amp; Conditions:</strong></p>"
@@ -1844,6 +1852,8 @@ def _ensure_credit_control_workspace():
     if frappe.db.exists("Workspace", "Credit Control"):
         workspace = frappe.get_doc("Workspace", "Credit Control")
         workspace.update(workspace_values)
+        if frappe.get_meta("Workspace").has_field("type") and not workspace.get("type"):
+            workspace.type = "Workspace"
         workspace.save(ignore_permissions=True)
         return
 
@@ -2035,6 +2045,8 @@ def _ensure_scheme_management_workspace():
     if frappe.db.exists("Workspace", "Scheme Management"):
         workspace = frappe.get_doc("Workspace", "Scheme Management")
         workspace.update(workspace_values)
+        if frappe.get_meta("Workspace").has_field("type") and not workspace.get("type"):
+            workspace.type = "Workspace"
         workspace.save(ignore_permissions=True)
         return
 

@@ -1,0 +1,153 @@
+{
+  "doctype": "DocType",
+  "name": "Customer Action",
+  "module": "Snrg Credit Control",
+  "engine": "InnoDB",
+  "istable": 0,
+  "track_changes": 1,
+  "field_order": [
+    "customer",
+    "customer_name",
+    "subject",
+    "interaction",
+    "assigned_to",
+    "due_date",
+    "due_time",
+    "status",
+    "priority",
+    "action_type",
+    "description",
+    "completed_on",
+    "event",
+    "last_reminder_on"
+  ],
+  "fields": [
+    {
+      "fieldname": "customer",
+      "label": "Customer",
+      "fieldtype": "Link",
+      "options": "Customer",
+      "reqd": 1,
+      "in_list_view": 1,
+      "search_index": 1
+    },
+    {
+      "fieldname": "customer_name",
+      "label": "Customer name",
+      "fieldtype": "Data",
+      "fetch_from": "customer.customer_name",
+      "read_only": 1
+    },
+    {
+      "fieldname": "subject",
+      "label": "Action",
+      "fieldtype": "Data",
+      "reqd": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "interaction",
+      "label": "Originating interaction",
+      "fieldtype": "Link",
+      "options": "Customer Interaction"
+    },
+    {
+      "fieldname": "assigned_to",
+      "label": "Responsible employee",
+      "fieldtype": "Link",
+      "options": "User",
+      "reqd": 1,
+      "in_list_view": 1,
+      "search_index": 1
+    },
+    {
+      "fieldname": "due_date",
+      "label": "Due date",
+      "fieldtype": "Date",
+      "reqd": 1,
+      "in_list_view": 1,
+      "search_index": 1
+    },
+    {
+      "fieldname": "due_time",
+      "label": "Scheduled time",
+      "fieldtype": "Time"
+    },
+    {
+      "fieldname": "status",
+      "label": "Status",
+      "fieldtype": "Select",
+      "options": "Open\nIn Progress\nCompleted\nCancelled",
+      "default": "Open",
+      "reqd": 1,
+      "in_list_view": 1,
+      "search_index": 1
+    },
+    {
+      "fieldname": "priority",
+      "label": "Priority",
+      "fieldtype": "Select",
+      "options": "Low\nMedium\nHigh",
+      "default": "Medium"
+    },
+    {
+      "fieldname": "action_type",
+      "label": "Action type",
+      "fieldtype": "Select",
+      "options": "Follow-up\nSales\nCollection\nReturn pickup\nDispatch\nService\nOther",
+      "default": "Follow-up"
+    },
+    {
+      "fieldname": "description",
+      "label": "Instructions",
+      "fieldtype": "Long Text"
+    },
+    {
+      "fieldname": "completed_on",
+      "label": "Completed on",
+      "fieldtype": "Datetime",
+      "read_only": 1
+    },
+    {
+      "fieldname": "event",
+      "label": "Calendar event",
+      "fieldtype": "Link",
+      "options": "Event",
+      "read_only": 1
+    },
+    {
+      "fieldname": "last_reminder_on",
+      "label": "Last reminder on",
+      "fieldtype": "Date",
+      "hidden": 1,
+      "read_only": 1
+    }
+  ],
+  "permissions": [
+    {
+      "role": "Employee",
+      "read": 1,
+      "create": 1,
+      "write": 1,
+      "report": 1
+    },
+    {
+      "role": "Customer Workspace Manager",
+      "read": 1,
+      "create": 1,
+      "write": 1,
+      "report": 1
+    },
+    {
+      "role": "System Manager",
+      "read": 1,
+      "create": 1,
+      "write": 1,
+      "report": 1
+    }
+  ],
+  "sort_field": "modified",
+  "sort_order": "DESC",
+  "autoname": "CA-.YYYY.-.#####",
+  "title_field": "subject"
+}
