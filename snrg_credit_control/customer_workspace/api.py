@@ -74,10 +74,11 @@ def _directory():
 def bootstrap():
     guard()
     from snrg_credit_control.customer_workspace.directory import filter_options
+    from snrg_credit_control.customer_workspace.team_activity import allowed as activity_allowed
     from snrg_credit_control.customer_workspace.receivables import can_read, allowed_companies
     from snrg_credit_control.customer_workspace import payables
     from snrg_credit_control.customer_workspace.settings import allowed
-    return {"user": frappe.session.user, "is_manager": manager(), "today": today(), "employees": _directory(), "can_ar": can_read(), "can_ar_detail": bool(can_read() and frappe.db.exists("Report", "Accounts Receivable") and not frappe.get_doc("Report", "Accounts Receivable").disabled and frappe.get_doc("Report", "Accounts Receivable").is_permitted()), "can_transactions": allowed("Transactions"), "can_ap": payables.can_read(), "can_ap_detail": payables.can_read_detail(), "ap_companies": payables.allowed_companies(), "companies": allowed_companies(), **filter_options()}
+    return {"user": frappe.session.user, "can_team_activity": activity_allowed(), "is_manager": manager(), "today": today(), "employees": _directory(), "can_ar": can_read(), "can_ar_detail": bool(can_read() and frappe.db.exists("Report", "Accounts Receivable") and not frappe.get_doc("Report", "Accounts Receivable").disabled and frappe.get_doc("Report", "Accounts Receivable").is_permitted()), "can_transactions": allowed("Transactions"), "can_ap": payables.can_read(), "can_ap_detail": payables.can_read_detail(), "ap_companies": payables.allowed_companies(), "companies": allowed_companies(), **filter_options()}
 
 
 @frappe.whitelist()

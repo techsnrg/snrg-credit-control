@@ -226,3 +226,35 @@ Desktop/Android background push is opt-in per browser, via Notifications → Ena
 Migrations initialize a VAPID pair once in Teamspace Push Settings; the private key and device subscriptions use Frappe Password encryption. Never rotate keys during upgrades or copy production keys to staging. Subscriptions are owned by the authenticated user, endpoints are restricted to supported browser push services, redirects are disabled, expired devices are disabled. No credentials/subscription payloads are logged. `last_status=Accepted` means the push provider accepted the request, not that a person saw it. Real delivery must be checked on a registered device after deployment. The built-in test endpoint sends only to the logged-in user and is rate limited.
 
 Validation: `bench --site TEST_SITE execute snrg_credit_control.customer_workspace.test_notifications.run` checks native email routing, self reminders, encryption/signing with mocked HTTP, expired endpoints, unsafe destinations and guest access. It rolls back all fixtures and sends no real messages.
+
+### Private Team activity
+
+The Team activity sidebar entry and its `team_activity.report` / `team_activity.export`
+endpoints are restricted to the exact enabled internal login `nikhil@snrgindia.com`.
+Administrator and other managers are intentionally not exempt. The report is read-only
+and does not change financial visibility or grant access to financial reports.
+
+Filters cover up to 93 inclusive calendar days, actor, activity, relationship,
+customer/supplier name or code, and call outcome. Defaults are today / everyone.
+Summary counts cover the complete filtered result before 50-entry pagination;
+counts drill down to the matching actor and activity. Excel exports the selected
+filters into Summary and Entries sheets, escaping formula-like text.
+
+Interactions are attributed to the record owner at creation time, with `spoken_by`
+and actual conversation time shown separately. Entries with `action_reference` are
+automatic task updates and are excluded. Each linked recipient task counts as its
+own creation. Completions use native Version status transitions and the audit actor,
+including general tasks. Reopened/recompleted tasks produce another completion event.
+Deleted or purged Version history cannot be reconstructed; the UI states this limit.
+Task assignment, due date, instructions and status are presented as current values,
+not historical values at completion. A 10,000-entry source/result limit fails clearly
+rather than silently showing incomplete counts; narrow the dates if necessary.
+
+Local validation: `bench --site TEST_STAGING execute
+snrg_credit_control.customer_workspace.test_team_activity.run` (rollback-only).
+The test covers exact-login denial (including Administrator), bootstrap visibility,
+source attribution, general tasks, automated-update exclusion, date boundaries,
+backdated conversations, pagination, filtered counts and Excel formula escaping.
+The real Vue component was also checked in a labelled synthetic local preview at
+375px and 812px, including keyboard count drilldown and expanding task details.
+Deployment is deferred until explicitly requested.
