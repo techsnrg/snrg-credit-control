@@ -42,8 +42,18 @@ class CustomerAction(Document):
         if self.interaction and tuple(value or None for value in (frappe.db.get_value(INTERACTION, self.interaction, ["customer", "supplier"]) or ())) != (self.customer or None, self.supplier or None):
             frappe.throw(_("The originating interaction belongs to a different customer or supplier."))
         old = self.get_doc_before_save()
+        existing_mentions = {row.employee for row in old.get("mentions") or []} if old else set()
+        for row in self.get("mentions") or []:
+            employee = frappe.get_doc("Employee", row.employee)
+            if employee.status != "Active" and row.employee not in existing_mentions:
+                frappe.throw(_("Only active team members can be mentioned."))
+            if row.employee not in existing_mentions and "@" + employee.employee_name not in (self.description or ""):
+                frappe.throw(_("A mentioned team member must appear in Instructions."))
+            row.employee_name = employee.employee_name
+            row.user = employee.user_id if employee.user_id and internal(employee.user_id) else None
+        old = self.get_doc_before_save()
         if old:
-            if self.customer != old.customer or self.supplier != old.supplier or self.interaction != old.interaction:
+            if self.customer != old.customer or self.supplier != old.supplier or self.interaction != old.interaction or self.assignment_group != old.assignment_group:
                 frappe.throw(_("An action's customer/supplier and origin cannot be changed."))
             if not (manager() or frappe.session.user in (old.owner, old.assigned_to)):
                 frappe.throw(_("You cannot change this action."), frappe.PermissionError)
@@ -55,6 +65,10 @@ class CustomerAction(Document):
         self.completed_on = now_datetime() if self.status == "Completed" and not self.completed_on else self.completed_on
         if self.status != "Completed":
             self.completed_on = None
+
+    def after_insert(self):
+        if not self.flags.defer_instruction_mentions:
+            notify([row.user for row in self.get("mentions") or [] if row.user != self.assigned_to], f"{get_fullname()} mentioned you in a task: {self.subject}", self.doctype, self.name, kind="Mention")
 
     def on_update(self):
         old = self.get_doc_before_save()

@@ -21,7 +21,9 @@
     "description",
     "completed_on",
     "event",
-    "last_reminder_on"
+    "last_reminder_on",
+    "assignment_group",
+    "mentions"
   ],
   "fields": [
     {
@@ -142,6 +144,19 @@
       "fieldtype": "Date",
       "hidden": 1,
       "read_only": 1
+    },
+    {
+      "fieldname": "assignment_group",
+      "label": "Assignment group",
+      "fieldtype": "Data",
+      "read_only": 1,
+      "search_index": 1
+    },
+    {
+      "fieldname": "mentions",
+      "label": "Mentioned team members",
+      "fieldtype": "Table",
+      "options": "Customer Interaction Mention"
     }
   ],
   "permissions": [

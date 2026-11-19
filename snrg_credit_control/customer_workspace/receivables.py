@@ -50,7 +50,7 @@ def customer_ar_snapshot(company, customer):
 
 
 @frappe.whitelist()
-def customer_ar(company, report_date=None, search="", territory=None, customer_group=None, balance="outstanding", customer=None, start=0, sort="due_desc"):
+def customer_ar(company, report_date=None, search="", territory=None, customer_group=None, balance="outstanding", customer=None, start=0, sort="due_desc", column_filters=None):
     guard()
     if not can_read():
         frappe.throw(_("Accounts Receivable report access is required."), frappe.PermissionError)
@@ -96,7 +96,8 @@ def customer_ar(company, report_date=None, search="", territory=None, customer_g
                      "age_61_90": flt(aged.get("range3")),
                      "age_91_120": flt(aged.get("range4")), "age_over_120": flt(aged.get("range5")),
                      "currency": companies[company]})
-    from snrg_credit_control.customer_workspace.sorting import financial_rows
+    from snrg_credit_control.customer_workspace.sorting import financial_rows, filter_financial_rows
+    rows = filter_financial_rows(rows, column_filters)
     financial_rows(rows, sort, "customer_name")
     totals = {key: sum(row[key] for row in rows) for key in ("outstanding", "due_now", "advance", "not_yet_due")}
     start = max(0, cint(start))

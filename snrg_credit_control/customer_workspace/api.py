@@ -153,7 +153,7 @@ def log_interaction(payload):
         file.save(ignore_permissions=True)
     created = []
     for item in data.get("actions") or []:
-        created.append(frappe.get_doc({"doctype": ACTION, **party, "interaction": doc.name, **{k: item.get(k) for k in ("subject", "assigned_to", "due_date", "due_time", "action_type", "priority", "description") if item.get(k)}}).insert(ignore_permissions=True).name)
+        created.extend(action.name for action in create_action_documents(item, party, interaction=doc.name))
     return {"name": doc.name, "actions": created}
 
 
@@ -200,9 +200,36 @@ def create_action(payload):
     party = party_values(data.get("customer"), data.get("supplier"), optional=True)
     if not str(data.get("subject") or "").strip():
         frappe.throw(_("Enter what needs to happen."))
-    doc = frappe.get_doc({"doctype": ACTION, **party, **{key: data.get(key) for key in ("subject", "assigned_to", "due_date", "due_time", "action_type", "priority", "description") if data.get(key)}})
-    doc.insert(ignore_permissions=True)
-    return present_action(doc.as_dict())
+    docs = create_action_documents(data, party)
+    result = present_action(docs[0].as_dict())
+    result["actions"] = [doc.name for doc in docs]
+    return result
+
+
+def create_action_documents(data, party, interaction=None):
+    """One authoritative task and calendar entry per recipient, atomically created."""
+    recipients = data.get("assigned_users")
+    if recipients is None:
+        recipients = [data.get("assigned_to")]
+    if not isinstance(recipients, list) or not 1 <= len(recipients) <= 20 or any(not isinstance(user, str) or not internal(user) for user in recipients):
+        frappe.throw(_("Choose between 1 and 20 active internal team members."))
+    recipients = list(dict.fromkeys(recipients))
+    mentions = data.get("mentions") or []
+    if not isinstance(mentions, list) or len(mentions) > 50 or any(not isinstance(employee, str) for employee in mentions):
+        frappe.throw(_("Choose valid instruction mentions."))
+    group = frappe.generate_hash(length=16) if len(recipients) > 1 else None
+    docs = []
+    for user in recipients:
+        doc = frappe.get_doc({"doctype": ACTION, **party, "interaction": interaction,
+            "assigned_to": user, "assignment_group": group,
+            **{key: data.get(key) for key in ("subject", "due_date", "due_time", "action_type", "priority", "description") if data.get(key)}})
+        for employee in dict.fromkeys(mentions):
+            doc.append("mentions", {"employee": employee})
+        doc.flags.defer_instruction_mentions = True
+        doc.insert(ignore_permissions=True)
+        docs.append(doc)
+    notify([row.user for row in docs[0].get("mentions") or [] if row.user not in recipients], f"{frappe.utils.get_fullname()} mentioned you in a task: {docs[0].subject}", ACTION, docs[0].name, kind="Mention")
+    return docs
 
 
 @frappe.whitelist()
@@ -210,3 +237,14 @@ def employee_mentions(search_term=""):
     guard()
     query = str(search_term or "").casefold()
     return [{"id": row.name, "value": row.employee_name, "email": row.department or "", "can_notify": row.can_notify} for row in _directory() if query in (row.employee_name or "").casefold()]
+
+
+@frappe.whitelist()
+def linked_actions(name):
+    guard()
+    doc = frappe.get_doc(ACTION, name)
+    if not permission(doc, permission_type="read"):
+        frappe.throw(_("You cannot read this action."), frappe.PermissionError)
+    if not doc.assignment_group:
+        return []
+    return [present_action(row) for row in frappe.get_all(ACTION, filters={"assignment_group": doc.assignment_group, "name": ["!=", doc.name]}, fields=["name", "subject", "customer", "customer_name", "supplier", "supplier_name", "assigned_to", "due_date", "due_time", "description", "status", "priority", "owner", "modified", "action_type"], limit_page_length=20)]
