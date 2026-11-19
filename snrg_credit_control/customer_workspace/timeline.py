@@ -82,7 +82,7 @@ def timeline(customer=None, supplier=None, start=0, include_transactions=True):
         for call in calls:
             events.append({"kind": "interaction", "legacy": True, "name": call.name, "summary": "\n".join(filter(None, [call.short_notes, call.long_notes])), "channel": "Legacy call", "spoken_by": call.employee_id, "interaction_on": f"{call.date} {call.call_time or '00:00:00'}", "sort": f"{call.date} {call.call_time or '00:00:00'}", "follow_up_date": call.follow_up_date})
     # Pending actions are plans, never portrayed as completed conversations.
-    plans = frappe.get_all(ACTION, filters={**filters, "status": ["in", ["Open", "In Progress"]]}, fields=["name", "customer", "customer_name", "supplier", "supplier_name", "subject", "assigned_to", "due_date", "due_time", "status", "action_type", "priority", "description", "interaction", "modified", "owner", "event"], order_by="due_date desc, due_time desc, name desc", limit_page_length=limit)
+    plans = frappe.get_all(ACTION, filters={**filters, "status": ["in", ["Open", "In Progress"]]}, fields=["name", "customer", "customer_name", "supplier", "supplier_name", "subject", "assigned_to", "due_date", "due_time", "status", "action_type", "priority", "description", "whatsapp_summary", "interaction", "modified", "owner", "event"], order_by="due_date desc, due_time desc, name desc", limit_page_length=limit)
     for row in plans:
         present_action(row)
         row.due_time = str(row.due_time) if row.due_time else ""

@@ -23,7 +23,9 @@
     "event",
     "last_reminder_on",
     "assignment_group",
-    "mentions"
+    "mentions",
+    "whatsapp_summary",
+    "whatsapp_assignment_revision"
   ],
   "fields": [
     {
@@ -157,6 +159,19 @@
       "label": "Mentioned team members",
       "fieldtype": "Table",
       "options": "Customer Interaction Mention"
+    },
+    {
+      "fieldname": "whatsapp_summary",
+      "label": "WhatsApp summary",
+      "fieldtype": "Small Text"
+    },
+    {
+      "fieldname": "whatsapp_assignment_revision",
+      "label": "WhatsApp assignment revision",
+      "fieldtype": "Data",
+      "hidden": 1,
+      "read_only": 1,
+      "no_copy": 1
     }
   ],
   "permissions": [

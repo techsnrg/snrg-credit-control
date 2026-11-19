@@ -35,7 +35,12 @@ class CustomerInteraction(Document):
 
 class CustomerAction(Document):
     def validate(self):
+        from snrg_credit_control.customer_workspace.assignment_whatsapp import SUMMARY_LIMIT
+
         guard()
+        self.whatsapp_summary = (self.whatsapp_summary or "").strip()
+        if len(self.whatsapp_summary) > SUMMARY_LIMIT:
+            frappe.throw(_("The WhatsApp summary must be 240 characters or fewer."))
         self.update(party_values(self.customer, self.supplier, optional=True))
         if not internal(self.assigned_to):
             frappe.throw(_("Assign the action to an active team member with an enabled internal login."))
@@ -62,6 +67,10 @@ class CustomerAction(Document):
             changed = any(self.get(f) != old.get(f) for f in ("due_date", "due_time", "status", "assigned_to"))
             if changed and not (self.flags.workspace_reason or "").strip():
                 frappe.throw(_("Add an outcome or reason for the status, schedule or assignment change."))
+        if not old or old.assigned_to != self.assigned_to:
+            self.whatsapp_assignment_revision = frappe.generate_hash(length=16)
+        else:
+            self.whatsapp_assignment_revision = old.whatsapp_assignment_revision
         self.completed_on = now_datetime() if self.status == "Completed" and not self.completed_on else self.completed_on
         if self.status != "Completed":
             self.completed_on = None
@@ -74,7 +83,10 @@ class CustomerAction(Document):
         old = self.get_doc_before_save()
         self.sync_event()
         if not old or old.assigned_to != self.assigned_to:
+            from snrg_credit_control.customer_workspace.assignment_whatsapp import enqueue_assignment
+
             notify([self.assigned_to], f"Assigned: {self.subject}", self.doctype, self.name)
+            enqueue_assignment(self, frappe.session.user)
         if old and (self.flags.workspace_reason or any(self.get(f) != old.get(f) for f in ("status", "due_date", "due_time", "assigned_to"))):
             changes = [f"{f.replace('_', ' ')}: {old.get(f) or '—'} → {self.get(f) or '—'}" for f in ("status", "due_date", "due_time", "assigned_to") if self.get(f) != old.get(f)]
             summary = self.flags.workspace_reason or "Action updated"

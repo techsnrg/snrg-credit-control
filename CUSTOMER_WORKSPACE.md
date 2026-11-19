@@ -271,3 +271,49 @@ and mention alerts are unchanged. Native Notification Log, queued email and task
 reminder markers commit together; retries are serialized per user and deduplicated
 by recipient/date. The legacy midnight invocation is harmless after code rollout.
 Validation: `python3 tests/reminder_digest.py` (no network or real delivery).
+
+### Assignment notifications on WhatsApp
+
+Teamspace queues a template after a new assignment or reassignment commits. Only
+active staff with a verified, opted-in work number in the site configuration
+receive WhatsApp messages. Existing email and push preferences apply separately.
+Ordinary edits and instruction mentions do not trigger WhatsApp. Each assignee
+receives their own task link.
+
+Before enabling, use the installed `snrg_whatsapp` app and its Chatwoot settings.
+Approve and sync a utility template in the configured WhatsApp inbox with these
+positional body variables:
+
+```
+New Teamspace task: {{1}}
+Assigned by: {{2}}
+Due date: {{3}}
+Due time: {{4}}
+Summary: {{5}}
+Tap Open task to view the assignment in Teamspace.
+```
+
+Add one dynamic website button labelled **Open task** with the URL
+`https://erp.snrgindia.com/teamspace?task={{1}}`. Use the same HTTPS origin in
+`teamspace_whatsapp_base_url`. The task opens under existing Teamspace sign-in
+and read permissions. Due times are shown in the ERPNext site time convention.
+The optional summary is sent as entered. Keep customer, financial and other
+private details in Instructions, which stays in Teamspace.
+
+Example site configuration (use verified work numbers and the approved name and
+language):
+
+```json
+{
+  "teamspace_whatsapp_template": "teamspace_task_assignment",
+  "teamspace_whatsapp_language": "en",
+  "teamspace_whatsapp_base_url": "https://erp.snrgindia.com",
+  "teamspace_whatsapp_recipients": {
+    "employee@example.com": "+919000000000"
+  }
+}
+```
+
+Omit the template setting to keep this channel off. Apply the DocType migration
+before enabling it. Verify the approved template and dynamic button on the
+installed Chatwoot version with an opted-in test recipient.

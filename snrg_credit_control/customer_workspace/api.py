@@ -107,7 +107,7 @@ def actions(scope="mine", employee=None, customer=None, status="pending", start=
         filters["supplier" if supplier else "customer"] = supplier or customer
     elif scope == "customer":
         frappe.throw(_("Choose a customer or supplier."))
-    return [present_action(row) for row in frappe.get_all(ACTION, filters=filters, fields=["supplier", "supplier_name", "name", "customer", "customer_name", "subject", "assigned_to", "due_date", "due_time", "status", "action_type", "priority", "description", "interaction", "modified", "owner", "event"], order_by="due_date asc, due_time asc", start=max(0, int(start)), limit_page_length=100)]
+    return [present_action(row) for row in frappe.get_all(ACTION, filters=filters, fields=["supplier", "supplier_name", "name", "customer", "customer_name", "subject", "assigned_to", "due_date", "due_time", "status", "action_type", "priority", "description", "whatsapp_summary", "interaction", "modified", "owner", "event"], order_by="due_date asc, due_time asc", start=max(0, int(start)), limit_page_length=100)]
 
 
 @frappe.whitelist()
@@ -170,10 +170,10 @@ def update_action(name, payload, modified):
         frappe.throw(_("This action changed. Refresh and try again."), frappe.TimestampMismatchError)
     doc.flags.workspace_update = True
     doc.flags.workspace_reason = str(data.get("update") or "").strip()
-    for field in ("status", "due_date", "due_time", "assigned_to", "priority"):
+    for field in ("status", "due_date", "due_time", "assigned_to", "priority", "whatsapp_summary"):
         if field in data:
-            if field == "assigned_to" and data[field] != doc.assigned_to and not (manager() or doc.owner == frappe.session.user):
-                frappe.throw(_("Only the creator or a manager can reassign an action."), frappe.PermissionError)
+            if field in ("assigned_to", "whatsapp_summary") and data[field] != doc.get(field) and not (manager() or doc.owner == frappe.session.user):
+                frappe.throw(_("Only the creator or a manager can change the assignment or its WhatsApp summary."), frappe.PermissionError)
             doc.set(field, data[field])
     doc.save(ignore_permissions=True)
     return present_action(doc.as_dict())
@@ -190,7 +190,7 @@ def notify(users, subject, doctype, name, kind="Assignment", include_self=False)
 def personal_agenda():
     """All personal pending deadlines, so the calendar never hides later pages."""
     guard()
-    return [present_action(row) for row in frappe.get_all(ACTION, filters={"assigned_to": frappe.session.user, "status": ["in", ["Open", "In Progress"]]}, fields=["supplier", "supplier_name", "name", "customer", "customer_name", "subject", "assigned_to", "due_date", "due_time", "status", "action_type", "priority", "description", "interaction", "modified", "owner", "event"], order_by="due_date asc, due_time asc", limit_page_length=0)]
+    return [present_action(row) for row in frappe.get_all(ACTION, filters={"assigned_to": frappe.session.user, "status": ["in", ["Open", "In Progress"]]}, fields=["supplier", "supplier_name", "name", "customer", "customer_name", "subject", "assigned_to", "due_date", "due_time", "status", "action_type", "priority", "description", "whatsapp_summary", "interaction", "modified", "owner", "event"], order_by="due_date asc, due_time asc", limit_page_length=0)]
 
 
 @frappe.whitelist(methods=["POST"])
@@ -223,7 +223,7 @@ def create_action_documents(data, party, interaction=None):
     for user in recipients:
         doc = frappe.get_doc({"doctype": ACTION, **party, "interaction": interaction,
             "assigned_to": user, "assignment_group": group,
-            **{key: data.get(key) for key in ("subject", "due_date", "due_time", "action_type", "priority", "description") if data.get(key)}})
+            **{key: data.get(key) for key in ("subject", "due_date", "due_time", "action_type", "priority", "description", "whatsapp_summary") if data.get(key)}})
         for employee in dict.fromkeys(mentions):
             doc.append("mentions", {"employee": employee})
         doc.flags.defer_instruction_mentions = True
@@ -240,6 +240,15 @@ def employee_mentions(search_term=""):
     return [{"id": row.name, "value": row.employee_name, "email": row.department or "", "can_notify": row.can_notify} for row in _directory() if query in (row.employee_name or "").casefold()]
 
 
+@frappe.whitelist(methods=["GET", "POST"])
+def open_task(name):
+    guard()
+    doc = frappe.get_doc(ACTION, name)
+    if not permission(doc, permission_type="read"):
+        frappe.throw(_("You cannot view this task."), frappe.PermissionError)
+    return present_action(doc.as_dict())
+
+
 @frappe.whitelist()
 def linked_actions(name):
     guard()
@@ -248,4 +257,4 @@ def linked_actions(name):
         frappe.throw(_("You cannot read this action."), frappe.PermissionError)
     if not doc.assignment_group:
         return []
-    return [present_action(row) for row in frappe.get_all(ACTION, filters={"assignment_group": doc.assignment_group, "name": ["!=", doc.name]}, fields=["name", "subject", "customer", "customer_name", "supplier", "supplier_name", "assigned_to", "due_date", "due_time", "description", "status", "priority", "owner", "modified", "action_type"], limit_page_length=20)]
+    return [present_action(row) for row in frappe.get_all(ACTION, filters={"assignment_group": doc.assignment_group, "name": ["!=", doc.name]}, fields=["name", "subject", "customer", "customer_name", "supplier", "supplier_name", "assigned_to", "due_date", "due_time", "description", "whatsapp_summary", "status", "priority", "owner", "modified", "action_type"], limit_page_length=20)]
