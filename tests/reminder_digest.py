@@ -11,6 +11,7 @@ frappe = types.ModuleType('frappe')
 utils = types.ModuleType('frappe.utils')
 api = types.ModuleType('snrg_credit_control.customer_workspace.api')
 prefs = types.ModuleType('frappe.desk.doctype.notification_settings.notification_settings')
+prefs.is_email_notifications_enabled_for_type = lambda user, kind: user != 'manager' or kind == 'Assignment'
 prefs.is_notifications_enabled = lambda user: user != 'muted'
 sys.modules[prefs.__name__] = prefs
 api.ACTION = 'Customer Action'
@@ -39,14 +40,13 @@ class DigestTests(unittest.TestCase):
         m.now_datetime = utils.now_datetime
         self.logs = []
         frappe.get_all = Mock(return_value=[])
-        frappe.db = types.SimpleNamespace(sql=Mock(), set_value=Mock(),
-            exists=Mock(side_effect=lambda kind, filters: any(
-                row['for_user'] == filters['for_user'] and row['subject'] == filters['subject'] for row in self.logs)))
-        def doc(data):
-            def insert(**kwargs):
-                self.logs.append(data)
-            return types.SimpleNamespace(insert=insert)
-        frappe.get_doc = Mock(side_effect=doc)
+        frappe.local = types.SimpleNamespace(site='example.test')
+        frappe.db = types.SimpleNamespace(sql=Mock(), set_value=Mock(), exists=Mock(return_value=False),
+            get_value=Mock(side_effect=lambda kind, name, field, **opts:
+                name + '@example.test' if kind == 'User' else next(
+                    (row['message_id'] for row in self.logs if row['message_id'] == name['message_id']), None)))
+        frappe.sendmail = Mock(side_effect=lambda **data: self.logs.append(data))
+        frappe.get_doc = Mock()
 
     def test_midnight_does_nothing(self):
         m.now_datetime = lambda: datetime(2026, 11, 20, 0)
@@ -60,15 +60,14 @@ class DigestTests(unittest.TestCase):
         m.daily()
         self.assertEqual(len(self.logs), 2)
         junior = self.logs[0]
-        self.assertEqual(junior['for_user'], 'junior')
-        self.assertIn('1 due today · 1 overdue', junior['email_content'])
-        self.assertIn('&lt;script&gt;', junior['email_content'])
-        self.assertNotIn('<script>', junior['email_content'])
-        self.assertNotIn('Manager only', junior['email_content'])
-        self.assertIn('General task', junior['email_content'])
-        self.assertEqual(junior['from_user'], None)
-        self.assertEqual(junior['type'], 'Assignment')
-        self.assertEqual(junior['document_type'], 'Customer Action')
+        self.assertEqual(junior['recipients'], ['junior@example.test'])
+        self.assertIn('1 due today · 1 overdue', junior['message'])
+        self.assertIn('&lt;script&gt;', junior['message'])
+        self.assertNotIn('<script>', junior['message'])
+        self.assertNotIn('Manager only', junior['message'])
+        self.assertIn('General task', junior['message'])
+        self.assertTrue(junior['delayed'])
+        frappe.get_doc.assert_not_called()
         self.assertEqual(frappe.db.set_value.call_count, 3)
         self.assertEqual(frappe.get_all.call_args.kwargs['filters'], {
             'status': ['in', ['Open', 'In Progress']], 'due_date': ['<=', '2026-11-20']})
@@ -82,14 +81,14 @@ class DigestTests(unittest.TestCase):
 
     def test_legacy_midnight_markers_do_not_suppress_the_first_digest(self):
         m.daily()
-        frappe.get_doc.assert_not_called()
+        frappe.sendmail.assert_not_called()
         frappe.get_all.return_value = [action('Old system sent', last_reminder_on='2026-11-20')]
         m.daily()
         self.assertEqual(len(self.logs), 1)
 
     def test_insert_failure_does_not_mark_tasks(self):
         frappe.get_all.return_value = [action('Retry')]
-        frappe.get_doc.side_effect = RuntimeError('Delivery transaction failed')
+        frappe.sendmail.side_effect = RuntimeError('Delivery transaction failed')
         with self.assertRaises(RuntimeError):
             m.daily()
         frappe.db.set_value.assert_not_called()

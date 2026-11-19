@@ -1,10 +1,13 @@
 """One personal digest of due and overdue work, at 09:00 in the site timezone."""
 from collections import defaultdict
+from hashlib import sha256
 from html import escape
 
 import frappe
 from frappe.utils import now_datetime, today
-from frappe.desk.doctype.notification_settings.notification_settings import is_notifications_enabled
+from frappe.desk.doctype.notification_settings.notification_settings import (
+    is_email_notifications_enabled_for_type, is_notifications_enabled,
+)
 from snrg_credit_control.customer_workspace.api import ACTION, internal
 
 
@@ -22,13 +25,19 @@ def daily():
         grouped[action.assigned_to].append(action)
 
     for user, actions in grouped.items():
-        if not internal(user) or not is_notifications_enabled(user):
+        if not internal(user) or not is_notifications_enabled(user) or not is_email_notifications_enabled_for_type(user, "Assignment"):
             continue
         subject = f"Teamspace daily summary · {date}"
-        # Serialize retries for this recipient. Log, queued email and reminder markers
-        # commit together; a failed insert leaves the digest retryable.
+        # Serialize retries for this recipient. Queueing and marking tasks commit together.
         frappe.db.sql("select name from `tabUser` where name=%s for update", (user,))
-        if frappe.db.exists("Notification Log", {"for_user": user, "subject": subject}):
+        digest_key = sha256(f"{frappe.local.site}:{date}:{user}".encode()).hexdigest()
+        message_id = f"teamspace-digest-{digest_key}@teamspace.local"
+        if frappe.db.get_value("Email Queue", {"message_id": message_id}, "name", for_update=True) or frappe.db.exists(
+            "Notification Log", {"for_user": user, "subject": subject}
+        ):
+            continue
+        email = frappe.db.get_value("User", user, "email")
+        if not email:
             continue
         overdue = [row for row in actions if str(row.due_date) < date]
         due = [row for row in actions if str(row.due_date) == date]
@@ -43,11 +52,11 @@ def daily():
                 body += (f"<li><strong>{escape(row.subject or '')}</strong>"
                          f"<br>{escape(party)} · {escape(deadline)}</li>")
             body += "</ul>"
-        # Native delivery respects Assignment email preferences and emits one in-app/
-        # push notification instead of one per task. No actor/self suppression.
-        frappe.get_doc({"doctype": "Notification Log", "type": "Assignment",
-            "for_user": user, "from_user": None, "document_type": ACTION, "subject": subject,
-            "email_header": "Your Teamspace daily summary", "email_content": body,
-            "link": frappe.utils.get_url("/teamspace")}).insert(ignore_permissions=True)
+        link = escape(frappe.utils.get_url("/teamspace"), quote=True)
+        frappe.sendmail(
+            recipients=[email], subject=subject, message=body + f'<p><a href="{link}">Open Teamspace</a></p>',
+            message_id=message_id, delayed=True, is_notification=True,
+            add_unsubscribe_link=False,
+        )
         for row in actions:
             frappe.db.set_value(ACTION, row.name, "last_reminder_on", date, update_modified=False)
