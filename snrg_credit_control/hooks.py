@@ -74,7 +74,7 @@ permission_query_conditions = {
 doc_events.setdefault("Event", {})["validate"] = "snrg_credit_control.customer_workspace.controllers.protect_event"
 doc_events["Event"]["on_trash"] = "snrg_credit_control.customer_workspace.controllers.protect_event"
 
-scheduler_events = {"daily": ["snrg_credit_control.customer_workspace.reminders.daily"]}
+scheduler_events = {"cron": {"0 9 * * *": ["snrg_credit_control.customer_workspace.reminders.daily"]}}
 
 # The short route renders the same authenticated Desk shell and native Page.
 app_include_js = ["/assets/snrg_credit_control/js/teamspace_route.js"]

@@ -258,3 +258,16 @@ backdated conversations, pagination, filtered counts and Excel formula escaping.
 The real Vue component was also checked in a labelled synthetic local preview at
 375px and 812px, including keyboard count drilldown and expanding task details.
 Deployment is deferred until explicitly requested.
+
+### Daily reminder digest
+
+The Teamspace reminder scheduler uses `0 9 * * *` in the site timezone
+(production: Asia/Kolkata). Each active internal recipient receives at most one
+native Assignment notification per day, summarizing all their due and overdue
+open/in-progress tasks, including general tasks. Completed, future and undated
+tasks are excluded. No empty digest is sent. Email follows the recipient’s native
+Assignment preference; push follows their registered devices. Immediate assignment
+and mention alerts are unchanged. Native Notification Log, queued email and task
+reminder markers commit together; retries are serialized per user and deduplicated
+by recipient/date. The legacy midnight invocation is harmless after code rollout.
+Validation: `python3 tests/reminder_digest.py` (no network or real delivery).
