@@ -22,7 +22,7 @@ def daily():
         grouped[action.assigned_to].append(action)
 
     for user, actions in grouped.items():
-        if not internal(user) or not is_notifications_enabled(user) or all(str(row.last_reminder_on or "") == date for row in actions):
+        if not internal(user) or not is_notifications_enabled(user):
             continue
         subject = f"Teamspace daily summary · {date}"
         # Serialize retries for this recipient. Log, queued email and reminder markers

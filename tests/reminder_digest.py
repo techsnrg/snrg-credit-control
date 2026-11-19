@@ -80,12 +80,12 @@ class DigestTests(unittest.TestCase):
         m.daily()
         self.assertEqual(len(self.logs), 1)
 
-    def test_empty_and_already_reminded_are_quiet(self):
+    def test_legacy_midnight_markers_do_not_suppress_the_first_digest(self):
         m.daily()
         frappe.get_doc.assert_not_called()
         frappe.get_all.return_value = [action('Old system sent', last_reminder_on='2026-11-20')]
         m.daily()
-        frappe.get_doc.assert_not_called()
+        self.assertEqual(len(self.logs), 1)
 
     def test_insert_failure_does_not_mark_tasks(self):
         frappe.get_all.return_value = [action('Retry')]
