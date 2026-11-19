@@ -36,8 +36,9 @@ def _query(search="", territory=None, customer_group=None, status="active", name
     if search:
         pattern = "%" + str(search).strip()[:100] + "%"
         condition = customer.name.like(pattern) | customer.customer_name.like(pattern) | customer.mobile_no.like(pattern) | contact.mobile_no.like(pattern) | contact.phone.like(pattern)
-        if meta.has_field("custom_mobile_number"):
-            condition |= customer.custom_mobile_number.like(pattern)
+        for field in ("custom_mobile_number", "custom_city", "custom_state"):
+            if meta.has_field(field):
+                condition |= customer[field].like(pattern)
         query = query.where(condition)
     return _ordered(query, customer, customer.customer_name, sort)
 

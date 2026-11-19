@@ -88,7 +88,7 @@ def customer_ar(company, report_date=None, search="", territory=None, customer_g
             continue
         if balance == "credit" and outstanding >= 0:
             continue
-        if query and query not in " ".join(str(identity.get(key) or "") for key in ("name", "customer_name", "mobile_number")).casefold():
+        if query and query not in " ".join(str(identity.get(key) or "") for key in ("name", "customer_name", "mobile_number", "city", "state")).casefold():
             continue
         rows.append({**identity, "outstanding": outstanding, "due_now": due,
                      "not_yet_due": flt(source.get("range0")), "advance": flt(source.get("advance")),

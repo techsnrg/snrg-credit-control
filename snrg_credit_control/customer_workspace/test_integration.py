@@ -36,6 +36,13 @@ def run():
             customer.db_set("custom_mobile_number", "", update_modified=False)
         found = customer_directory(search="9876543210", status="all")
         assert any(row.name == customer.name and row.mobile_number == "9876543210" for row in found["rows"])
+        location_terms = []
+        for field, value in (("custom_city", "SearchCity" + frappe.generate_hash(length=8)), ("custom_state", "SearchState" + frappe.generate_hash(length=8))):
+            if frappe.get_meta("Customer").has_field(field):
+                customer.db_set(field, value, update_modified=False)
+                location_terms.append(value)
+                assert customer.name in [r.name for r in customer_directory(search=value.lower())["rows"]]
+                assert customer.name in [r.name for r in api.customers(search=value[2:])]
         allowed = frappe.get_list("Company", fields=["name", "default_currency"], limit_page_length=1)
         if allowed:
             company = allowed[0].name
@@ -51,6 +58,8 @@ def run():
                 assert ar["totals"]["outstanding"] == 1000 and ar["totals"]["due_now"] == 600
                 assert ar["totals"]["not_yet_due"] == 400 and ar["totals"]["advance"] == 50
                 assert ar["rows"][0]["age_0_30"] == 400 and ar["rows"][0]["age_91_120"] == 40 and ar["rows"][0]["age_over_120"] == 60
+                for term in location_terms:
+                    assert any(r["name"] == customer.name for r in customer_ar(company, balance="all", search=term.lower())["rows"])
                 assert not customer_ar(company, balance="credit")["rows"]
             with patch("frappe.desk.query_report.run", return_value={"result": [{"voucher_type": "Sales Invoice", "voucher_no": "AGE-TEST", "posting_date": "2026-11-01", "due_date": "2026-11-10", "outstanding": 100}, {"voucher_type": "Sales Invoice", "voucher_no": "FUTURE-TEST", "posting_date": "2026-11-01", "due_date": "2026-11-26", "outstanding": 200}]}):
                 aged = customer_ar_invoices(company, customer.name, report_date="2026-11-19")
