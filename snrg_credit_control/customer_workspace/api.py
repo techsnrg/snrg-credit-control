@@ -10,7 +10,9 @@ INTERACTION = "Customer Interaction"
 ACTION = "Customer Action"
 
 
-def party_values(customer=None, supplier=None):
+def party_values(customer=None, supplier=None, optional=False):
+    if optional and not customer and not supplier:
+        return {"customer": None, "supplier": None, "customer_name": None, "supplier_name": None}
     if bool(customer) == bool(supplier):
         frappe.throw(_("Choose exactly one customer or supplier."))
     kind, name = ("Supplier", supplier) if supplier else ("Customer", customer)
@@ -21,9 +23,9 @@ def party_values(customer=None, supplier=None):
 
 
 def present_action(row):
-    row["party_type"] = "Supplier" if row.get("supplier") else "Customer"
+    row["party_type"] = "Supplier" if row.get("supplier") else "Customer" if row.get("customer") else "General"
     row["party"] = row.get("supplier") or row.get("customer")
-    row["party_name"] = row.get("supplier_name") or row.get("customer_name")
+    row["party_name"] = row.get("supplier_name") or row.get("customer_name") or "General task"
     return row
 
 
@@ -176,11 +178,11 @@ def update_action(name, payload, modified):
     return present_action(doc.as_dict())
 
 
-def notify(users, subject, doctype, name):
+def notify(users, subject, doctype, name, kind="Assignment", include_self=False):
     from frappe.desk.doctype.notification_log.notification_log import enqueue_create_notification
-    users = sorted(set(u for u in users if u and u != frappe.session.user and internal(u)))
+    users = sorted(set(u for u in users if u and (include_self or u != frappe.session.user) and internal(u)))
     if users:
-        enqueue_create_notification(users, {"type": "Alert", "subject": html.escape(subject), "document_type": doctype, "document_name": name, "from_user": frappe.session.user})
+        enqueue_create_notification(users, {"type": kind, "subject": html.escape(subject), "document_type": doctype, "document_name": name, "from_user": None if include_self else frappe.session.user, "link": frappe.utils.get_url("/teamspace"), "email_header": "Teamspace update"})
 
 
 @frappe.whitelist()
@@ -195,7 +197,7 @@ def create_action(payload):
     """Create a plan without fabricating a conversation."""
     guard()
     data = frappe.parse_json(payload)
-    party = party_values(data.get("customer"), data.get("supplier"))
+    party = party_values(data.get("customer"), data.get("supplier"), optional=True)
     if not str(data.get("subject") or "").strip():
         frappe.throw(_("Enter what needs to happen."))
     doc = frappe.get_doc({"doctype": ACTION, **party, **{key: data.get(key) for key in ("subject", "assigned_to", "due_date", "due_time", "action_type", "priority", "description") if data.get(key)}})

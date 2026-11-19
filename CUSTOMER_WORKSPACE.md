@@ -216,3 +216,13 @@ and mobile wrapping. Choosing the selected outcome again clears it.
 Visibility settings are production database records. Ordinary migrations do not
 reset them. The launch payload is applied once; subsequent deployments must
 verify existing settings without overwriting changes made by the user.
+
+## Notifications
+
+Teamspace uses native `Assignment` and `Mention` Notification Log types, so ERPNext's existing per-user system/email preferences apply. It does not use `Alert` (which Frappe excludes from native email delivery). Daily due/overdue reminders can notify the scheduled-job actor too; self-assignment chatter remains suppressed. Reminder delivery is once per day per action.
+
+Desktop/Android background push is opt-in per browser, via Notifications → Enable push on this device. It uses standard Web Push, not Frappe's optional mobile relay. The worker is scoped to its own asset directory and does not replace Desk's worker. Only generic update text is sent to lock screens. Clicking opens the authenticated `/teamspace` page.
+
+Migrations initialize a VAPID pair once in Teamspace Push Settings; the private key and device subscriptions use Frappe Password encryption. Never rotate keys during upgrades or copy production keys to staging. Subscriptions are owned by the authenticated user, endpoints are restricted to supported browser push services, redirects are disabled, expired devices are disabled. No credentials/subscription payloads are logged. `last_status=Accepted` means the push provider accepted the request, not that a person saw it. Real delivery must be checked on a registered device after deployment. The built-in test endpoint sends only to the logged-in user and is rate limited.
+
+Validation: `bench --site TEST_SITE execute snrg_credit_control.customer_workspace.test_notifications.run` checks native email routing, self reminders, encryption/signing with mocked HTTP, expired endpoints, unsafe destinations and guest access. It rolls back all fixtures and sends no real messages.

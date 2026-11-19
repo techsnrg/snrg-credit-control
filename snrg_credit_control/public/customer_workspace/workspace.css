@@ -597,3 +597,19 @@ body:has(#page-customer-workspace.snrg-customer-workspace-page:not(.hide):not(.h
 @media(max-width:1000px){#cw .heading:has(.customer-balance){flex-wrap:wrap}#cw .customer-balance{order:3;max-width:none;flex-basis:100%;margin-left:0}}
 @media(max-width:420px){#cw .outcome-option{flex:1 1 42%;justify-content:flex-start}#cw .customer-balance{min-width:0}#cw .balance-values{gap:18px}}
 @media(prefers-reduced-motion:reduce){#cw .outcome-option{transition:none}}
+/* Compact, expandable balance keeps the customer identity in focus. */
+#cw .customer-heading-actions{display:flex;flex-direction:column;align-items:flex-end;gap:10px;flex:0 1 auto;min-width:0}
+#cw .balance-pill{position:relative;max-width:100%;color:var(--muted);font-size:12px}
+#cw .balance-pill>summary{display:flex;align-items:center;gap:9px;list-style:none;border:1px solid var(--line);border-radius:24px;padding:8px 12px;cursor:pointer;background:var(--surface);min-height:44px;box-sizing:border-box}
+#cw .balance-pill>summary::-webkit-details-marker{display:none}
+#cw .balance-pill strong{color:var(--ink);font-size:12px;font-weight:600;font-variant-numeric:tabular-nums}
+#cw .balance-pill svg{width:14px;height:14px;flex-shrink:0}
+#cw .balance-divider{height:14px;width:1px;background:var(--line)}
+#cw .balance-popover{position:absolute;right:0;top:calc(100% + 8px);z-index:20;width:min(340px,calc(100vw - 48px));padding:16px;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px #00000012}
+#cw .balance-popover label{margin:0;font-size:12px}
+#cw .balance-popover select{width:100%;font-size:12px}
+#cw .balance-popover p{margin:10px 0 0}
+#cw .heading>.customer-heading-actions{flex:0 1 auto}
+@media(max-width:720px){#cw .heading>.customer-heading-actions{align-items:flex-start;flex-basis:100%}#cw .balance-popover{left:0;right:auto}}
+
+#cw .notification-preferences h3{font-size:16px;font-weight:600;margin:24px 0 8px}#cw .notification-preferences h3:first-child{margin-top:0}#cw .notification-preferences p{margin:8px 0 14px;line-height:1.6}#cw .notification-preferences hr{margin:24px 0;border:0;border-top:1px solid var(--line)}#cw .notification-preferences button{min-height:44px}

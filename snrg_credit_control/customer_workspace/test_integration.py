@@ -104,6 +104,20 @@ def run():
         results.append("disabled parties hidden across selectors and finance; stable sorting before pagination; oldest unpaid bill uses invoice date")
         frappe.set_user(owner)
         supplier_result = api.log_interaction({"supplier": supplier.name, "summary": "Supplier confirmed dispatch. @assignee coordinate delivery.", "mentions": [employees[1][1]], "actions": [{"subject": "Confirm supplier delivery", "assigned_to": assignee, "due_date": add_days(today(), 2), "due_time": "11:30", "action_type": "Delivery"}]})
+        general = api.create_action({"subject": "File GST return", "assigned_to": assignee, "due_date": add_days(today(), 2), "due_time": "10:30:00"})
+        assert general["party_type"] == "General" and general["party_name"] == "General task"
+        general_doc = frappe.get_doc(api.ACTION, general["name"])
+        assert not general_doc.customer and not general_doc.supplier and general_doc.event
+        assert frappe.db.get_value("Event", general_doc.event, "subject") == "File GST return"
+        frappe.set_user(assignee)
+        assert any(row.name == general_doc.name for row in api.personal_agenda())
+        api.update_action(general_doc.name, {"status": "Completed", "update": "Return filed"}, str(general_doc.modified))
+        general_doc.reload()
+        assert general_doc.status == "Completed" and general_doc.completed_on
+        assert not frappe.db.exists(api.INTERACTION, {"action_reference": general_doc.name})
+        assert frappe.db.exists("Comment", {"reference_doctype": api.ACTION, "reference_name": general_doc.name, "content": ["like", "%Return filed%"]})
+        frappe.set_user(owner)
+        results.append("general task creation, assignment, agenda, event and completion without fabricated interaction")
         standalone = api.create_action({"supplier": supplier.name, "subject": "Standalone supplier plan", "assigned_to": assignee, "due_date": add_days(today(), 3)})
         assert not standalone.interaction
         assert len(api.history(supplier=supplier.name)["interactions"]) == 1

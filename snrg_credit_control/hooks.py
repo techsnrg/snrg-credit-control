@@ -78,3 +78,18 @@ scheduler_events = {"daily": ["snrg_credit_control.customer_workspace.reminders.
 
 # The short route renders the same authenticated Desk shell and native Page.
 app_include_js = ["/assets/snrg_credit_control/js/teamspace_route.js"]
+
+# Native app launcher entry; the destination retains Teamspace's access checks.
+add_to_apps_screen = [{
+    "name": app_name,
+    "title": "Teamspace",
+    "logo": "/assets/snrg_credit_control/images/teamspace.svg",
+    "route": "/teamspace",
+    "has_permission": "snrg_credit_control.customer_workspace.api.internal",
+    "sequence_id": 6,
+}]
+
+boot_session = "snrg_credit_control.launcher.boot_session"
+
+# Only Teamspace notifications are handed to the per-device Web Push worker.
+doc_events.setdefault("Notification Log", {})["after_insert"] = "snrg_credit_control.customer_workspace.notifications.queue_push"

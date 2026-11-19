@@ -30,13 +30,13 @@ class CustomerInteraction(Document):
             row.user = employee.user_id if employee.user_id and internal(employee.user_id) else None
 
     def after_insert(self):
-        notify([row.user for row in self.mentions], f"{get_fullname()} mentioned you: {self.supplier_name or self.customer_name}", self.doctype, self.name)
+        notify([row.user for row in self.mentions], f"{get_fullname()} mentioned you: {self.supplier_name or self.customer_name}", self.doctype, self.name, kind="Mention")
 
 
 class CustomerAction(Document):
     def validate(self):
         guard()
-        self.update(party_values(self.customer, self.supplier))
+        self.update(party_values(self.customer, self.supplier, optional=True))
         if not internal(self.assigned_to):
             frappe.throw(_("Assign the action to an active team member with an enabled internal login."))
         if self.interaction and tuple(value or None for value in (frappe.db.get_value(INTERACTION, self.interaction, ["customer", "supplier"]) or ())) != (self.customer or None, self.supplier or None):
@@ -66,7 +66,10 @@ class CustomerAction(Document):
             summary = self.flags.workspace_reason or "Action updated"
             if changes:
                 summary += "\n" + "\n".join(changes)
-            frappe.get_doc({"doctype": INTERACTION, "customer": self.customer, "supplier": self.supplier, "channel": "Update", "summary": f"{self.subject}\n{summary}", "spoken_by": frappe.session.user, "interaction_on": now_datetime(), "action_reference": self.name}).insert(ignore_permissions=True)
+            if self.customer or self.supplier:
+                frappe.get_doc({"doctype": INTERACTION, "customer": self.customer, "supplier": self.supplier, "channel": "Update", "summary": f"{self.subject}\n{summary}", "spoken_by": frappe.session.user, "interaction_on": now_datetime(), "action_reference": self.name}).insert(ignore_permissions=True)
+            else:
+                self.add_comment("Comment", text=frappe.utils.escape_html(summary).replace("\n", "<br>"))
             notify([self.owner, self.assigned_to], f"Action updated: {self.subject}", self.doctype, self.name)
 
     def sync_event(self):
@@ -75,7 +78,7 @@ class CustomerAction(Document):
         if not self.due_time and not existing:
             return
         event = frappe.get_doc("Event", existing) if existing else frappe.new_doc("Event")
-        event.update({"subject": f"{self.supplier_name or self.customer_name}: {self.subject}", "event_type": "Private", "starts_on": f"{self.due_date} {self.due_time or '00:00:00'}", "ends_on": add_to_date(f"{self.due_date} {self.due_time or '00:00:00'}", minutes=30), "all_day": not bool(self.due_time), "status": {"Completed": "Completed", "Cancelled": "Cancelled"}.get(self.status, "Open"), "reference_doctype": ACTION, "reference_docname": self.name, "description": "Managed by Teamspace. Change the action to update this event."})
+        event.update({"subject": f"{self.supplier_name or self.customer_name}: {self.subject}" if self.customer or self.supplier else self.subject, "event_type": "Private", "starts_on": f"{self.due_date} {self.due_time or '00:00:00'}", "ends_on": add_to_date(f"{self.due_date} {self.due_time or '00:00:00'}", minutes=30), "all_day": not bool(self.due_time), "status": {"Completed": "Completed", "Cancelled": "Cancelled"}.get(self.status, "Open"), "reference_doctype": ACTION, "reference_docname": self.name, "description": "Managed by Teamspace. Change the action to update this event."})
         event.flags.customer_workspace_sync = True
         event.set("event_participants", [{"reference_doctype": "User", "reference_docname": self.assigned_to}])
         event.save(ignore_permissions=True)
