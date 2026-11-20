@@ -1,0 +1,33 @@
+{
+  "doctype": "DocType",
+  "name": "Teamspace Guide Revision",
+  "module": "Snrg Credit Control",
+  "engine": "InnoDB",
+  "autoname": "hash",
+  "field_order": [
+    "guide",
+    "body",
+    "sections_json"
+  ],
+  "fields": [
+    {
+      "fieldname": "guide",
+      "fieldtype": "Link",
+      "label": "Guide",
+      "options": "Teamspace Guide",
+      "reqd": 1
+    },
+    {
+      "fieldname": "body",
+      "fieldtype": "Text Editor",
+      "label": "Body",
+      "reqd": 1
+    },
+    {
+      "fieldname": "sections_json",
+      "fieldtype": "Long Text",
+      "label": "Sections"
+    }
+  ],
+  "permissions": []
+}

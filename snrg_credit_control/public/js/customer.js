@@ -31,3 +31,24 @@ function addRecommendedRefreshButton(frm) {
     });
   }).addClass("btn-primary");
 }
+
+frappe.ui.form.on("Customer", {
+  async refresh(frm) {
+    if (frm.is_new()) return;
+    const name = frm.doc.name;
+    const {message: guides} = await frappe.call({
+      method: "snrg_credit_control.customer_workspace.knowledge.search",
+      args: {reference_doctype: "Customer"},
+      type: "GET",
+    });
+    if (frm.doc.name !== name || !guides?.length) return;
+    const open = guide => window.location.assign("/teamspace?guide=" + encodeURIComponent(guide.name));
+    if (guides.length === 1) {
+      frm.add_custom_button(__("View guide"), () => open(guides[0]));
+      return;
+    }
+    for (const guide of guides) {
+      frm.add_custom_button(guide.title, () => open(guide), __("View guide"));
+    }
+  },
+});
