@@ -1,0 +1,87 @@
+{
+  "doctype": "DocType",
+  "name": "Teamspace Guide",
+  "module": "Snrg Credit Control",
+  "engine": "InnoDB",
+  "autoname": "hash",
+  "field_order": [
+    "title",
+    "department",
+    "guide_owner",
+    "reference_doctype",
+    "audience_role",
+    "published_revision",
+    "working_revision",
+    "reviewed_on",
+    "review_due",
+    "pending_review",
+    "change_summary"
+  ],
+  "fields": [
+    {
+      "fieldname": "title",
+      "fieldtype": "Data",
+      "label": "Title",
+      "reqd": 1
+    },
+    {
+      "fieldname": "department",
+      "fieldtype": "Data",
+      "label": "Department",
+      "reqd": 1
+    },
+    {
+      "fieldname": "guide_owner",
+      "fieldtype": "Link",
+      "label": "Guide Owner",
+      "options": "User",
+      "reqd": 1
+    },
+    {
+      "fieldname": "reference_doctype",
+      "fieldtype": "Link",
+      "label": "Reference Doctype",
+      "options": "DocType"
+    },
+    {
+      "fieldname": "audience_role",
+      "fieldtype": "Link",
+      "label": "Audience Role",
+      "options": "Role"
+    },
+    {
+      "fieldname": "published_revision",
+      "fieldtype": "Link",
+      "label": "Published Revision",
+      "options": "Teamspace Guide Revision"
+    },
+    {
+      "fieldname": "working_revision",
+      "fieldtype": "Link",
+      "label": "Working Revision",
+      "options": "Teamspace Guide Revision"
+    },
+    {
+      "fieldname": "reviewed_on",
+      "fieldtype": "Date",
+      "label": "Reviewed On"
+    },
+    {
+      "fieldname": "review_due",
+      "fieldtype": "Date",
+      "label": "Review Due"
+    },
+    {
+      "fieldname": "pending_review",
+      "fieldtype": "Check",
+      "label": "Pending Review"
+    },
+    {
+      "fieldname": "change_summary",
+      "fieldtype": "Small Text",
+      "label": "Change Summary"
+    }
+  ],
+  "permissions": [],
+  "title_field": "title"
+}
