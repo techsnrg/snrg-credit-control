@@ -1,0 +1,37 @@
+{
+ "doctype": "DocType",
+ "name": "SNRG Scheme Series",
+ "module": "Snrg Credit Control",
+ "engine": "InnoDB",
+ "field_order": [
+  "series_name"
+ ],
+ "fields": [
+  {
+   "fieldname": "series_name",
+   "label": "Series Name",
+   "fieldtype": "Data",
+   "reqd": 1,
+   "unique": 1
+  }
+ ],
+ "autoname": "field:series_name",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1
+  },
+  {
+   "role": "Sales Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1
+  },
+  {
+   "role": "Sales User",
+   "read": 1
+  }
+ ]
+}

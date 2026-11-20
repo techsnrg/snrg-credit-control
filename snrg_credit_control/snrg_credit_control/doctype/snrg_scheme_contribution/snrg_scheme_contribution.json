@@ -1,0 +1,89 @@
+{
+ "doctype": "DocType",
+ "name": "SNRG Scheme Contribution",
+ "module": "Snrg Credit Control",
+ "engine": "InnoDB",
+ "field_order": [
+  "scheme",
+  "invoice_item",
+  "item_code",
+  "category",
+  "eligible_amount",
+  "stock_qty",
+  "original_invoice",
+  "original_invoice_item",
+  "quotation",
+  "exception_reason",
+  "exception_by"
+ ],
+ "fields": [
+  {
+   "fieldname": "scheme",
+   "label": "Scheme",
+   "fieldtype": "Link",
+   "options": "SNRG Scheme",
+   "search_index": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "invoice_item",
+   "label": "Invoice Item ID",
+   "fieldtype": "Data",
+   "search_index": 1
+  },
+  {
+   "fieldname": "item_code",
+   "label": "Item",
+   "fieldtype": "Link",
+   "options": "Item",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "category",
+   "label": "Category",
+   "fieldtype": "Data"
+  },
+  {
+   "fieldname": "eligible_amount",
+   "label": "Eligible Amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "stock_qty",
+   "label": "Stock Quantity",
+   "fieldtype": "Float"
+  },
+  {
+   "fieldname": "original_invoice",
+   "label": "Original Invoice",
+   "fieldtype": "Link",
+   "options": "Sales Invoice"
+  },
+  {
+   "fieldname": "original_invoice_item",
+   "label": "Original Invoice Item ID",
+   "fieldtype": "Data",
+   "search_index": 1
+  },
+  {
+   "fieldname": "quotation",
+   "label": "Quotation",
+   "fieldtype": "Link",
+   "options": "Quotation"
+  },
+  {
+   "fieldname": "exception_reason",
+   "label": "Exception Reason",
+   "fieldtype": "Small Text"
+  },
+  {
+   "fieldname": "exception_by",
+   "label": "Exception Approved By",
+   "fieldtype": "Link",
+   "options": "User"
+  }
+ ],
+ "istable": 1,
+ "permissions": []
+}

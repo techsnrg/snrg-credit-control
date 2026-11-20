@@ -6,6 +6,7 @@
  "engine": "InnoDB",
  "field_order": [
   "item_group",
+  "include_descendants",
   "uom"
  ],
  "fields": [
@@ -16,6 +17,12 @@
    "label": "Item Group",
    "options": "Item Group",
    "reqd": 1
+  },
+  {
+   "fieldname": "include_descendants",
+   "label": "Include Subgroups",
+   "fieldtype": "Check",
+   "default": "1"
   },
   {
    "fieldname": "uom",

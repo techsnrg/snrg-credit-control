@@ -1,0 +1,106 @@
+{
+ "doctype": "DocType",
+ "name": "SNRG Scheme Correction",
+ "module": "Snrg Credit Control",
+ "engine": "InnoDB",
+ "autoname": "hash",
+ "field_order": [
+  "invoice",
+  "invoice_item",
+  "item_code",
+  "scheme",
+  "action",
+  "category",
+  "reason",
+  "corrected_by",
+  "eligible_amount",
+  "stock_qty",
+  "quotation",
+  "statement"
+ ],
+ "fields": [
+  {
+   "fieldname": "invoice",
+   "label": "Sales Invoice",
+   "fieldtype": "Link",
+   "read_only": 1,
+   "options": "Sales Invoice",
+   "search_index": 1
+  },
+  {
+   "fieldname": "invoice_item",
+   "label": "Invoice Item ID",
+   "fieldtype": "Data",
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "item_code",
+   "label": "Item",
+   "fieldtype": "Link",
+   "read_only": 1,
+   "options": "Item"
+  },
+  {
+   "fieldname": "scheme",
+   "label": "Scheme",
+   "fieldtype": "Link",
+   "read_only": 1,
+   "options": "SNRG Scheme",
+   "search_index": 1
+  },
+  {
+   "fieldname": "action",
+   "label": "Correction",
+   "fieldtype": "Select",
+   "read_only": 1,
+   "options": "Include\nExclude"
+  },
+  {
+   "fieldname": "category",
+   "label": "Category",
+   "fieldtype": "Data",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reason",
+   "label": "Reason",
+   "fieldtype": "Small Text",
+   "read_only": 1
+  },
+  {
+   "fieldname": "corrected_by",
+   "label": "Corrected By",
+   "fieldtype": "Link",
+   "read_only": 1,
+   "options": "User"
+  },
+  {
+   "fieldname": "eligible_amount",
+   "label": "Revised Eligible Amount",
+   "fieldtype": "Currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "stock_qty",
+   "label": "Stock Quantity",
+   "fieldtype": "Float",
+   "read_only": 1
+  },
+  {
+   "fieldname": "quotation",
+   "label": "Quotation",
+   "fieldtype": "Link",
+   "read_only": 1,
+   "options": "Quotation"
+  },
+  {
+   "fieldname": "statement",
+   "label": "Revised Scheme Statement",
+   "fieldtype": "Long Text",
+   "read_only": 1
+  }
+ ],
+ "permissions": [],
+ "track_changes": 1
+}

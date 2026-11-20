@@ -1,0 +1,99 @@
+{
+ "doctype": "DocType",
+ "name": "SNRG Scheme Approval",
+ "module": "Snrg Credit Control",
+ "engine": "InnoDB",
+ "autoname": "hash",
+ "field_order": [
+  "invoice",
+  "invoice_item",
+  "scheme",
+  "terms",
+  "requested_by",
+  "assignee",
+  "reason",
+  "status",
+  "decided_by",
+  "decision_reason",
+  "assignment"
+ ],
+ "fields": [
+  {
+   "fieldname": "invoice",
+   "label": "Invoice",
+   "fieldtype": "Link",
+   "read_only": 1,
+   "options": "Sales Invoice",
+   "search_index": 1
+  },
+  {
+   "fieldname": "invoice_item",
+   "label": "Invoice Item ID",
+   "fieldtype": "Data",
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "scheme",
+   "label": "Scheme",
+   "fieldtype": "Link",
+   "read_only": 1,
+   "options": "SNRG Scheme"
+  },
+  {
+   "fieldname": "terms",
+   "label": "Invoice Terms",
+   "fieldtype": "Data",
+   "read_only": 1
+  },
+  {
+   "fieldname": "requested_by",
+   "label": "Requested By",
+   "fieldtype": "Link",
+   "read_only": 1,
+   "options": "User"
+  },
+  {
+   "fieldname": "assignee",
+   "label": "Scheme Manager",
+   "fieldtype": "Link",
+   "read_only": 1,
+   "options": "User"
+  },
+  {
+   "fieldname": "reason",
+   "label": "Request Reason",
+   "fieldtype": "Small Text",
+   "read_only": 1
+  },
+  {
+   "fieldname": "status",
+   "label": "Status",
+   "fieldtype": "Select",
+   "read_only": 1,
+   "options": "Pending\nApproved\nDeclined\nCancelled"
+  },
+  {
+   "fieldname": "decided_by",
+   "label": "Decided By",
+   "fieldtype": "Link",
+   "read_only": 1,
+   "options": "User"
+  },
+  {
+   "fieldname": "decision_reason",
+   "label": "Decision Note",
+   "fieldtype": "Small Text",
+   "read_only": 1
+  },
+  {
+   "fieldname": "assignment",
+   "label": "Assignment",
+   "fieldtype": "Link",
+   "read_only": 1,
+   "options": "ToDo"
+  }
+ ],
+ "permissions": [],
+ "track_changes": 1
+}

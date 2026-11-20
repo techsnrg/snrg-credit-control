@@ -33,12 +33,24 @@ def get_customer_scheme_suggestions(customer, company=None, scheme=None, as_on_d
         as_on_date,
         scheme_name=scheme,
         scheme_types=(PERIOD_CUMULATIVE_AMOUNT_SLAB, CATEGORY_TARGET_SLAB),
+        include_closed_tracked=bool(scheme),
     )
     suggestions = []
 
     for scheme_config in schemes:
         period_from = getdate(scheme_config.valid_from)
         period_upto = min(getdate(scheme_config.valid_upto), as_on_date)
+        if scheme_config.track_invoice_items or scheme_config.scheme_type == CATEGORY_TARGET_SLAB:
+            rows = _planning_invoice_rows(
+                scheme_config, company or scheme_config.company, period_from, period_upto, as_on_date,
+                customer=customer,
+            )
+            items = _get_item_map([row.item_code for row in rows])
+            bounds = _get_item_group_bounds([scheme_config], items)
+            evaluate = (_evaluate_category_scheme_customers if scheme_config.scheme_type == CATEGORY_TARGET_SLAB
+                        else _evaluate_scheme_customers)
+            suggestions.extend(evaluate(scheme_config, rows, [], items, bounds, as_on_date, period_from, period_upto))
+            continue
         rows = _get_customer_invoice_item_rows(
             customer=customer,
             company=company or scheme_config.company,
@@ -83,6 +95,7 @@ def get_scheme_customer_progress(
     as_on_date=None,
     include_draft_quotations=0,
     include_submitted_quotations=0,
+    customer=None,
 ):
     as_on_date = getdate(as_on_date or getdate())
     quotation_docstatuses = _get_selected_quotation_docstatuses(
@@ -94,24 +107,24 @@ def get_scheme_customer_progress(
         as_on_date,
         scheme_name=scheme,
         scheme_types=(PERIOD_CUMULATIVE_AMOUNT_SLAB, CATEGORY_TARGET_SLAB),
+        include_closed_tracked=bool(scheme),
     )
     scheme_results = []
 
     for scheme_config in schemes:
         period_from = getdate(scheme_config.valid_from)
         period_upto = min(getdate(scheme_config.valid_upto), as_on_date)
-        rows = _get_scheme_invoice_item_rows(
-            company=company or scheme_config.company,
-            from_date=period_from,
-            upto_date=period_upto,
+        rows = _planning_invoice_rows(
+            scheme_config, company or scheme_config.company, period_from, period_upto, as_on_date, customer=customer,
         )
         quotation_rows = _get_scheme_quotation_item_rows(
             company=company or scheme_config.company,
             from_date=period_from,
             upto_date=period_upto,
             docstatuses=quotation_docstatuses,
+            customer=customer,
         )
-        quotation_rows = _exclude_invoiced_quotation_rows(quotation_rows)
+        quotation_rows = _remaining_quotation_rows(quotation_rows, scheme_config, as_on_date)
         item_map = _get_item_map(
             [row.item_code for row in rows if row.item_code]
             + [row.item_code for row in quotation_rows if row.item_code]
@@ -194,6 +207,7 @@ def download_scheme_customer_item_details(
         as_on_date,
         scheme_name=scheme,
         scheme_types=(PERIOD_CUMULATIVE_AMOUNT_SLAB, CATEGORY_TARGET_SLAB),
+        include_closed_tracked=bool(scheme),
     )
     if not schemes:
         frappe.throw(_("Scheme {0} was not found for the selected filters.").format(frappe.bold(scheme)))
@@ -201,10 +215,8 @@ def download_scheme_customer_item_details(
     scheme_config = schemes[0]
     period_from = getdate(scheme_config.valid_from)
     period_upto = min(getdate(scheme_config.valid_upto), as_on_date)
-    rows = _get_scheme_invoice_item_rows(
-        company=company or scheme_config.company,
-        from_date=period_from,
-        upto_date=period_upto,
+    rows = _planning_invoice_rows(
+        scheme_config, company or scheme_config.company, period_from, period_upto, as_on_date,
     )
     quotation_rows = _get_scheme_quotation_item_rows(
         company=company or scheme_config.company,
@@ -212,7 +224,7 @@ def download_scheme_customer_item_details(
         upto_date=period_upto,
         docstatuses=quotation_docstatuses,
     )
-    quotation_rows = _exclude_invoiced_quotation_rows(quotation_rows)
+    quotation_rows = _remaining_quotation_rows(quotation_rows, scheme_config, as_on_date)
     item_map = _get_item_map(
         [row.item_code for row in rows if row.item_code]
         + [row.item_code for row in quotation_rows if row.item_code]
@@ -314,6 +326,10 @@ def evaluate_customer_amount_scheme(
         eligible_rows.append(
             {
                 "sales_invoice": row.get("sales_invoice"),
+                "sales_invoice_item": row.get("sales_invoice_item"),
+                "invoice_line": row.get("idx"),
+                "exception_reason": row.get("exception_reason"),
+                "exception_by": row.get("exception_by"),
                 "posting_date": str(row.get("posting_date") or ""),
                 "invoice_grand_total": flt(row.get("invoice_grand_total")),
                 "invoice_outstanding_amount": flt(row.get("invoice_outstanding_amount")),
@@ -660,6 +676,10 @@ def _build_scheme_detail_row(row, item, amount, category=None, is_quotation=Fals
         detail.update(
             {
                 "sales_invoice": row.get("sales_invoice"),
+                "sales_invoice_item": row.get("sales_invoice_item"),
+                "invoice_line": row.get("idx"),
+                "exception_reason": row.get("exception_reason"),
+                "exception_by": row.get("exception_by"),
                 "posting_date": str(row.get("posting_date") or ""),
                 "invoice_grand_total": flt(row.get("invoice_grand_total")),
                 "invoice_outstanding_amount": flt(row.get("invoice_outstanding_amount")),
@@ -725,19 +745,19 @@ def _get_invoice_date(invoice):
     return getdate(invoice.get("posting_date") or invoice.get("transaction_date") or getdate())
 
 
-def _get_active_schemes_for_context(invoice, posting_date, scheme_name=None, scheme_types=None):
+def _get_active_schemes_for_context(invoice, posting_date, scheme_name=None, scheme_types=None, include_closed_tracked=False):
     if not frappe.db.exists("DocType", "SNRG Scheme"):
         return []
 
     scheme_types = tuple(scheme_types or (INVOICE_AMOUNT_SLAB, LEGACY_SINGLE_INVOICE_AMOUNT_SLAB))
-    filters = {"disabled": 0, "scheme_type": ["in", scheme_types]}
+    filters = {"scheme_type": ["in", scheme_types]}
     if scheme_name:
         filters["name"] = scheme_name
 
     rows = frappe.get_all(
         "SNRG Scheme",
         filters=filters,
-        fields=["name", "company", "valid_from", "valid_upto", "modified"],
+        fields=["name", "company", "valid_from", "valid_upto", "modified", "disabled", "track_invoice_items"],
         order_by="modified desc",
     )
     company = invoice.get("company")
@@ -748,19 +768,23 @@ def _get_active_schemes_for_context(invoice, posting_date, scheme_name=None, sch
             continue
         if row.valid_from and getdate(row.valid_from) > posting_date:
             continue
-        if row.valid_upto and getdate(row.valid_upto) < posting_date:
+        historical = include_closed_tracked and row.track_invoice_items
+        if row.disabled and not historical:
+            continue
+        if row.valid_upto and getdate(row.valid_upto) < posting_date and not historical:
             continue
         active_scheme_names.append(row.name)
 
     return [_get_scheme_config(name) for name in active_scheme_names]
 
 
-def _get_active_schemes(invoice, posting_date, scheme_name=None, scheme_types=None):
+def _get_active_schemes(invoice, posting_date, scheme_name=None, scheme_types=None, include_closed_tracked=False):
     return _get_active_schemes_for_context(
         invoice,
         posting_date,
         scheme_name=scheme_name,
         scheme_types=scheme_types,
+        include_closed_tracked=include_closed_tracked,
     )
 
 
@@ -805,6 +829,9 @@ def _get_scheme_config(name):
 
     return frappe._dict(
         name=doc.name,
+        track_invoice_items=doc.get("track_invoice_items"),
+        payment_hard_deadline=doc.get("payment_hard_deadline") if doc.get("require_payment_clearance") else None,
+        scheme_series=doc.get("scheme_series"),
         company=doc.company,
         scheme_name=doc.scheme_name,
         scheme_type=doc.scheme_type,
@@ -819,7 +846,7 @@ def _get_scheme_config(name):
             if row.item_code
         ],
         eligible_item_groups=[
-            frappe._dict(item_group=row.item_group, uom=row.uom)
+            frappe._dict(item_group=row.item_group, uom=row.uom, include_descendants=row.include_descendants)
             for row in doc.eligible_item_groups
             if row.item_group
         ],
@@ -832,6 +859,7 @@ def _get_scheme_config(name):
                 apply_on=row.apply_on,
                 item_code=row.item_code,
                 item_group=row.item_group,
+                include_descendants=row.include_descendants,
                 uom=row.uom,
                 exclude=frappe.utils.cint(row.exclude),
             )
@@ -873,6 +901,10 @@ def _build_scheme_customer_item_detail_xlsx(scheme, customer_result, as_on_date)
             "Eligible Value",
             "Quotation Status",
             "Invoice Outstanding",
+            "Invoice Line",
+            "Invoice Item ID",
+            "Exception Reason",
+            "Approved By",
         ]
     ]
 
@@ -897,6 +929,10 @@ def _build_scheme_customer_item_detail_xlsx(scheme, customer_result, as_on_date)
                 flt(row.get("amount")),
                 row.get("quotation_status") or "",
                 flt(row.get("invoice_outstanding_amount")),
+                row.get("invoice_line") or "",
+                row.get("sales_invoice_item") or "",
+                row.get("exception_reason") or "",
+                row.get("exception_by") or "",
             ]
         )
 
@@ -998,6 +1034,35 @@ def _get_customer_invoice_item_rows(customer, company, from_date, upto_date):
     )
 
 
+def _planning_invoice_rows(scheme, company, period_from, period_upto, as_on_date, customer=None):
+    if not scheme.track_invoice_items:
+        if customer:
+            return _get_customer_invoice_item_rows(customer, company, period_from, period_upto)
+        return _get_scheme_invoice_item_rows(company, period_from, period_upto)
+    from snrg_credit_control.scheme_corrections import effective_contributions_sql
+
+    return frappe.db.sql(
+        f"""
+        select sii.name as sales_invoice_item, si.name as sales_invoice, si.posting_date,
+               si.is_return, si.customer, si.customer_name, si.grand_total as invoice_grand_total,
+               si.outstanding_amount as invoice_outstanding_amount, sii.idx, sii.item_code,
+               sii.item_name, sii.description, sii.uom, sii.qty, sii.base_net_rate, sii.net_rate,
+               sii.base_rate, sii.rate, sc.eligible_amount as posted_scheme_amount,
+               sc.category as posted_scheme_category, sc.exception_reason, sc.exception_by
+        from ({effective_contributions_sql()}) sc
+        inner join `tabSales Invoice` si on si.name = sc.parent
+        inner join `tabSales Invoice Item` sii on sii.name = sc.invoice_item and sii.parent = si.name
+        where sc.scheme = %(scheme)s and si.docstatus = 1
+          and si.posting_date <= %(date)s
+          and (%(company)s is null or si.company = %(company)s)
+          and (%(customer)s is null or si.customer = %(customer)s)
+        order by si.customer_name, si.posting_date desc, sii.idx
+        """,
+        dict(scheme=scheme.name, date=as_on_date, company=company, customer=customer),
+        as_dict=True,
+    )
+
+
 def _get_scheme_invoice_item_rows(company, from_date, upto_date):
     conditions = [
         "si.docstatus = 1",
@@ -1051,7 +1116,7 @@ def _get_scheme_invoice_item_rows(company, from_date, upto_date):
     )
 
 
-def _get_scheme_quotation_item_rows(company, from_date, upto_date, docstatuses):
+def _get_scheme_quotation_item_rows(company, from_date, upto_date, docstatuses, customer=None):
     if not docstatuses:
         return []
 
@@ -1070,10 +1135,15 @@ def _get_scheme_quotation_item_rows(company, from_date, upto_date, docstatuses):
     if company:
         conditions.append("q.company = %(company)s")
 
+    if customer:
+        conditions.append("q.party_name = %(customer)s")
+        values["customer"] = customer
+
     return frappe.db.sql(
         """
         select
             qi.name as quotation_item,
+            {scheme_state} as saved_scheme_state,
             qi.parent as quotation,
             q.transaction_date,
             q.docstatus as quotation_docstatus,
@@ -1085,6 +1155,7 @@ def _get_scheme_quotation_item_rows(company, from_date, upto_date, docstatuses):
             qi.description,
             qi.uom,
             qi.qty,
+            qi.stock_qty,
             qi.base_net_rate,
             qi.net_rate,
             qi.base_rate,
@@ -1100,11 +1171,47 @@ def _get_scheme_quotation_item_rows(company, from_date, upto_date, docstatuses):
         order by q.customer_name asc, q.transaction_date desc, qi.idx asc
         """.format(
             conditions=" and ".join(conditions),
+            scheme_state=("qi.custom_scheme_state" if frappe.get_meta("Quotation Item").has_field("custom_scheme_state") else "null"),
             gross_amount_fields=_get_optional_item_gross_amount_fields("Quotation Item", "qi"),
         ),
         values,
         as_dict=True,
     )
+
+
+def _remaining_quotation_rows(rows, scheme, as_on_date):
+    if not scheme.track_invoice_items:
+        return _exclude_invoiced_quotation_rows(rows)
+    if not rows or getdate(scheme.valid_upto) < as_on_date:
+        return []
+    _, detail_field, _ = _get_sales_order_item_quotation_link_config()
+    if not detail_field:
+        return _exclude_invoiced_quotation_rows(rows)
+    billed = dict(frappe.db.sql(
+        f"""
+        select soi.{detail_field}, sum(sii.stock_qty)
+        from `tabSales Invoice Item` sii
+        inner join `tabSales Invoice` si on si.name = sii.parent
+        inner join `tabSales Order Item` soi on soi.name = sii.so_detail
+        where si.docstatus = 1 and coalesce(si.is_return, 0) = 0 and si.posting_date <= %(date)s
+          and soi.{detail_field} in %(quotation_items)s
+        group by soi.{detail_field}
+        """,
+        dict(date=as_on_date, quotation_items=tuple(row.quotation_item for row in rows)),
+    ))
+    remaining = []
+    for row in rows:
+        ordered = flt(row.stock_qty)
+        invoiced = flt(billed.get(row.quotation_item))
+        if not ordered or invoiced >= ordered:
+            continue
+        if invoiced > 0:
+            factor = (ordered - invoiced) / ordered
+            for key in ("qty", "base_gross_amount", "gross_amount", "base_net_amount", "net_amount", "base_amount", "amount"):
+                if row.get(key) is not None:
+                    row[key] = flt(row[key]) * factor
+        remaining.append(row)
+    return remaining
 
 
 def _exclude_invoiced_quotation_rows(rows):
@@ -1239,6 +1346,11 @@ def _get_item_group_bounds(schemes, item_map):
 
 
 def _is_eligible_scheme_row(row, item, scheme, group_bounds):
+    if scheme.get("track_invoice_items") and row.get("quotation"):
+        state = frappe.parse_json(row.get("saved_scheme_state") or "{}")
+        return scheme.name in state.get("applicable", {})
+    if row.get("posted_scheme_amount") is not None:
+        return True
     item_code = row.get("item_code")
     if not item_code:
         return False
@@ -1261,6 +1373,11 @@ def _is_eligible_scheme_row(row, item, scheme, group_bounds):
 
 
 def _get_scheme_row_category(row, item, scheme, group_bounds):
+    if row.get("posted_scheme_amount") is not None:
+        return row.posted_scheme_category
+    if scheme.get("track_invoice_items") and row.get("quotation"):
+        state = frappe.parse_json(row.get("saved_scheme_state") or "{}")
+        return state.get("applicable", {}).get(scheme.name, {}).get("category")
     item_code = row.get("item_code")
     if not item_code or item_code in scheme.excluded_items:
         return None
@@ -1349,6 +1466,8 @@ def _matches_item_rule(rule, item_code, row_uom):
 
 
 def _matches_item_group_rule(rule, item_group, row_uom, group_bounds):
+    if rule.get("include_descendants") in (0, "0"):
+        return rule.item_group == item_group and (not rule.uom or rule.uom == row_uom)
     if rule.uom and row_uom and rule.uom != row_uom:
         return False
     if rule.item_group == item_group:
@@ -1370,6 +1489,8 @@ def _get_pre_gst_amount(row):
 
 
 def _get_scheme_amount(row, gst_treatment):
+    if row.get("posted_scheme_amount") is not None:
+        return flt(row.get("posted_scheme_amount"))
     if gst_treatment == GST_INCLUDED:
         for fieldname in ("base_gross_amount", "gross_amount", "base_amount", "amount"):
             if row.get(fieldname) is not None:

@@ -93,3 +93,16 @@ boot_session = "snrg_credit_control.launcher.boot_session"
 
 # Only Teamspace notifications are handed to the per-device Web Push worker.
 doc_events.setdefault("Notification Log", {})["after_insert"] = "snrg_credit_control.customer_workspace.notifications.queue_push"
+
+# Scheme terms follow sales document lines. Contributions are posted on invoice submission.
+for scheme_doctype in ("Quotation", "Sales Order", "Sales Invoice"):
+    events = doc_events.setdefault(scheme_doctype, {})
+    for event, handler in (("validate", "validate_transaction"), ("before_submit", "prepare_submission")):
+        existing = events.get(event)
+        scheme_hook = f"snrg_credit_control.scheme_transactions.{handler}"
+        events[event] = [existing, scheme_hook] if existing else scheme_hook
+app_include_js.append("/assets/snrg_credit_control/js/scheme_transaction_corrections.js")
+
+doc_events["Sales Invoice"]["on_submit"] = "snrg_credit_control.scheme_approvals.close_pending"
+
+doc_events["Sales Invoice"]["on_cancel"] = "snrg_credit_control.scheme_corrections.preserve_history_on_cancel"

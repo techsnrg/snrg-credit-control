@@ -25,6 +25,8 @@ def after_install():
         _ensure_so_fields()
         _ensure_quotation_fields()
         _ensure_sales_invoice_fields()
+        from snrg_credit_control.scheme_setup import install_fields
+        install_fields()
         _ensure_report()
         _ensure_employee_signatory_fields()
         _ensure_demand_notice_settings()
@@ -57,6 +59,8 @@ def after_migrate():
         _ensure_so_fields()
         _ensure_quotation_fields()
         _ensure_sales_invoice_fields()
+        from snrg_credit_control.scheme_setup import install_fields
+        install_fields()
         _ensure_report()
         _ensure_employee_signatory_fields()
         _ensure_demand_notice_settings()
@@ -107,7 +111,7 @@ def _remove_legacy_customer_credit_review_page():
 # ---------------------------------------------------------------------------
 
 def _ensure_role():
-    for role_name in ("Credit Approver", "Legal", "Fulfillment User", "Price Request User", "Pricing Approver"):
+    for role_name in ("Credit Approver", "Legal", "Fulfillment User", "Price Request User", "Pricing Approver", "Scheme Manager"):
         if frappe.db.exists("Role", role_name):
             continue
         frappe.get_doc(
@@ -684,16 +688,6 @@ def _ensure_summer_bonanza_scheme():
 
     scheme_name = "Summer Bonanza Plates Scheme"
     if frappe.db.exists("SNRG Scheme", scheme_name):
-        frappe.db.set_value(
-            "SNRG Scheme",
-            scheme_name,
-            {
-                "scheme_type": "Period Cumulative Amount Slab",
-                "calculation_basis": "Excluded",
-                "reward_policy": "Highest Only",
-            },
-            update_modified=False,
-        )
         return
 
     frappe.get_doc(
@@ -724,9 +718,8 @@ def _ensure_luxe_scheme():
 
     scheme_name = "Luxe Scheme"
 
-    # Delete if exists to recreate freshly
     if frappe.db.exists("SNRG Scheme", scheme_name):
-        frappe.delete_doc("SNRG Scheme", scheme_name, ignore_permissions=True, force=True)
+        return
 
     excluded_items = []
     for code in ("40101-WH", "40101-MG"):
@@ -784,15 +777,10 @@ def _ensure_monsoon_bonanza_scheme():
     if not frappe.db.exists("DocType", "SNRG Scheme"):
         return
 
-    # Clean up old named scheme if exists
-    if frappe.db.exists("SNRG Scheme", "Monsoon Bonanza Plates Scheme"):
-        frappe.delete_doc("SNRG Scheme", "Monsoon Bonanza Plates Scheme", ignore_permissions=True, force=True)
-
     scheme_name = "Monsoon Bonanza Scheme"
 
-    # Delete if exists to recreate freshly
     if frappe.db.exists("SNRG Scheme", scheme_name):
-        frappe.delete_doc("SNRG Scheme", scheme_name, ignore_permissions=True, force=True)
+        return
 
     slabs = [
         {"slab_amount": 50000, "reward": "Water Dispenser with Fridge"},
@@ -848,15 +836,10 @@ def _ensure_bangkok_bonanza_scheme():
     if not frappe.db.exists("DocType", "SNRG Scheme"):
         return
 
-    # Clean up old named scheme if exists
-    if frappe.db.exists("SNRG Scheme", "5 Month Bangkok Bonanza"):
-        frappe.delete_doc("SNRG Scheme", "5 Month Bangkok Bonanza", ignore_permissions=True, force=True)
-
     scheme_name = "Bangkok Bonanza Scheme"
 
-    # Delete if exists to recreate freshly
     if frappe.db.exists("SNRG Scheme", scheme_name):
-        frappe.delete_doc("SNRG Scheme", scheme_name, ignore_permissions=True, force=True)
+        return
 
     # Specific item exclusions (only add items that actually exist to pass link validation)
     excluded_items = []

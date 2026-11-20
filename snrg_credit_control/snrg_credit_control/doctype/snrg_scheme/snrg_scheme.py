@@ -17,6 +17,35 @@ class SNRGScheme(Document):
         self._validate_dates()
         self._validate_item_filters()
         self._validate_slabs()
+        self._validate_series()
+        from snrg_credit_control.scheme_payments import payment_rules
+        payment_rules(self)
+
+    def _validate_series(self):
+        if self.supersedes and not self.scheme_series:
+            frappe.throw(_("Choose a Scheme Series before linking a predecessor."))
+        if not self.scheme_series:
+            return
+        if not self.track_invoice_items:
+            frappe.throw(_("Enable Track Invoice Items for schemes in a series."))
+        # Serialize changes to schemes in the same series.
+        frappe.db.get_value("SNRG Scheme Series", self.scheme_series, "name", for_update=True)
+        if self.supersedes:
+            predecessor = frappe.get_doc("SNRG Scheme", self.supersedes)
+            if (predecessor.name == self.name or predecessor.scheme_series != self.scheme_series
+                    or getdate(predecessor.valid_upto) >= getdate(self.valid_from)):
+                frappe.throw(_("The predecessor must be an earlier scheme in the same series."))
+            if frappe.db.exists("SNRG Scheme", {"supersedes": predecessor.name, "name": ["!=", self.name]}):
+                frappe.throw(_("This predecessor already has a successor."))
+
+        for other in frappe.get_all("SNRG Scheme", filters={"scheme_series": self.scheme_series},
+                                    fields=["name", "valid_from", "valid_upto", "supersedes"]):
+            if other.name == self.name:
+                continue
+            if getdate(other.valid_from) <= getdate(self.valid_upto) and getdate(other.valid_upto) >= getdate(self.valid_from):
+                frappe.throw(_("Validity dates overlap with {0} in this series.").format(other.name))
+            if other.supersedes == self.name and getdate(other.valid_from) <= getdate(self.valid_upto):
+                frappe.throw(_("This scheme must end before its successor starts."))
 
     def _normalize_legacy_values(self):
         if self.scheme_type == "Single Invoice Amount Slab":

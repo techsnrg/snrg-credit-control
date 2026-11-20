@@ -9,6 +9,9 @@
   "scheme_section",
   "scheme_name",
   "disabled",
+  "track_invoice_items",
+  "scheme_series",
+  "supersedes",
   "company",
   "scheme_column_break",
   "scheme_type",
@@ -28,6 +31,11 @@
   "category_rules",
   "category_slabs_section",
   "category_slabs",
+  "payment_section",
+  "require_payment_clearance",
+  "payment_soft_days",
+  "payment_hard_deadline",
+  "payment_reminder_days",
   "notes_section",
   "notes"
  ],
@@ -52,6 +60,25 @@
    "fieldtype": "Check",
    "in_standard_filter": 1,
    "label": "Disabled"
+  },
+  {
+   "fieldname": "track_invoice_items",
+   "label": "Track Invoice Items",
+   "fieldtype": "Check",
+   "default": "0",
+   "description": "Record eligible contributions on future invoice submissions. Use on a new scheme unless historic contributions have been migrated."
+  },
+  {
+   "fieldname": "scheme_series",
+   "label": "Scheme Series",
+   "fieldtype": "Link",
+   "options": "SNRG Scheme Series"
+  },
+  {
+   "fieldname": "supersedes",
+   "label": "Supersedes",
+   "fieldtype": "Link",
+   "options": "SNRG Scheme"
   },
   {
    "fieldname": "company",
@@ -173,6 +200,40 @@
    "fieldtype": "Table",
    "label": "Category Target Slabs",
    "options": "SNRG Scheme Category Slab"
+  },
+  {
+   "fieldname": "payment_section",
+   "fieldtype": "Section Break",
+   "label": "Payment qualification"
+  },
+  {
+   "fieldname": "require_payment_clearance",
+   "fieldtype": "Check",
+   "label": "Require Full Invoice Clearance",
+   "default": "0"
+  },
+  {
+   "fieldname": "payment_soft_days",
+   "fieldtype": "Int",
+   "label": "Soft Deadline (Days from Invoice)",
+   "default": "60",
+   "description": "Reminder target. Clearance can still qualify up to the hard deadline.",
+   "depends_on": "eval:doc.require_payment_clearance"
+  },
+  {
+   "fieldname": "payment_hard_deadline",
+   "fieldtype": "Date",
+   "label": "Hard Clearance Deadline",
+   "description": "Final date on which an eligible invoice can clear for the scheme.",
+   "depends_on": "eval:doc.require_payment_clearance"
+  },
+  {
+   "fieldname": "payment_reminder_days",
+   "fieldtype": "Data",
+   "label": "Reminder Days from Invoice",
+   "default": "55, 59, 60",
+   "description": "Comma-separated days. Teamspace provides previews only.",
+   "depends_on": "eval:doc.require_payment_clearance"
   },
   {
    "fieldname": "notes_section",

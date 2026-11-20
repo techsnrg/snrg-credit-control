@@ -9,6 +9,7 @@
   "apply_on",
   "item_code",
   "item_group",
+  "include_descendants",
   "uom",
   "exclude"
  ],
@@ -46,6 +47,12 @@
    "label": "Item Group",
    "mandatory_depends_on": "eval:doc.apply_on=='Item Group'",
    "options": "Item Group"
+  },
+  {
+   "fieldname": "include_descendants",
+   "label": "Include Subgroups",
+   "fieldtype": "Check",
+   "default": "1"
   },
   {
    "fieldname": "uom",
