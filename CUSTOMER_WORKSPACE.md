@@ -336,3 +336,27 @@ app open; subscriptions, VAPID keys and other apps' workers are unchanged.
 
 Local checks: `python3 tests/notification_content.py`, `node tests/push_message.cjs`,
 `node tests/teamspace_push_worker.cjs`. No real notifications are sent by these tests.
+
+### Per-task history
+
+Every task drawer shows a read-only history above its edit controls. The newest
+three entries are visible initially, with older notes and 50-entry pagination,
+refresh and retry. Saving an outcome keeps the task open and reloads its history.
+The endpoint `task_history.history` checks active internal access and the task's
+existing read permission before projecting only that task's notes and a whitelist
+of Version fields. Actor/time come from source records, never current modified_by.
+
+Existing Customer Interaction action_reference notes and native general-task
+Comments are read without a backfill. Retained Version changes cover status,
+assignment, schedule, priority, title, instructions, type and WhatsApp summary.
+New task updates always save a native Comment; a mirrored relationship update is
+referenced explicitly in Comment.subject to avoid duplicate display. An audit
+change is merged into a note only with a unique author/time/exact-transition
+match; ambiguous events stay separate. Purged history cannot be recovered.
+
+Validation: `python3 tests/task_history.py` covers legacy sources, exact mirrored
+references, independent notes, ambiguous/malformed audit data, field whitelisting,
+permission denial and pagination. Three production tasks were checked read-only
+against the assembler; the real Vue history component was checked locally with
+labelled synthetic data for save/reload, older entries, retry, keyboard and narrow
+layout. No production task was edited for testing.

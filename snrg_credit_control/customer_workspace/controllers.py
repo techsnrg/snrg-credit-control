@@ -87,15 +87,17 @@ class CustomerAction(Document):
 
             notify([self.assigned_to], f"Assigned: {self.subject}", self.doctype, self.name, document=self, event="assigned")
             enqueue_assignment(self, frappe.session.user)
-        if old and (self.flags.workspace_reason or any(self.get(f) != old.get(f) for f in ("status", "due_date", "due_time", "assigned_to"))):
-            changes = [f"{f.replace('_', ' ')}: {old.get(f) or '—'} → {self.get(f) or '—'}" for f in ("status", "due_date", "due_time", "assigned_to") if self.get(f) != old.get(f)]
+        if old and (self.flags.workspace_reason or any(self.get(f) != old.get(f) for f in ("status", "due_date", "due_time", "assigned_to", "priority", "subject", "description", "action_type", "whatsapp_summary"))):
+            changes = [f"{f.replace('_', ' ')}: {old.get(f) or '—'} → {self.get(f) or '—'}" for f in ("status", "due_date", "due_time", "assigned_to", "priority", "subject", "description", "action_type", "whatsapp_summary") if self.get(f) != old.get(f)]
             summary = self.flags.workspace_reason or "Action updated"
             if changes:
                 summary += "\n" + "\n".join(changes)
+            timeline_update = None
             if self.customer or self.supplier:
-                frappe.get_doc({"doctype": INTERACTION, "customer": self.customer, "supplier": self.supplier, "channel": "Update", "summary": f"{self.subject}\n{summary}", "spoken_by": frappe.session.user, "interaction_on": now_datetime(), "action_reference": self.name}).insert(ignore_permissions=True)
-            else:
-                self.add_comment("Comment", text=frappe.utils.escape_html(summary).replace("\n", "<br>"))
+                timeline_update = frappe.get_doc({"doctype": INTERACTION, "customer": self.customer, "supplier": self.supplier, "channel": "Update", "summary": f"{self.subject}\n{summary}", "spoken_by": frappe.session.user, "interaction_on": now_datetime(), "action_reference": self.name}).insert(ignore_permissions=True)
+            comment = self.add_comment("Comment", text=frappe.utils.escape_html(summary).replace("\n", "<br>"))
+            if timeline_update:
+                comment.db_set("subject", "Teamspace update:" + timeline_update.name, update_modified=False)
             notify([self.owner, self.assigned_to], f"Action updated: {self.subject}", self.doctype, self.name, document=self, event="updated", reason=self.flags.workspace_reason, changes={field: (old.get(field), self.get(field)) for field in ("status", "due_date", "due_time", "assigned_to") if self.get(field) != old.get(field)})
 
     def sync_event(self):
