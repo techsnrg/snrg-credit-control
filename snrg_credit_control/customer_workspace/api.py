@@ -179,11 +179,13 @@ def update_action(name, payload, modified):
     return present_action(doc.as_dict())
 
 
-def notify(users, subject, doctype, name, kind="Assignment", include_self=False):
+def notify(users, subject, doctype, name, kind="Assignment", include_self=False, *, document=None, event="", changes=None, reason=None):
     from frappe.desk.doctype.notification_log.notification_log import enqueue_create_notification
     users = sorted(set(u for u in users if u and (include_self or u != frappe.session.user) and internal(u)))
     if users:
-        enqueue_create_notification(users, {"type": kind, "subject": html.escape(subject), "document_type": doctype, "document_name": name, "from_user": None if include_self else frappe.session.user, "link": frappe.utils.get_url("/teamspace"), "email_header": "Teamspace update"})
+        from snrg_credit_control.customer_workspace.notification_content import snapshot
+        content = snapshot(document or frappe.get_doc(doctype, name), subject, kind=kind, event=event, changes=changes, reason=reason)
+        enqueue_create_notification(users, {"type": kind, "document_type": doctype, "document_name": name, "from_user": None if include_self else frappe.session.user, **content})
 
 
 @frappe.whitelist()

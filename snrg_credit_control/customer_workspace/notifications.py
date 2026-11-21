@@ -116,8 +116,9 @@ def send_push(notification):
             subscription = frappe.get_doc(SUBSCRIPTION, name)
             data = validated_subscription(subscription.get_password("subscription"))
             try:
-                # Avoid exposing task/customer details on shared-device lock screens.
-                response = webpush(subscription_info=data, data=json.dumps({"title": "Teamspace", "body": "You have a new Teamspace update.", "tag": doc.name}), vapid_private_key=Vapid.from_pem(private_key.encode()), vapid_claims={"sub": "mailto:" + contact}, ttl=3600, timeout=10, requests_session=session)
+                # Use the original event snapshot, not the task’s later current state.
+                from snrg_credit_control.customer_workspace.notification_content import push_payload
+                response = webpush(subscription_info=data, data=json.dumps(push_payload(doc)), vapid_private_key=Vapid.from_pem(private_key.encode()), vapid_claims={"sub": "mailto:" + contact}, ttl=3600, timeout=10, requests_session=session)
                 if not 200 <= response.status_code < 300:
                     raise WebPushException("Push service rejected notification", response=response)
                 subscription.db_set({"last_status": "Accepted", "last_delivered_on": now_datetime()}, update_modified=False)

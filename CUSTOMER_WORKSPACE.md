@@ -221,7 +221,7 @@ verify existing settings without overwriting changes made by the user.
 
 Teamspace uses native `Assignment` and `Mention` Notification Log types, so ERPNext's existing per-user system/email preferences apply. It does not use `Alert` (which Frappe excludes from native email delivery). Daily due/overdue reminders can notify the scheduled-job actor too; self-assignment chatter remains suppressed. Reminder delivery is once per day per action.
 
-Desktop/Android background push is opt-in per browser, via Notifications → Enable push on this device. It uses standard Web Push, not Frappe's optional mobile relay. The worker is scoped to its own asset directory and does not replace Desk's worker. Only generic update text is sent to lock screens. Clicking opens the authenticated `/teamspace` page.
+Desktop/Android background push is opt-in per browser, via Notifications → Enable push on this device. It uses standard Web Push, not Frappe's optional mobile relay. The worker is scoped to its own asset directory and does not replace Desk's worker. Push previews contain a short event summary. Device settings control lock-screen previews; clicking opens the relevant authenticated Teamspace task or Interaction record.
 
 Migrations initialize a VAPID pair once in Teamspace Push Settings; the private key and device subscriptions use Frappe Password encryption. Never rotate keys during upgrades or copy production keys to staging. Subscriptions are owned by the authenticated user, endpoints are restricted to supported browser push services, redirects are disabled, expired devices are disabled. No credentials/subscription payloads are logged. `last_status=Accepted` means the push provider accepted the request, not that a person saw it. Real delivery must be checked on a registered device after deployment. The built-in test endpoint sends only to the logged-in user and is rate limited.
 
@@ -317,3 +317,22 @@ language):
 Omit the template setting to keep this channel off. Apply the DocType migration
 before enabling it. Verify the approved template and dynamic button on the
 installed Chatwoot version with an opted-in test recipient.
+
+### Informative email and push updates
+
+Assignment, task update and mention notifications capture an event snapshot when
+the event is written. Emails show the actor, outcome/reason, actual status/date/
+time/assignee changes, party, responsible member, deadline and instructions.
+User content is escaped. Tasks link to `/teamspace?task=…` using the existing
+permission-checked task opener; conversations link to the native permission-checked
+Interaction form. The daily 9 AM consolidated reminder remains unchanged.
+
+Push now uses the same saved subject and a short plain-text body (120/280
+characters) instead of replacing every event with a generic alert. Task/customer
+information can therefore appear in device previews; the operating system controls
+lock-screen visibility. Clicking opens the relevant record. Both sender and worker
+reject foreign destinations. Only Teamspace's own existing worker is refreshed on
+app open; subscriptions, VAPID keys and other apps' workers are unchanged.
+
+Local checks: `python3 tests/notification_content.py`, `node tests/push_message.cjs`,
+`node tests/teamspace_push_worker.cjs`. No real notifications are sent by these tests.

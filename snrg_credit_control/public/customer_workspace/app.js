@@ -2,7 +2,7 @@ import {createApp, ref, computed, onMounted, onUnmounted, watch, nextTick} from 
 import './workspace.css';
 import './scheme_workspace.css';
 import './scheme_workspace.js';
-import NotificationPreferences from './notifications.js';
+import NotificationPreferences, {refreshPushWorker} from './notifications.js';
 import TeamActivity from './team_activity.js';
 import Knowledge from './knowledge.js';
 import BookOpen from '@lucide/vue/dist/esm/icons/book-open.mjs';
@@ -185,7 +185,7 @@ async function restoreSection(saved) {
   }
   return refresh();
 }
-onMounted(async()=>{await run(async()=>{boot.value=await request('bootstrap');const savedSection=await restoreRecovery();arFilters.value.company=preferredCompany(financeCompanies.value);arFilters.value.report_date=boot.value.today;selectedDate.value=boot.value.today;month.value=new Date(boot.value.today+'T12:00:00');const c=frappe.route_options?.customer||frappe.route_options?.supplier;if(c){partyKind.value=frappe.route_options.supplier?'Supplier':'Customer';const results=(await request('snrg_credit_control.customer_workspace.directory.'+(partyKind.value==='Supplier'?'supplier_directory':'customer_directory'),{search:c,status:'active'})).rows;customer.value=results.find(r=>r.name===c)||null;if(customer.value)view.value='customer';frappe.route_options=null}const params=new URLSearchParams(window.location.search);if(params.has('guide'))await go('knowledge');else if(c)await refresh();else await restoreSection(savedSection);const task=params.get('task');if(task)await openAction(await request('open_task',{name:task}))})});
+onMounted(async()=>{await run(async()=>{boot.value=await request('bootstrap');refreshPushWorker().catch(()=>{});const savedSection=await restoreRecovery();arFilters.value.company=preferredCompany(financeCompanies.value);arFilters.value.report_date=boot.value.today;selectedDate.value=boot.value.today;month.value=new Date(boot.value.today+'T12:00:00');const c=frappe.route_options?.customer||frappe.route_options?.supplier;if(c){partyKind.value=frappe.route_options.supplier?'Supplier':'Customer';const results=(await request('snrg_credit_control.customer_workspace.directory.'+(partyKind.value==='Supplier'?'supplier_directory':'customer_directory'),{search:c,status:'active'})).rows;customer.value=results.find(r=>r.name===c)||null;if(customer.value)view.value='customer';frappe.route_options=null}const params=new URLSearchParams(window.location.search);if(params.has('guide'))await go('knowledge');else if(c)await refresh();else await restoreSection(savedSection);const task=params.get('task');if(task)await openAction(await request('open_task',{name:task}))})});
 const guideTaskLink=computed(()=>draft.value.subject?.startsWith('Review guide correction:') &&
   draft.value.description?.match(/\n\n(\/teamspace\?guide=[a-zA-Z0-9]+)$/)?.[1]);
 const canSchemes=computed(()=>frappe.model.can_read("SNRG Scheme"));

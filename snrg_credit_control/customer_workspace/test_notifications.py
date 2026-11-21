@@ -38,10 +38,10 @@ def run():
         identity = __import__('hashlib').sha256(subscription["endpoint"].encode()).hexdigest()
         assert frappe.get_doc(n.SUBSCRIPTION, identity).get_password("subscription") == json.dumps(subscription)
         with patch("frappe.desk.doctype.notification_log.notification_log.enqueue_create_notification") as enqueue:
-            api.notify(["Administrator"], "Due test", api.ACTION, "fixture", include_self=True)
+            api.notify(["Administrator"], "Due test", api.ACTION, "fixture", include_self=True, document=frappe._dict(doctype=api.ACTION, name="fixture", subject="Due test", assigned_to="Administrator"))
             assert enqueue.call_args.args[1]["type"] == "Assignment"
             assert enqueue.call_args.args[1]["from_user"] is None
-            api.notify(["Administrator"], "Mention test", api.INTERACTION, "fixture", kind="Mention", include_self=True)
+            api.notify(["Administrator"], "Mention test", api.INTERACTION, "fixture", kind="Mention", include_self=True, document=frappe._dict(doctype=api.INTERACTION, name="fixture", summary="Mention test"))
             assert enqueue.call_args.args[1]["type"] == "Mention"
         with patch("frappe.desk.doctype.notification_log.notification_log.send_notification_email") as email, patch("frappe.enqueue"):
             log = frappe.get_doc({"doctype": "Notification Log", "type": "Assignment", "for_user": "Administrator", "document_type": api.ACTION, "subject": "Private customer/task name", "link": frappe.utils.get_url("/teamspace")}).insert(ignore_permissions=True)
@@ -75,7 +75,7 @@ def run():
             raise AssertionError("Guest accessed push settings")
         except frappe.PermissionError:
             pass
-        return {"passed": ["stable private VAPID keys", "encrypted device subscription", "SSRF endpoint rejection", "emailable Assignment/Mention routing", "self reminders", "real Web Push encryption/signing", "no redirects or private lock-screen content", "expired subscription disabled", "guest denied"], "fixtures": "rolled back; no network or email delivery"}
+        return {"passed": ["stable private VAPID keys", "encrypted device subscription", "SSRF endpoint rejection", "emailable Assignment/Mention routing", "self reminders", "real Web Push encryption/signing", "no redirects or unencrypted transport content", "expired subscription disabled", "guest denied"], "fixtures": "rolled back; no network or email delivery"}
     finally:
         frappe.db.rollback()
         frappe.clear_document_cache("Notification Settings", "Administrator")
