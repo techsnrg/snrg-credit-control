@@ -678,3 +678,5 @@ body:has(#page-customer-workspace.snrg-customer-workspace-page:not(.hide):not(.h
 #cw .task-audit-meta{display:flex;flex-wrap:wrap;align-items:baseline;gap:5px 9px;font-size:13px}#cw .task-audit-meta time{margin-left:auto;color:var(--text-muted);font-size:12px}#cw .task-audit-meta>span{color:var(--text-muted)}
 #cw .task-audit-note{white-space:pre-wrap;overflow-wrap:anywhere;margin:8px 0;font-size:14px;line-height:1.6}#cw .task-audit-changes{font-size:13px;margin:8px 0;overflow-wrap:anywhere}#cw .task-audit-changes>div{margin:5px 0}#cw .task-audit-changes dt{font-weight:600}#cw .task-audit-changes dd{margin:2px 0;white-space:pre-wrap}#cw .task-audit-before{color:var(--text-muted)}#cw .task-audit-footnote{margin:12px 0 0;font-size:12px;line-height:1.5}
 @media(max-width:600px){#cw .task-audit-meta time{flex-basis:100%;margin-left:0}#cw .task-audit-heading{flex-wrap:wrap}}
+
+#cw .activity-date-field{display:grid;align-content:start;gap:6px;min-width:0;font-weight:500}

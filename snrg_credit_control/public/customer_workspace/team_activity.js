@@ -1,7 +1,8 @@
+import DatePicker from './date_picker.js';
 import {ref,onMounted} from 'vue';
 const endpoint='snrg_credit_control.customer_workspace.team_activity.';
 export default {
- props:{today:String},emits:['open-record'],
+ components:{DatePicker},props:{today:String},emits:['open-record'],
  setup(props){
   const filters=ref({from_date:props.today,to_date:props.today,user:'',activity_type:'',party_type:'',search:'',call_outcome:''});
   const data=ref(null),loading=ref(false),error=ref(''),page=ref(0),applied=ref(null);let token=0;
@@ -16,7 +17,7 @@ export default {
  template:`<section class="team-activity" aria-label="Private team activity">
  <p class="hint">Private to your login · Recorded entries and task completion history</p>
  <form class="activity-filters" @submit.prevent="load(true)">
- <label>From date<input type="date" v-model="filters.from_date" required></label><label>To date<input type="date" v-model="filters.to_date" required></label>
+ <div class="activity-date-field"><span>From date</span><DatePicker label="From date" :today="today" v-model="filters.from_date"/></div><div class="activity-date-field"><span>To date</span><DatePicker label="To date" :today="today" v-model="filters.to_date"/></div>
  <label>Team member<select v-model="filters.user"><option value="">Everyone</option><option v-for="person in data?.people||[]" :key="person.user" :value="person.user">{{person.name}}</option></select></label>
  <label>Activity<select v-model="filters.activity_type"><option value="">All activity</option><option>Interaction</option><option>Calls</option><option>Connected calls</option><option>Task created</option><option>Task completed</option></select></label>
  <label>Relationship<select v-model="filters.party_type"><option value="">All relationships</option><option>Customer</option><option>Supplier</option><option>General</option></select></label>

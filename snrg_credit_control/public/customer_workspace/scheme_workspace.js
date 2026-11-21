@@ -6,13 +6,15 @@
   const modes = ["Active", "Upcoming", "Closed", "Disabled", "All"];
 
   window.snrgSchemeWorkspace = {
-    mount(host, embedded = false, fixedCustomer = null) {
-      return new SchemeWorkspace(host, embedded, fixedCustomer);
+    mount(host, embedded = false, fixedCustomer = null, mountDate = null) {
+      return new SchemeWorkspace(host, embedded, fixedCustomer, mountDate);
     },
   };
 
   class SchemeWorkspace {
-    constructor(host, embedded, fixedCustomer) {
+    constructor(host, embedded, fixedCustomer, mountDate) {
+      this.mountDate = mountDate;
+      this.dateUnmounts = new Map();
       this.embedded = embedded;
       this.fixedCustomer = fixedCustomer;
       this.company = frappe.defaults.get_user_default("Company") || "";
@@ -27,7 +29,7 @@
       this.root.toggleClass("sw-embedded", embedded);
       const filters = `
         <label>${__("Company")}<select data-field="company"><option value="">${__("All companies")}</option></select></label>
-        <label>${__("As of")}<input data-field="asOn" type="date" value="${esc(this.asOn)}"></label>
+        <label>${__("As of")}${this.dateField("asOn", this.asOn)}</label>
         <button data-action="reload">${__("Refresh")}</button>`;
       this.root.html(embedded ? `
         ${fixedCustomer ? "" : `<div class="sw-view-switch" role="group" aria-label="${esc(__("Scheme perspective"))}">
@@ -47,7 +49,7 @@
         <section class="sw-detail" aria-label="${esc(__("Selected scheme"))}" aria-busy="true"></section>` : `
         <div class="sw-toolbar">
           <label>${__("Company")}<select data-field="company"><option value="">${__("All companies")}</option></select></label>
-          <label>${__("As of")}<input data-field="asOn" type="date" value="${esc(this.asOn)}"></label>
+          <label>${__("As of")}${this.dateField("asOn", this.asOn)}</label>
           <div class="sw-actions"><button data-action="reload">${__("Refresh")}</button>
           <button data-action="new" class="sw-primary">${__("New scheme")}</button></div>
         </div>
@@ -71,7 +73,32 @@
         this.renderRows();
       });
       this.root.on("click", "[data-action]", ({ currentTarget: event }) => this.action(event.dataset));
+      this.mountDateField("asOn", __("As of"), this.asOn);
       this.load();
+    }
+
+    dateField(field, value) {
+      return this.mountDate
+        ? `<span data-date-field="${field}"></span>`
+        : `<input type="date" data-field="${field}" value="${esc(value)}">`;
+    }
+
+    mountDateField(field, label, value) {
+      const element = this.root.find(`[data-date-field="${field}"]`)[0];
+      if (!element) return;
+      this.dateUnmounts.get(field)?.();
+      this.dateUnmounts.set(field, this.mountDate(element, {
+        label, today: frappe.datetime.get_today(), modelValue: value,
+        onChange: date => {
+          this.change({dataset: {field}, value: date});
+
+        },
+      }));
+    }
+
+    unmountDates() {
+      for (const unmount of this.dateUnmounts.values()) unmount();
+      this.dateUnmounts.clear();
     }
 
     change(input) {
@@ -280,10 +307,11 @@
     renderReminderPreviews() {
       const { hard_deadline: hard, reminder_days: reminders } = this.report.payment_rules;
       this.content.html(`<div class="sw-content-tools"><label>${__("Preview date")}
-        <input type="date" data-field="reminderDate" value="${esc(this.reminderDate || this.asOn)}"></label></div>
+        ${this.dateField("reminderDate", this.reminderDate || this.asOn)}</label></div>
         <p class="sw-source">${esc(__("Preview only. No email will be sent."))}
           · ${esc(__("Reminder days {0} · Final clearance date {1}", [reminders.join(", "), date(hard)]))}</p>
         <div class="sw-reminder-results"></div>`);
+      this.mountDateField("reminderDate", __("Preview date"), this.reminderDate || this.asOn);
       return this.loadReminderPreviews();
     }
 
