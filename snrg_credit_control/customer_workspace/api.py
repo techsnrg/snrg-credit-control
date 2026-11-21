@@ -1,5 +1,6 @@
 """Customer workspace API. Shared internal history; controlled mutations."""
 import html
+import re
 
 import frappe
 from frappe import _
@@ -158,6 +159,16 @@ def log_interaction(payload):
     return {"name": doc.name, "actions": created}
 
 
+def normalize_due_time(value):
+    if value is None or value == "":
+        return None
+    match = re.fullmatch(r"([01]?[0-9]|2[0-3]):([0-5][0-9])(?::([0-5][0-9]))?", value) if isinstance(value, str) else None
+    if not match:
+        frappe.throw(_("Enter a valid due time in hours and minutes."))
+    hour, minute, second = match.groups()
+    return f"{int(hour):02d}:{minute}:{second or '00'}"
+
+
 @frappe.whitelist(methods=["POST"])
 def update_action(name, payload, modified):
     guard()
@@ -174,7 +185,8 @@ def update_action(name, payload, modified):
         if field in data:
             if field in ("assigned_to", "whatsapp_summary") and data[field] != doc.get(field) and not (manager() or doc.owner == frappe.session.user):
                 frappe.throw(_("Only the creator or a manager can change the assignment or its WhatsApp summary."), frappe.PermissionError)
-            doc.set(field, data[field])
+            value = normalize_due_time(data[field]) if field == "due_time" else data[field]
+            doc.set(field, value)
     doc.save(ignore_permissions=True)
     return present_action(doc.as_dict())
 
