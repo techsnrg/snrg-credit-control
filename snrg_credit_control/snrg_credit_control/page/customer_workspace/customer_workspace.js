@@ -1,5 +1,5 @@
 frappe.pages["customer-workspace"].on_page_load = function(wrapper) {
   wrapper.classList.add("snrg-customer-workspace-page");
   const page = frappe.ui.make_app_page({parent: wrapper, title: __("Teamspace"), single_column: true});
-  frappe.require(["/assets/snrg_credit_control/dist/customer_workspace.17f341f8dd07.css", "/assets/snrg_credit_control/dist/customer_workspace.0defb3c23a42.js"], () => window.snrgCustomerWorkspace.mount(page.main[0]));
+  frappe.require(["/assets/snrg_credit_control/dist/customer_workspace.661d75c747e4.css", "/assets/snrg_credit_control/dist/customer_workspace.58bed798e6de.js"], () => window.snrgCustomerWorkspace.mount(page.main[0]));
 };

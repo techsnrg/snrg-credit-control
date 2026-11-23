@@ -138,7 +138,7 @@
 #cw .row{display:flex;gap:13px;align-items:flex-start;flex-wrap:wrap}
 #cw .row>*{flex:1;min-width:120px}
 #cw .row>button{min-width:0;font-size:11px}
-#cw label{display:block;font-size:11px;font-weight:500;margin:17px 0 8px}
+#cw label,#cw .assignee-field{display:block;font-size:11px;font-weight:500;margin:17px 0 8px}
 #cw input,#cw select,#cw textarea{display:block;width:100%;background:var(--surface);border:1px solid var(--line);border-radius:7px;padding:10px 12px;margin-top:7px;font-size:12px;color:var(--ink);font-weight:400}
 #cw input:hover,#cw select:hover,#cw textarea:hover{border-color:var(--dark-border-color,var(--line))}
 #cw input::placeholder,#cw textarea::placeholder{color:var(--muted);opacity:.8}
@@ -364,7 +364,7 @@ body:has(#page-customer-workspace.snrg-customer-workspace-page:not(.hide):not(.h
 #cw .primary{font-size:13px;padding:9px 14px;font-weight:500;box-shadow:none}
 #cw nav button,#cw nav>a.erp-back{font-size:13px}
 #cw .navlabel{font-size:11px;letter-spacing:.7px}
-#cw label{font-size:13px;font-weight:500}
+#cw label,#cw .assignee-field{font-size:13px;font-weight:500}
 #cw input,#cw select,#cw textarea{font-size:14px}
 #cw .hint,#cw .contact,#cw .list-caption{font-size:12px}
 #cw .tabs button{font-size:14px;font-weight:500}
