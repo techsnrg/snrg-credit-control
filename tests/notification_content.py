@@ -52,6 +52,12 @@ class ContentTests(unittest.TestCase):
         self.assertNotIn('Later instructions',payload['body'])
         self.assertEqual(payload['url'],'/teamspace?task=CA-2026-00009')
 
+    def test_legacy_action_uses_document_reference(self):
+        for link in ('', '/desk/customer-action/CA-1'):
+            log = Doc(name='LOG-1', subject='Task updated', email_content='', link=link,
+                      document_type='Customer Action', document_name='CA-1')
+            self.assertEqual(c.push_payload(log)['url'], '/teamspace?task=CA-1')
+
     def test_push_limits_and_foreign_links(self):
         log=Doc(name='LOG-1',subject='x'*400,email_content='<p>text</p>'*200,link='https://evil.example/teamspace')
         payload=c.push_payload(log)

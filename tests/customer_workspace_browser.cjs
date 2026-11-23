@@ -18,7 +18,7 @@ const fs=require('node:fs');
    const customer={name:'C1',customer_name:'HBR',party_name:'HBR',party_type:'Customer',mobile_number:'9876543210',territory:'Odisha',location:'Odisha',customer_group:'Dealer',group_name:'Dealer'};
    const supplier={name:'S1',supplier_name:'ABC Supplies',party_name:'ABC Supplies',party_type:'Supplier',mobile_number:'',country:'India',location:'India',supplier_group:'Distributor',group_name:'Distributor'};
    const task={name:'CA-1',subject:'Arrange pickup',customer:'C1',customer_name:'HBR',party:'C1',party_name:'HBR',party_type:'Customer',due_date:'2026-11-20',assigned_to:'me@example.test',owner:'me@example.test',status:'Open',modified:'v1'};
-   window.frappe={session:{user:'me@example.test'},datetime:{str_to_user:x=>x,now_datetime:()=> '2026-11-19 10:00:00'},set_route:()=>{},call:async({method,args})=>{
+   window.frappe={session:{user:'me@example.test'},datetime:{comment_when:x=>x,str_to_user:x=>x,now_datetime:()=> '2026-11-19 10:00:00'},set_route:()=>{},call:async({method,args})=>{
     const m=method.split('.').pop();let message;
     if(m==='bootstrap')message={user:'me@example.test',is_manager:true,today:'2026-11-19',employees:[{name:'EMP-1',employee_name:'Nikhil',user_id:'me@example.test',can_notify:true},{name:'EMP-2',employee_name:'Priya',user_id:'priya@example.test',can_notify:true}],can_ar:true,can_ar_detail:true,can_ap:true,can_ap_detail:true,can_transactions:true,companies:[{name:'Test Company'}],ap_companies:[{name:'Test Company'}],territories:['Odisha'],customer_groups:['Dealer'],countries:['India'],supplier_groups:['Distributor']};
     if(m==='open_task'){window.openTaskName=args.name;message={...task,whatsapp_summary:'Pickup at gate'}}
@@ -27,7 +27,9 @@ const fs=require('node:fs');
       {name:'G2',title:'Supplier guide',department:'Manufacturing',supplier:'S1',supplier_label:'ABC Supplies',published:true},
       {name:'G3',title:'General guide',department:'Manufacturing',published:true},
     ].filter(guide=>guide.title.toLowerCase().includes(args.query.toLowerCase()));
-    if(m==='linked_actions')message=[];
+    if(m==='inbox')message=[{tag:'LOG-1',title:'Task updated',body:'Task updated',url:'/teamspace?task=CA-1',creation:'Today',read:false}];
+    if(m==='mark_as_read')window.readNotification=args.docname;
+    if(m==='linked_actions'||m==='action_attachments')message=[];
     if(m==='actions'||m==='personal_agenda')message=[task];
     if(m==='customer_directory'||m==='supplier_directory'){window.directoryArgs=args;message={rows:[m==='supplier_directory'?supplier:customer],has_more:false}}
     if(m==='timeline'){window.timelineArgs=args;message={events:[{kind:'plan',name:'plan:CA-1',summary:'Arrange pickup',action:task,interaction_on:'2026-11-20 10:00:00'},...(args.include_transactions?[{kind:'transaction',name:'invoice:INV-1',summary:'Sales Invoice',document_type:'Sales Invoice',document_name:'INV-1',status:'Unpaid',docstatus:1,amount:20000,currency:'INR',interaction_on:'2026-11-19 09:00:00',allocations:[]}]:[])],has_more:false}}
@@ -42,6 +44,33 @@ const fs=require('node:fs');
   await page.addStyleTag({url:'http://workspace.test/app.css'});await page.addScriptTag({url:'http://workspace.test/app.js'});
   await page.evaluate(()=>window.snrgCustomerWorkspace.mount(document.getElementById('app')));
   await page.getByRole('heading',{name:/Good (morning|afternoon|evening), Nikhil/}).waitFor();
+  await page.addStyleTag({content:'.row{margin-inline:-15px}.row>*{padding-inline:15px}'});
+  async function assertFieldsFit(drawer){
+   assert.deepEqual(await drawer.evaluate(element=>{
+    const bounds=element.getBoundingClientRect();
+    return [...element.querySelectorAll('input,select,textarea,form .row')].filter(field=>{
+     const box=field.getBoundingClientRect();
+     return box.width && (box.left<bounds.left || box.right>bounds.right);
+    }).map(field=>field.outerHTML.slice(0,120));
+   }),[]);
+  }
+  await page.setViewportSize({width:320,height:700});
+  await page.locator('main .heading>.primary').click();
+  const newTaskDrawer=page.getByRole('dialog',{name:'New follow-up'});
+  await assertFieldsFit(newTaskDrawer);
+  await newTaskDrawer.getByRole('button',{name:'Close',exact:true}).first().click();
+  await page.setViewportSize({width:440,height:860});
+  await page.locator('.mobile-notifications').click();
+  await page.getByRole('link',{name:/Task updated/}).click();
+  const taskDrawer=page.getByRole('dialog',{name:'Action details'});
+  await taskDrawer.getByRole('heading',{name:'Arrange pickup'}).waitFor();
+  await assertFieldsFit(taskDrawer);
+  await page.setViewportSize({width:320,height:700});
+  await assertFieldsFit(taskDrawer);
+  assert.equal(await page.evaluate(()=>window.openTaskName),'CA-1');
+  assert.equal(await page.evaluate(()=>window.readNotification),'LOG-1');
+  await taskDrawer.getByRole('button',{name:'Close',exact:true}).click();
+  await page.setViewportSize({width:1440,height:1000});
   await page.getByRole('button',{name:'Knowledge Base',exact:true}).click();
   await page.getByRole('button',{name:/General guide/}).waitFor();
   const knowledge=page.getByRole('region',{name:'Knowledge'});

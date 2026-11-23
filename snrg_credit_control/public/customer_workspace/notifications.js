@@ -22,7 +22,8 @@ export default {
 
 export const NotificationInbox = {
  emits: ['settings'],
- setup(){
+ props: {openTask: {type: Function, required: true}},
+ setup(props){
   const rows=ref([]), loading=ref(true), error=ref(''), scope=ref('all'), marking=ref(false);
   let request=0;
   async function load(filter=scope.value){
@@ -52,7 +53,19 @@ export const NotificationInbox = {
     row.read=true;
    }catch{error.value='Unable to mark the notification as read.'}
   }
-  async function open(row){await markRead(row); if(row.url)window.location.assign(row.url)}
+  async function open(row){
+   error.value='';
+   const url=row.url && new URL(row.url,window.location.origin);
+   const task=url?.pathname==='/teamspace' && url.searchParams.get('task');
+   if(task){
+    try{await props.openTask(task,()=>markRead(row))}
+    catch{error.value='Unable to open this task. It may have been removed or you may no longer have access.'}
+    return;
+   }
+   await markRead(row);
+   if(url && url.origin===window.location.origin)window.location.assign(url.href);
+   else error.value='This notification has no linked record.';
+  }
   onMounted(load);
   return {rows,loading,error,scope,load,open,markAll,marking,when:value=>new DOMParser().parseFromString(frappe.datetime.comment_when(value),'text/html').body.textContent};
  },

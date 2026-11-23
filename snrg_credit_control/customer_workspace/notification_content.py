@@ -108,8 +108,16 @@ def push_payload(log):
     body = plain(log.email_content or log.get('description') or '')
     # Preserve readable separators when compacting the email snapshot.
     body = ' · '.join(body.splitlines()) or title
+    reference = log.get('document_name')
+    reference_type = log.get('document_type')
+    link = log.link or '/teamspace'
+    # Older notification logs may have no link or point to the Desk form.
+    if reference and reference_type == 'Customer Action':
+        link = '/teamspace?task=' + quote(reference, safe='')
+    elif reference and reference_type == 'Customer Interaction':
+        link = '/desk/customer-interaction/' + quote(reference, safe='')
     origin = urlsplit(frappe.utils.get_url())
-    link = urlsplit(log.link or '/teamspace')
+    link = urlsplit(link)
     safe = (not link.netloc or (link.scheme == origin.scheme and link.netloc == origin.netloc)) and (
         link.path == '/teamspace' or link.path.startswith('/desk/customer-interaction/'))
     url = link.path + ('?' + link.query if link.query else '') if safe else '/teamspace'
