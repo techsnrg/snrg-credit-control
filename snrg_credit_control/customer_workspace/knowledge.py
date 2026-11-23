@@ -23,7 +23,7 @@ REVISION = "Teamspace Guide Revision"
 DETAIL_FIELDS = [
     "name", "title", "department", "guide_owner", "audience_role",
     "reference_doctype", "published_revision", "working_revision", "reviewed_on",
-    "review_due", "pending_review",
+    "review_due", "pending_review", "customer", "supplier",
 ]
 
 
@@ -47,9 +47,18 @@ def revision_body(name):
     return frappe.db.get_value(REVISION, name, "body") if name else ""
 
 
+def guide_name_for_code(code):
+    matches = frappe.get_all(GUIDE, filters={"title": ["like", code + " %"]},
+                             pluck="name", limit_page_length=2)
+    return matches[0] if len(matches) == 1 else None
+
+
 def summary(row):
     return {
         "name": row.name, "title": row.title, "department": row.department,
+        "customer": row.customer, "supplier": row.supplier,
+        "customer_label": frappe.get_cached_value("Customer", row.customer, "customer_name") if row.customer else None,
+        "supplier_label": frappe.get_cached_value("Supplier", row.supplier, "supplier_name") if row.supplier else None,
         "owner": frappe.utils.get_fullname(row.guide_owner), "reviewed_on": row.reviewed_on,
         "published": bool(row.published_revision),
         "review_due": row.review_due,
@@ -211,9 +220,14 @@ def clean_sections(value, guide=None):
 
 @frappe.whitelist()
 def read(name):
+    if isinstance(name, str) and re.fullmatch(r"KB-[0-9]{5}", name, re.IGNORECASE):
+        api.guard()
+        name = guide_name_for_code(name.upper()) or name
     guide = get_guide(name)
+    code = re.match(r"(KB-[0-9]{5}) ", guide.title)
     result = {
         **summary(guide), "body": revision_body(guide.published_revision),
+        "guide_code": code[1] if code and guide_name_for_code(code[1]) == guide.name else None,
         "can_edit": can_edit(guide),
         "sections": reader_sections(guide.name, guide.published_revision),
     }
@@ -288,7 +302,8 @@ def guide_options():
 
 
 @frappe.whitelist(methods=["POST"])
-def create(title, department, owner=None, audience_role=None, reference_doctype=None):
+def create(title, department, owner=None, audience_role=None, reference_doctype=None,
+           customer=None, supplier=None):
     options = guide_options()
     title, department = (title or "").strip(), (department or "").strip()
     if not title or not department or max(len(title), len(department)) > 140:
@@ -303,7 +318,18 @@ def create(title, department, owner=None, audience_role=None, reference_doctype=
     guide = frappe.get_doc({
         "doctype": GUIDE, "title": title, "department": department, "guide_owner": owner,
         "reference_doctype": reference_doctype or None, "audience_role": audience_role or None,
+        "customer": customer or None, "supplier": supplier or None,
     }).insert(ignore_permissions=True)
+    return read(guide.name)
+
+
+@frappe.whitelist(methods=["POST"])
+def set_party_tags(name, version, customer=None, supplier=None):
+    guide = get_guide(name, write=True)
+    check_version(guide, version)
+    guide.customer = customer or None
+    guide.supplier = supplier or None
+    guide.save(ignore_permissions=True)
     return read(guide.name)
 
 
