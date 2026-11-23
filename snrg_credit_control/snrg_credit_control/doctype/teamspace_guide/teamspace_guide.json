@@ -10,6 +10,8 @@
     "guide_owner",
     "reference_doctype",
     "audience_role",
+    "customer",
+    "supplier",
     "published_revision",
     "working_revision",
     "reviewed_on",
@@ -48,6 +50,20 @@
       "fieldtype": "Link",
       "label": "Audience Role",
       "options": "Role"
+    },
+    {
+      "fieldname": "customer",
+      "fieldtype": "Link",
+      "label": "Customer",
+      "options": "Customer",
+      "search_index": 1
+    },
+    {
+      "fieldname": "supplier",
+      "fieldtype": "Link",
+      "label": "Supplier",
+      "options": "Supplier",
+      "search_index": 1
     },
     {
       "fieldname": "published_revision",

@@ -4,14 +4,46 @@ import BookOpen from '@lucide/vue/dist/esm/icons/book-open.mjs';
 import ArrowRight from '@lucide/vue/dist/esm/icons/arrow-right.mjs';
 import GuideReader, {legacySections} from './guide_reader.js';
 
+const PartyLink = {
+  props: {doctype: String, modelValue: String},
+  emits: ['update:modelValue'],
+  setup(props, {emit}) {
+    const host = ref(null);
+    const loadError = ref(false);
+    onMounted(async () => {
+      try {
+        await frappe.require('controls.bundle.js');
+        if (!host.value?.isConnected) return;
+        const control = frappe.ui.form.make_control({
+          parent: host.value, render_input: true,
+          df: {
+            fieldtype: 'Link', options: props.doctype, fieldname: props.doctype.toLowerCase(),
+            label: props.doctype, hide_label: true,
+            change: () => emit('update:modelValue', control.get_value() || ''),
+          },
+        });
+        control.$input.attr('aria-label', props.doctype);
+        if (props.modelValue) await control.set_value(props.modelValue);
+      } catch {
+        loadError.value = true;
+      }
+    });
+    return {host, loadError};
+  },
+  template: '<div><span>{{doctype}}</span><div ref="host"></div><small v-if="loadError" role="alert">Unable to load {{doctype.toLowerCase()}} lookup.</small></div>',
+};
+
 const endpoint = 'snrg_credit_control.customer_workspace.knowledge.';
 
 export default {
-  components: {GuideReader, BookOpen, ArrowRight},
+  components: {GuideReader, BookOpen, ArrowRight, PartyLink},
   props: {canManage: Boolean},
   setup() {
     const search = ref('');
     const department = ref('');
+    const customer = ref('');
+    const supplier = ref('');
+    const partyTags = ref(null);
     const searching = ref(true);
     const searchError = ref('');
     let searchRequest = 0;
@@ -125,7 +157,19 @@ export default {
       reader.onerror = () => { error.value = 'Unable to read the screenshot.'; };
       reader.readAsDataURL(file);
     }
+    function partyOptions(field) {
+      const unique = new Map();
+      for (const row of catalogue.value) {
+        if (row[field]) unique.set(row[field], row[field + '_label'] || row[field]);
+      }
+      return [...unique].sort((a, b) => a[1].localeCompare(b[1]) || a[0].localeCompare(b[0]));
+    }
+
+    const customers = computed(() => partyOptions('customer'));
+    const suppliers = computed(() => partyOptions('supplier'));
     const filtered = computed(() => guides.value.filter(row => (!department.value || row.department === department.value) &&
+      (!customer.value || row.customer === customer.value) &&
+      (!supplier.value || row.supplier === supplier.value) &&
       (!reviewQueue.value || row.pending_review || row.review_overdue)));
 
     const related = computed(() => guide.value ? catalogue.value.filter(item =>
@@ -183,7 +227,7 @@ export default {
     async function startCreate() {
       await run(async () => {
         createOptions.value = await call('guide_options');
-        newGuide.value = {title: '', department: '', owner: '', audience_role: '', reference_doctype: ''};
+        newGuide.value = {title: '', department: '', owner: '', audience_role: '', reference_doctype: '', customer: '', supplier: ''};
       });
     }
 
@@ -203,6 +247,7 @@ export default {
       await run(async () => {
         guide.value = await call('read', {name});
         editing.value = false;
+        partyTags.value = null;
         correctionOpen.value = false;
         correction.value = '';
         const url = new URL(window.location.href);
@@ -219,12 +264,37 @@ export default {
 
     function back() {
       guide.value = null;
+      partyTags.value = null;
       editing.value = false;
       const url = new URL(window.location.href);
       url.searchParams.delete('guide');
       history.replaceState(history.state, '', url);
       find();
       nextTick(() => document.querySelector('#cw .knowledge-search input')?.focus());
+    }
+
+    function editPartyTags() {
+      partyTags.value = {customer: guide.value.customer || '', supplier: guide.value.supplier || ''};
+    }
+
+    async function savePartyTags() {
+      await run(async () => {
+        const saved = await call('set_party_tags', {
+          name: guide.value.name, version: guide.value.version, ...partyTags.value,
+        }, 'POST');
+        for (const list of [catalogue.value, guides.value]) {
+          const row = list.find(item => item.name === saved.name);
+          if (row) {
+            row.customer = saved.customer;
+            row.supplier = saved.supplier;
+            row.customer_label = saved.customer_label;
+            row.supplier_label = saved.supplier_label;
+          }
+        }
+        guide.value = saved;
+        partyTags.value = null;
+        notice.value = 'Customer and supplier tags saved.';
+      });
     }
 
     async function edit() {
@@ -297,7 +367,7 @@ export default {
       if (name) await open(name);
     });
 
-    return {search, department, departments, filtered, related, guide, editing, editorHost, correctionOpen,
+    return {search, department, departments, customer, supplier, customers, suppliers, partyTags, editPartyTags, savePartyTags, filtered, related, guide, editing, editorHost, correctionOpen,
       correction, busy, searching, searchError, error, notice, open, back, edit, saveDraft, publish, suggest,
       sections, currentSection, activeSection, template, selectSection, addSection, applyTemplate, moveSection, removeSection, addScreenshot, uploadVideo, uploadingVideo,
       createOptions, newGuide, reviewQueue, changeSummary, startCreate, createGuide, requestReview};
@@ -320,6 +390,8 @@ export default {
           <label>ERPNext form<select v-model="newGuide.reference_doctype"><option value="">None</option>
             <option>Customer</option>
           </select></label>
+          <PartyLink doctype="Customer" v-model="newGuide.customer"/>
+          <PartyLink doctype="Supplier" v-model="newGuide.supplier"/>
         </div>
         <div class="knowledge-actions">
           <button class="primary" :disabled="busy">Create guide</button>
@@ -332,6 +404,12 @@ export default {
             <label>Search guides<input v-model="search" type="search" placeholder="Search titles and instructions"></label>
             <label>Department<select v-model="department"><option value="">All departments</option>
               <option v-for="item in departments" :key="item">{{item}}</option>
+            </select></label>
+            <label for="knowledge-customer-filter">Customer<select id="knowledge-customer-filter" aria-label="Customer" v-model="customer"><option value="">All customers</option>
+              <option v-for="[id, label] in customers" :key="id" :value="id">{{label}} ({{id}})</option>
+            </select></label>
+            <label for="knowledge-supplier-filter">Supplier<select id="knowledge-supplier-filter" aria-label="Supplier" v-model="supplier"><option value="">All suppliers</option>
+              <option v-for="[id, label] in suppliers" :key="id" :value="id">{{label}} ({{id}})</option>
             </select></label>
           </div>
           <div class="knowledge-library-bar">
@@ -348,6 +426,11 @@ export default {
                   <span class="knowledge-card-department">{{item.department}}</span><ArrowRight class="knowledge-card-arrow" aria-hidden="true"/>
                 </span>
                 <strong>{{item.title}}</strong>
+                <small v-if="item.customer || item.supplier" class="muted">
+                  <span v-if="item.customer">Customer · {{item.customer_label || item.customer}}</span>
+                  <span v-if="item.customer && item.supplier"> · </span>
+                  <span v-if="item.supplier">Supplier · {{item.supplier_label || item.supplier}}</span>
+                </small>
                 <span v-if="item.excerpt" class="knowledge-card-excerpt">{{item.excerpt}}</span>
                 <small class="knowledge-card-meta">{{item.published ? item.owner : 'Draft'}}<template v-if="item.pending_review"> · Awaiting review</template><template v-else-if="item.review_overdue"> · Review due</template></small>
               </button>
@@ -355,7 +438,7 @@ export default {
           </ul>
           <p v-if="searchError" role="alert">{{searchError}}</p>
           <p v-else-if="searching && !filtered.length" role="status">Finding guides…</p>
-          <p v-else-if="!filtered.length" class="knowledge-library-empty" role="status">{{reviewQueue && !search && !department ? 'No guides are due for review.' : 'No guides found.'}}</p>
+          <p v-else-if="!filtered.length" class="knowledge-library-empty" role="status">{{reviewQueue && !search && !department && !customer && !supplier ? 'No guides are due for review.' : 'No guides found.'}}</p>
         </div>
       </template>
       <div v-else class="knowledge-reading" :class="{'has-related': !editing && !correctionOpen && related.length}">
@@ -363,7 +446,22 @@ export default {
         <button class="knowledge-back" :disabled="busy" @click="back">← All guides</button>
         <h2 class="knowledge-title" tabindex="-1">{{guide.title}}</h2>
         <p class="muted">{{guide.department}} · {{guide.owner}}<template v-if="guide.reviewed_on"> · Reviewed {{guide.reviewed_on}}</template></p>
-        <form v-if="editing" @submit.prevent="saveDraft">
+        <p v-if="guide.customer || guide.supplier" class="muted">
+          <span v-if="guide.customer">Customer · {{guide.customer_label || guide.customer}}</span>
+          <span v-if="guide.customer && guide.supplier"> · </span>
+          <span v-if="guide.supplier">Supplier · {{guide.supplier_label || guide.supplier}}</span>
+        </p>
+        <form v-if="partyTags" @submit.prevent="savePartyTags">
+          <div class="knowledge-fields">
+            <PartyLink doctype="Customer" v-model="partyTags.customer"/>
+            <PartyLink doctype="Supplier" v-model="partyTags.supplier"/>
+          </div>
+          <div class="knowledge-actions">
+            <button class="primary" :disabled="busy">Save tags</button>
+            <button type="button" :disabled="busy" @click="partyTags=null">Cancel</button>
+          </div>
+        </form>
+        <form v-else-if="editing" @submit.prevent="saveDraft">
           <div class="guide-editor">
             <div v-if="!guide.draft && !guide.published" class="knowledge-actions">
               <label>Start from a template<select v-model="template"><option value="">Choose template</option><option value="sop">SOP</option><option value="faq">Quick reference</option></select></label>
@@ -417,6 +515,7 @@ export default {
         <template v-else>
           <div class="knowledge-actions" v-if="guide.can_edit">
             <button :disabled="busy" @click="edit">{{guide.draft ? 'Edit draft' : 'Edit guide'}}</button>
+            <button :disabled="busy" @click="editPartyTags">Edit tags</button>
             <button v-if="guide.draft && guide.can_publish" class="primary" :disabled="busy" @click="publish">Publish draft</button>
             <button v-else-if="guide.draft && !guide.pending_review" class="primary" :disabled="busy" @click="requestReview">Request review</button>
             <span v-if="guide.pending_review" role="status">Awaiting manager review</span>

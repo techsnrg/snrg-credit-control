@@ -22,6 +22,11 @@ const fs=require('node:fs');
     const m=method.split('.').pop();let message;
     if(m==='bootstrap')message={user:'me@example.test',is_manager:true,today:'2026-11-19',employees:[{name:'EMP-1',employee_name:'Nikhil',user_id:'me@example.test',can_notify:true},{name:'EMP-2',employee_name:'Priya',user_id:'priya@example.test',can_notify:true}],can_ar:true,can_ar_detail:true,can_ap:true,can_ap_detail:true,can_transactions:true,companies:[{name:'Test Company'}],ap_companies:[{name:'Test Company'}],territories:['Odisha'],customer_groups:['Dealer'],countries:['India'],supplier_groups:['Distributor']};
     if(m==='open_task'){window.openTaskName=args.name;message={...task,whatsapp_summary:'Pickup at gate'}}
+    if(method.endsWith('.knowledge.search'))message=[
+      {name:'G1',title:'Moulding guide',department:'Manufacturing',customer:'C1',customer_label:'HBR',supplier:'S1',supplier_label:'ABC Supplies',published:true},
+      {name:'G2',title:'Supplier guide',department:'Manufacturing',supplier:'S1',supplier_label:'ABC Supplies',published:true},
+      {name:'G3',title:'General guide',department:'Manufacturing',published:true},
+    ].filter(guide=>guide.title.toLowerCase().includes(args.query.toLowerCase()));
     if(m==='linked_actions')message=[];
     if(m==='actions'||m==='personal_agenda')message=[task];
     if(m==='customer_directory'||m==='supplier_directory'){window.directoryArgs=args;message={rows:[m==='supplier_directory'?supplier:customer],has_more:false}}
@@ -37,6 +42,20 @@ const fs=require('node:fs');
   await page.addStyleTag({url:'http://workspace.test/app.css'});await page.addScriptTag({url:'http://workspace.test/app.js'});
   await page.evaluate(()=>window.snrgCustomerWorkspace.mount(document.getElementById('app')));
   await page.getByRole('heading',{name:/Good (morning|afternoon|evening), Nikhil/}).waitFor();
+  await page.getByRole('button',{name:'Knowledge',exact:true}).click();
+  await page.getByRole('button',{name:/General guide/}).waitFor();
+  const knowledge=page.getByRole('region',{name:'Knowledge'});
+  const customerFilter=knowledge.getByLabel('Customer',{exact:true});
+  const supplierFilter=knowledge.getByLabel('Supplier',{exact:true});
+  await supplierFilter.selectOption('S1');
+  assert.equal(await knowledge.locator('.knowledge-card').count(),2);
+  await customerFilter.selectOption('C1');
+  assert.equal(await knowledge.locator('.knowledge-card').count(),1);
+  await knowledge.getByRole('searchbox', {name:'Search guides'}).fill('supplier');
+  await knowledge.getByText('No guides found.').waitFor();
+  await customerFilter.selectOption('');
+  await knowledge.getByRole('button',{name:/Supplier guide/}).waitFor();
+  await page.getByRole('button',{name:/My day/}).click();
   assert.equal(await page.locator('.body-sidebar-container').isVisible(),false);
   assert.equal(await page.locator('.page-head').isVisible(),false);
   assert.equal(await page.locator('main .heading>.primary').innerText(),'New follow-up');
