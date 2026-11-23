@@ -142,17 +142,14 @@ def log_interaction(payload):
         frappe.throw(_("Only managers may record a conversation on someone else's behalf."), frappe.PermissionError)
     if not internal(spoken_by):
         frappe.throw(_("Choose an active internal team member as the speaker."))
-    from snrg_credit_control.customer_workspace.rich_text import uploads
+    from snrg_credit_control.customer_workspace.rich_text import attach_files, uploads
     files = uploads(data.get("attachments"))
     doc = frappe.get_doc({"doctype": INTERACTION, **party, "call_outcome": data.get("call_outcome") if data.get("channel", "Call") == "Call" else None, "summary_html": data.get("summary_html"), "summary": data["summary"].strip(), "channel": data.get("channel", "Call"), "contact_name": data.get("contact_name"), "spoken_by": spoken_by, "interaction_on": data.get("interaction_on") or now_datetime()})
     doc.flags.teamspace_uploads = files
     for employee in set(data.get("mentions") or []):
         doc.append("mentions", {"employee": employee})
     doc.insert(ignore_permissions=True)  # guard + controller validation enforce workspace policy
-    for file in files:
-        file.attached_to_doctype = INTERACTION
-        file.attached_to_name = doc.name
-        file.save(ignore_permissions=True)
+    attach_files(files, doc)
     created = []
     for item in data.get("actions") or []:
         created.extend(action.name for action in create_action_documents(item, party, interaction=doc.name))
@@ -169,12 +166,25 @@ def normalize_due_time(value):
     return f"{int(hour):02d}:{minute}:{second or '00'}"
 
 
+@frappe.whitelist()
+def action_attachments(name):
+    guard()
+    from snrg_credit_control.customer_workspace.rich_text import attachment_rows
+
+    doc = frappe.get_doc(ACTION, name)
+    if not permission(doc, permission_type="read"):
+        frappe.throw(_("You cannot view this action."), frappe.PermissionError)
+    return attachment_rows(doc.name, ACTION)
+
+
 @frappe.whitelist(methods=["POST"])
 def update_action(name, payload, modified):
     guard()
     doc = frappe.get_doc(ACTION, name)
     if not permission(doc, permission_type="write"):
         frappe.throw(_("You cannot change this action."), frappe.PermissionError)
+    from snrg_credit_control.customer_workspace.rich_text import attach_files, uploads
+
     data = frappe.parse_json(payload)
     # Let Frappe's save-time check catch edits since this read as well.
     if str(doc.modified) != str(modified):
@@ -187,7 +197,9 @@ def update_action(name, payload, modified):
                 frappe.throw(_("Only the creator or a manager can change the assignment or its WhatsApp summary."), frappe.PermissionError)
             value = normalize_due_time(data[field]) if field == "due_time" else data[field]
             doc.set(field, value)
+    files = uploads(data.get("attachments"))
     doc.save(ignore_permissions=True)
+    attach_files(files, doc)
     return present_action(doc.as_dict())
 
 

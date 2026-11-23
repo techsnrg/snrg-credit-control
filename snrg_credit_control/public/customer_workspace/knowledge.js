@@ -300,7 +300,7 @@ export default {
       createOptions, newGuide, reviewQueue, changeSummary, startCreate, createGuide, requestReview};
   },
   template: `
-    <section class="knowledge" aria-label="Knowledge" :aria-busy="busy">
+    <section class="knowledge" aria-label="Knowledge Base" :aria-busy="busy">
       <p v-if="error" class="knowledge-message late" role="alert">{{error}}</p>
       <p v-if="notice" class="knowledge-message" role="status">{{notice}}</p>
       <form v-if="createOptions" class="knowledge-guide" @submit.prevent="createGuide">

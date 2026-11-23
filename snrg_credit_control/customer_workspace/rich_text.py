@@ -9,7 +9,7 @@ from frappe.utils.html_utils import sanitize_html
 def uploads(names):
     names = list(dict.fromkeys(names or []))
     if len(names) > 20:
-        frappe.throw(_("Attach at most 20 files to an interaction."))
+        frappe.throw(_("Attach at most 20 files at a time."))
     files = []
     for name in names:
         file = frappe.get_doc("File", name)
@@ -31,5 +31,12 @@ def clean(html, files):
     return safe
 
 
-def attachment_rows(interaction):
-    return frappe.get_all("File", filters={"attached_to_doctype": "Customer Interaction", "attached_to_name": interaction, "is_private": 1}, fields=["name", "file_name", "file_url"], order_by="creation", limit_page_length=0)
+def attachment_rows(name, doctype="Customer Interaction"):
+    return frappe.get_all("File", filters={"attached_to_doctype": doctype, "attached_to_name": name, "is_private": 1}, fields=["name", "file_name", "file_url"], order_by="creation", limit_page_length=0)
+
+
+def attach_files(files, doc):
+    for file in files:
+        file.attached_to_doctype = doc.doctype
+        file.attached_to_name = doc.name
+        file.save(ignore_permissions=True)

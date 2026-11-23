@@ -19,3 +19,53 @@ export default {
  },
  template:`<section class="notification-preferences"><h3>Email notifications</h3><p>Assignments, updates, mentions and due reminders use your ERPNext email preferences.</p><p v-if="email" class="hint">Assignments: {{email.assignment?'On':'Off'}} · Mentions: {{email.mention?'On':'Off'}}</p><button type="button" @click="emailSettings">Manage email preferences ↗</button><h3>Push on this device</h3><p>Receive updates on desktop, Android or your installed iPhone app, even when Teamspace is not open. Notifications show the task, who updated it and a short summary; your device settings control lock-screen previews.</p><p v-if="!supported" class="hint">This browser does not support Web Push. Use Chrome, Edge or Firefox on a secure connection.</p><p v-else-if="!configured" class="hint">Push setup is pending on this site.</p><button v-else type="button" :disabled="busy" :class="{primary:!enabled}" @click="enabled?disable():enable()">{{busy?'Working…':enabled?'Disable push on this device':'Enable push on this device'}}</button><hr><button type="button" :disabled="busy" @click="test">Send me a test notification</button><p v-if="message" role="status" class="hint">{{message}}</p><p v-if="error" role="alert" class="late">{{error}}</p></section>`
 };
+
+export const NotificationInbox = {
+ emits: ['settings'],
+ setup(){
+  const rows=ref([]), loading=ref(true), error=ref(''), scope=ref('all'), marking=ref(false);
+  let request=0;
+  async function load(filter=scope.value){
+   const id=++request;
+   scope.value=filter;
+   rows.value=[];
+   loading.value=true;
+   error.value='';
+   try{const result=await call('inbox',{scope:filter}); if(id===request)rows.value=result}
+   catch{if(id===request)error.value='Unable to load notifications.'}
+   finally{if(id===request)loading.value=false}
+  }
+  async function markAll(){
+   if(marking.value)return;
+   marking.value=true;
+   error.value='';
+   try{
+    await frappe.call({method:method+'mark_inbox_read',type:'POST',args:{scope:scope.value}});
+    await load();
+   }catch{error.value='Unable to mark all notifications as read.'}
+   finally{marking.value=false}
+  }
+  async function markRead(row){
+   if(row.read)return;
+   try{
+    await frappe.call({method:'frappe.desk.doctype.notification_log.notification_log.mark_as_read',type:'POST',args:{docname:row.tag}});
+    row.read=true;
+   }catch{error.value='Unable to mark the notification as read.'}
+  }
+  async function open(row){await markRead(row); if(row.url)window.location.assign(row.url)}
+  onMounted(load);
+  return {rows,loading,error,scope,load,open,markAll,marking,when:value=>new DOMParser().parseFromString(frappe.datetime.comment_when(value),'text/html').body.textContent};
+ },
+ template:`<section class="notification-inbox">
+  <div class="notification-tools"><div role="group" aria-label="Filter notifications" class="notification-filters"><button v-for="filter in ['all','teamspace']" :key="filter" type="button" :aria-pressed="scope===filter" :disabled="marking" @click="load(filter)">{{filter==='all'?'All':'Teamspace'}}</button></div><button type="button" @click="$emit('settings')">Settings</button></div>
+  <button type="button" :disabled="loading || marking" @click="markAll">Mark all as read</button>
+  <p v-if="loading" role="status">Loading notifications…</p>
+  <p v-if="error" role="alert">{{error}} <button type="button" @click="load()">Retry</button></p>
+  <p v-if="!loading && !error && !rows.length">{{scope==='all'?'No notifications yet.':'No Teamspace notifications yet.'}}</p>
+  <ul v-if="rows.length">
+   <li v-for="row in rows" :key="row.tag" :class="{unread:!row.read}">
+    <component :is="row.url?'a':'button'" :href="row.url || undefined" :type="row.url?undefined:'button'" class="notification-item" @click.prevent="open(row)"><strong>{{row.title}}</strong><span v-if="row.body!==row.title">{{row.body}}</span><small>{{when(row.creation)}}<template v-if="!row.read"> · Unread</template></small></component>
+   </li>
+  </ul>
+ </section>`
+};

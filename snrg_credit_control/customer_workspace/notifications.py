@@ -2,6 +2,7 @@
 import base64
 import hashlib
 import json
+from html import unescape
 from urllib.parse import urlparse
 
 import frappe
@@ -12,6 +13,69 @@ from snrg_credit_control.customer_workspace.api import ACTION, INTERACTION, guar
 
 SUBSCRIPTION = "Teamspace Push Subscription"
 SETTINGS = "Teamspace Push Settings"
+
+
+def _inbox_text(value):
+    from snrg_credit_control.customer_workspace.notification_content import plain
+
+    # Some Desk producers store entity-encoded markup in Notification Log.
+    return plain(unescape(unescape(value or "")))
+
+
+def _inbox_filters(scope):
+    filters = {"for_user": frappe.session.user}
+    if scope == "teamspace":
+        filters["document_type"] = ["in", [ACTION, INTERACTION]]
+    elif scope != "all":
+        frappe.throw(_("Invalid notification filter."))
+    return filters
+
+
+@frappe.whitelist(methods=["POST"])
+def mark_inbox_read(scope="all"):
+    guard()
+    filters = {**_inbox_filters(scope), "read": 0}
+    frappe.db.set_value("Notification Log", filters, "read", 1, update_modified=False)
+
+
+@frappe.whitelist()
+def inbox(scope="all"):
+    guard()
+    from frappe.utils import get_url, get_url_to_form
+    from snrg_credit_control.customer_workspace.notification_content import push_payload
+
+    logs = frappe.get_all(
+        "Notification Log",
+        filters=_inbox_filters(scope),
+        fields=["name", "subject", "title", "email_content", "description", "link",
+                "document_type", "document_name", "read", "creation"],
+        order_by="creation desc, name desc",
+        limit_page_length=50,
+    )
+    origin = urlparse(get_url())
+    rows = []
+    for log in logs:
+        if log.document_type in (ACTION, INTERACTION):
+            item = push_payload(log)
+            item["title"] = _inbox_text(item["title"])
+            item["body"] = _inbox_text(item["body"])
+        else:
+            link = log.link or (
+                get_url_to_form(log.document_type, log.document_name)
+                if log.document_type and log.document_name else ""
+            )
+            parsed = urlparse(link)
+            same_origin = (parsed.scheme, parsed.netloc) == (origin.scheme, origin.netloc)
+            relative = not parsed.netloc and not parsed.scheme
+            safe = (same_origin or relative) and parsed.path.startswith("/") and not parsed.path.startswith("//") and not any(c in link for c in "\\\t\r\n")
+            title = _inbox_text(log.title or log.subject or _("Notification"))
+            body = _inbox_text(log.description or log.email_content or "")
+            item = {
+                "tag": log.name, "title": title, "body": body[:280],
+                "url": parsed._replace(scheme="", netloc="").geturl() if safe else None,
+            }
+        rows.append({**item, "read": bool(log.read), "creation": log.creation})
+    return rows
 
 
 def ensure_keys():

@@ -1,1 +1,9 @@
-{% include "www/desk.html" %}
+{% set desk %}{% include "www/desk.html" %}{% endset %}
+{% set teamspace_head %}
+<link rel="manifest" href="/assets/snrg_credit_control/teamspace.webmanifest?v=gold-coast">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/snrg_credit_control/images/teamspace-180.png?v=gold-coast">
+<link rel="icon" type="image/png" href="/assets/snrg_credit_control/images/teamspace-192.png?v=gold-coast">
+<meta name="apple-mobile-web-app-title" content="Teamspace">
+</head>
+{% endset %}
+{{ desk | replace("</head>", teamspace_head) | safe }}

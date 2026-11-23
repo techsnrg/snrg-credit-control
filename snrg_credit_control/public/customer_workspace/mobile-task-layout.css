@@ -1,0 +1,70 @@
+#cw .mobile-agenda-toggle,
+#cw .mobile-agenda-close{display:none}
+
+@media(max-width:720px){
+ #cw .compact-mobile-tasks main{padding:14px 16px 18px}
+ #cw .compact-mobile-tasks main>.heading{flex-wrap:nowrap;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px}
+ #cw .compact-mobile-tasks main>.heading>div{flex:1;min-width:0}
+ #cw .compact-mobile-tasks main>.heading p{margin-block-start:4px}
+ #cw .compact-mobile-tasks main>.heading>.primary,
+ #cw .compact-mobile-tasks .mobile-agenda-toggle,
+ #cw .compact-mobile-tasks .mobile-agenda-close{min-height:44px}
+ #cw .compact-mobile-tasks main>.heading>.primary{width:44px;padding:0;justify-content:center;border-radius:10px}
+ #cw .compact-mobile-tasks main>.heading>.primary span{display:none}
+ #cw .compact-mobile-tasks .mobile-agenda-toggle,
+ #cw .compact-mobile-tasks .mobile-agenda-close{display:inline-flex;gap:6px;border:1px solid var(--line);padding-inline:10px}
+ #cw .compact-mobile-tasks .mobile-agenda-toggle{margin-inline-start:auto;min-width:44px;bottom:0;border-color:transparent;border-radius:999px;background:var(--accent-soft);color:var(--accent);padding:0 9px;font-size:12px;font-weight:600}
+ #cw .compact-mobile-tasks .mobile-agenda-toggle svg{width:15px;height:15px}
+ #cw .compact-mobile-tasks .mobile-agenda-close{scroll-margin-top:108px}
+ #cw .compact-mobile-tasks:not(.mobile-agenda-open)>aside{display:none}
+ #cw .compact-mobile-tasks aside .personal-label{display:none}
+ #cw .compact-mobile-tasks>aside{padding:12px 16px 16px}
+ #cw .compact-mobile-tasks aside .agenda-heading{margin-bottom:2px}
+ #cw .compact-mobile-tasks aside .month{margin-block:4px 6px}
+ #cw .compact-mobile-tasks aside .month>button{min-height:44px;min-width:44px}
+ #cw .compact-mobile-tasks aside .sidegroup{margin-top:12px;padding-top:10px}
+ #cw .compact-mobile-tasks aside .sidegroup>.hint{padding-block:4px}
+ #cw .compact-mobile-tasks aside .agenda{min-height:44px;padding:5px 6px;gap:6px;line-height:1.35}
+ #cw .compact-mobile-tasks aside .agenda-copy{padding-inline-start:8px;line-height:inherit}
+ #cw .compact-mobile-tasks aside .agenda small{margin-top:2px;line-height:1.35}
+ #cw .compact-mobile-tasks aside .sidegroup>.agenda:not(:has(.agenda-copy)){margin-top:5px}
+ #cw .compact-mobile-tasks main>.tabs{margin-bottom:10px;gap:12px}
+ #cw .compact-mobile-tasks main>.tabs button{min-height:44px}
+ #cw .compact-mobile-tasks .taskgroup{margin-bottom:12px}
+ #cw .compact-mobile-tasks .taskgroup>summary{margin-bottom:0;min-height:44px}
+ #cw .compact-mobile-tasks .taskgridheader{display:none}
+ #cw .compact-mobile-tasks .task{grid-template-columns:minmax(0,1fr) max-content;padding:4px 0;gap:8px;border-radius:0}
+ #cw .compact-mobile-tasks .tasktitle{min-height:44px;line-height:1.35}
+ #cw .compact-mobile-tasks .tasktitle svg{flex:none}
+ #cw .compact-mobile-tasks .tasktitle span{overflow-wrap:anywhere}
+ #cw .compact-mobile-tasks .taskmeta{margin-top:0;padding-inline-start:24px;gap:4px}
+ #cw .compact-mobile-tasks .task>.time{font-size:11px;justify-content:flex-end;max-width:92px;text-align:end}
+ #cw .compact-mobile-tasks .task>.time small{padding:0}
+ #cw .compact-mobile-tasks .taskmeta .customerlink{min-height:32px}
+ #cw .compact-mobile-tasks main>.empty-state{padding:26px 16px;gap:8px}
+ #cw .compact-mobile-tasks main>.empty-state>button{display:none}
+}
+
+@media(max-width:340px){
+ #cw .compact-mobile-tasks .mobile-agenda-toggle span{display:none}
+}
+
+@media(max-width:720px){
+ #cw .drawer[aria-label="Action details"]{padding:12px 16px 0}
+ #cw .drawer[aria-label="Action details"]>.drawer-heading{align-items:center;margin-bottom:10px}
+ #cw .drawer[aria-label="Action details"] .drawer-heading h2{margin-top:2px;font-size:18px}
+ #cw .drawer[aria-label="Action details"] .close-drawer{min-width:44px;min-height:44px}
+ #cw .drawer[aria-label="Action details"] form>h1{line-height:1.25;overflow-wrap:anywhere}
+ #cw .drawer[aria-label="Action details"] .detail{margin:8px 0;padding:9px 12px;line-height:1.45;overflow-wrap:anywhere}
+ #cw .drawer[aria-label="Action details"] .task-audit{margin:12px 0;padding:6px 0 10px}
+ #cw .drawer[aria-label="Action details"] .task-audit-list{margin-top:6px}
+ #cw .drawer[aria-label="Action details"] .task-audit-list li{padding-bottom:10px}
+ #cw .drawer[aria-label="Action details"] .task-audit-note{margin:4px 0;line-height:1.45}
+ #cw .drawer[aria-label="Action details"] .task-audit-footnote{margin-top:6px}
+ #cw .drawer[aria-label="Action details"] fieldset label{margin-block:8px 0}
+ #cw .drawer[aria-label="Action details"] fieldset :is(select,input,textarea){margin-top:4px;padding:7px 9px;font-size:16px;min-height:44px}
+ #cw .drawer[aria-label="Action details"] fieldset textarea{min-height:82px;line-height:1.45}
+ #cw .drawer[aria-label="Action details"] fieldset .row{gap:8px}
+ #cw .drawer[aria-label="Action details"] .footer{margin-top:10px;padding:8px 0 max(10px,env(safe-area-inset-bottom))}
+ #cw .drawer[aria-label="Action details"] .footer>.primary{min-height:44px}
+}

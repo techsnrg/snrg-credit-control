@@ -14,7 +14,7 @@ self.addEventListener('push', event => {
   try { payload = event.data?.json() || {}; } catch (_) { /* Readable safe fallback. */ }
   event.waitUntil(self.registration.showNotification(line(payload.title, 'Teamspace update', 120), {
     body: line(payload.body, 'Open Teamspace to view this update.', 280),
-    icon: '/assets/snrg_credit_control/images/teamspace.svg',
+    icon: '/assets/snrg_credit_control/images/teamspace-192.png?v=gold-coast',
     tag: line(payload.tag, 'teamspace', 160),
     data: {url: destination(payload.url)},
   }));
