@@ -96,6 +96,7 @@ def get_scheme_customer_progress(
     include_draft_quotations=0,
     include_submitted_quotations=0,
     customer=None,
+    historical_review_as_on=None,
 ):
     as_on_date = getdate(as_on_date or getdate())
     quotation_docstatuses = _get_selected_quotation_docstatuses(
@@ -115,7 +116,8 @@ def get_scheme_customer_progress(
         period_from = getdate(scheme_config.valid_from)
         period_upto = min(getdate(scheme_config.valid_upto), as_on_date)
         rows = _planning_invoice_rows(
-            scheme_config, company or scheme_config.company, period_from, period_upto, as_on_date, customer=customer,
+            scheme_config, company or scheme_config.company, period_from, period_upto,
+            getdate(historical_review_as_on) if historical_review_as_on else as_on_date, customer=customer,
         )
         quotation_rows = _get_scheme_quotation_item_rows(
             company=company or scheme_config.company,
@@ -1036,9 +1038,11 @@ def _get_customer_invoice_item_rows(customer, company, from_date, upto_date):
 
 def _planning_invoice_rows(scheme, company, period_from, period_upto, as_on_date, customer=None):
     if not scheme.track_invoice_items:
-        if customer:
-            return _get_customer_invoice_item_rows(customer, company, period_from, period_upto)
-        return _get_scheme_invoice_item_rows(company, period_from, period_upto)
+        from snrg_credit_control.scheme_historical_review import apply_reviews
+
+        rows = (_get_customer_invoice_item_rows(customer, company, period_from, period_upto) if customer
+                else _get_scheme_invoice_item_rows(company, period_from, period_upto))
+        return apply_reviews(scheme, company, as_on_date, customer, rows)
     from snrg_credit_control.scheme_corrections import effective_contributions_sql
 
     return frappe.db.sql(
@@ -1063,7 +1067,7 @@ def _planning_invoice_rows(scheme, company, period_from, period_upto, as_on_date
     )
 
 
-def _get_scheme_invoice_item_rows(company, from_date, upto_date):
+def _get_scheme_invoice_item_rows(company, from_date, upto_date, invoice_names=None):
     conditions = [
         "si.docstatus = 1",
         "si.posting_date between %(from_date)s and %(upto_date)s",
@@ -1076,6 +1080,10 @@ def _get_scheme_invoice_item_rows(company, from_date, upto_date):
 
     if company:
         conditions.append("si.company = %(company)s")
+
+    if invoice_names:
+        conditions.append("si.name in %(invoice_names)s")
+        values["invoice_names"] = invoice_names
 
     return frappe.db.sql(
         """

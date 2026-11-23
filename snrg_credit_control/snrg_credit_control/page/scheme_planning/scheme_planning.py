@@ -27,7 +27,9 @@ def get_register(company=None, as_on_date=None):
     companies = frappe.get_list("Company", pluck="name", limit_page_length=0, order_by="name")
     currencies = dict(frappe.get_all("Company", filters={"name": ["in", companies]},
                                      fields=["name", "default_currency"], as_list=True)) if companies else {}
-    return {"schemes": schemes, "companies": companies, "currencies": currencies}
+    from snrg_credit_control.scheme_historical_review import access
+
+    return {"schemes": schemes, "companies": companies, "currencies": currencies, "historical_review": access()}
 
 
 @frappe.whitelist()
@@ -57,7 +59,7 @@ def _get_scheme(name, company=None, as_on_date=None, quotations=0, customer=None
 
     if date >= start and (not doc.disabled or config.track_invoice_items):
         if per_invoice:
-            rows = engine._planning_invoice_rows(config, company, start, min(date, end), report_date, customer=customer)
+            rows = engine._planning_invoice_rows(config, company, start, min(date, end), date, customer=customer)
             items = engine._get_item_map([row.item_code for row in rows])
             bounds = engine._get_item_group_bounds([config], items)
             groups = {}
@@ -81,7 +83,7 @@ def _get_scheme(name, company=None, as_on_date=None, quotations=0, customer=None
             customers = list(groups.values())
         else:
             payload = engine.get_scheme_customer_progress(
-                company=company, scheme=name, as_on_date=report_date,
+                company=company, scheme=name, as_on_date=report_date, historical_review_as_on=date,
                 include_draft_quotations=cint(quotations) == 2,
                 include_submitted_quotations=bool(cint(quotations)),
                 customer=customer,

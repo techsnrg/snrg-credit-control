@@ -1,5 +1,6 @@
 (() => {
   const api = "snrg_credit_control.snrg_credit_control.page.scheme_planning.scheme_planning";
+  const historicalApi = "snrg_credit_control.scheme_historical_review";
   const esc = value => frappe.utils.escape_html(String(value ?? ""));
   const date = value => value ? frappe.datetime.str_to_user(String(value)) : "—";
   const number = value => Number(value || 0);
@@ -116,6 +117,9 @@
     }
 
     action({ action, value, index }) {
+      if (action === "historical-documents") return this.historicalDocuments(value);
+      if (action === "historical-credit") return this.historicalCredit(value, index);
+      if (action === "historical-back") return this.renderHistorical();
       if (action === "reload") return this.load();
       if (action === "view") return this.switchView(value);
       if (action === "overview-detail") {
@@ -176,6 +180,7 @@
         }});
         if (request !== this.registerRequest) return;
         this.register = message.schemes;
+        this.historicalAccess = message.historical_review;
         this.currencies = message.currencies;
         this.root.find("[data-field=company]").html(
           `<option value="">${__("All companies")}</option>` + message.companies
@@ -380,6 +385,8 @@
     renderDetail() {
       this.detail.removeClass("sw-has-customer");
       const scheme = this.register.find(row => row.name === this.selected);
+      const historical = this.historicalAccess && scheme.status === "Closed" && !scheme.track_invoice_items && scheme.company;
+      if (!historical && this.tab === "historical") this.tab = "progress";
       const report = this.report;
       const { customers, per_invoice: perInvoice, payment_rules: paymentRules } = report;
       const stat = (label, value) => `<div><span>${esc(label)}</span><strong>${value}</strong></div>`;
@@ -423,12 +430,13 @@
         </div>`}
         <div class="sw-tabs" aria-label="${esc(__("Scheme views"))}">
           ${[["progress", perInvoice ? __("Invoice progress") : __("Customer progress")],
-            ["terms", __("Scheme rules")], ...(paymentRules ? [["reminders", __("Reminder previews")]] : [])].map(([value, text]) =>
+            ["terms", __("Scheme rules")], ...(historical ? [["historical", __("Historical Review")]] : []), ...(paymentRules ? [["reminders", __("Reminder previews")]] : [])].map(([value, text]) =>
               `<button data-action="tab" data-value="${value}" aria-pressed="${this.tab === value}">${esc(text)}</button>`
           ).join("")}
         </div>
         <div class="sw-content"></div>`);
       this.content = this.detail.find(".sw-content");
+      if (this.tab === "historical") return this.renderHistorical();
       if (this.tab === "terms") return this.renderTerms(scheme);
       if (this.tab === "reminders") return this.renderReminderPreviews();
       this.content.html(`<div class="sw-content-tools">
@@ -443,6 +451,137 @@
       </div><div class="sw-results"></div>`);
       this.content.find("[data-field=quotations]").val(this.quotations);
       this.renderRows();
+    }
+
+    historicalCall(method, args = {}, type = "GET") {
+      return frappe.call({ method: `${historicalApi}.${method}`, args: {scheme: this.selected, ...args}, type });
+    }
+
+    async renderHistorical() {
+      const host = this.content;
+      const scheme = this.selected;
+      host.html(this.message(__("Loading historical review…")));
+      try {
+        const {message: customers} = await this.historicalCall("customers");
+        if (this.tab !== "historical" || scheme !== this.selected || this.content !== host) return;
+        const expiry = this.historicalAccess.until ? date(this.historicalAccess.until) : "";
+        host.html(`
+          ${expiry ? `<p>${esc(this.historicalAccess.writable ? __("Approvals open until {0}", [expiry]) : __("Review window closed · read-only"))}</p>` : ""}
+          <label class="sw-search"><span>${__("Find a customer")}</span><input type="search" class="sw-history-search"></label>
+          <div class="sw-history-results"></div>`);
+        const results = host.find(".sw-history-results");
+        const render = query => {
+          const matches = customers.filter(row => `${row.label || ""} ${row.customer}`.toLowerCase().includes(query));
+          results.html(matches.length ? this.table(
+            [__("Customer"), __("Invoices reviewed"), __("Credit notes pending"), __("Approved net"), __("Actions")],
+            matches.map(row => {
+              const complete = row.reviewed === row.invoices && !row.credits_pending;
+              return [
+                `<strong>${esc(row.label || row.customer)}</strong><div>${esc(row.customer)}${complete ? ` · ${esc(__("Complete"))}` : ""}</div>`,
+                `${row.reviewed} / ${row.invoices}`, `${row.credits_pending} / ${row.credits}`, this.money(row.approved_amount),
+                `<button data-action="historical-documents" data-value="${esc(row.customer)}">${__("View invoices and credits")}</button>`,
+              ];
+            })
+          ) : this.message(__("No customers found.")));
+        };
+        host.find(".sw-history-search").on("input", event => render(event.currentTarget.value.trim().toLowerCase()));
+        render("");
+      } catch {
+        host.html(this.message(__("Historical review could not be loaded.")));
+      }
+    }
+
+    async historicalDocuments(customer) {
+      const host = this.content;
+      const selected = this.selected;
+      host.html(this.message(__("Loading invoices and credit notes…")));
+      try {
+        const {message: rows} = await this.historicalCall("documents", {customer});
+        if (this.tab !== "historical" || this.selected !== selected || this.content !== host) return;
+        const list = (title, subset) => `<h3>${esc(title)}</h3>${subset.length ? this.table(
+          [__("Document"), __("Posting date"), __("Original invoice"), __("Review"), __("Actions")],
+          subset.map(row => [
+            `<a href="/desk/sales-invoice/${encodeURIComponent(row.name)}">${esc(row.name)}</a>`,
+            date(row.posting_date),
+            row.return_against ? `<a href="/desk/sales-invoice/${encodeURIComponent(row.return_against)}">${esc(row.return_against)}</a>` : "—",
+            esc(row.reviewed ? __("Reviewed") : __("Pending")),
+            row.is_return
+              ? ((row.reviewed || this.historicalAccess.writable)
+                ? `<button data-action="historical-credit" data-value="${esc(customer)}" data-index="${esc(row.name)}">${row.reviewed ? __("View credit review") : __("Review deduction")}</button>` : "")
+              : `<a href="/desk/sales-invoice/${encodeURIComponent(row.name)}?historical_scheme=${encodeURIComponent(selected)}#custom_scheme_tab"
+                  target="_blank" rel="noopener">${row.reviewed ? __("View review on invoice") : __("Open invoice to review")}</a>`,
+          ])
+        ) : this.message(__("None"))}`;
+        host.html(`
+          <button data-action="historical-back">${__("Back to customers")}</button>
+          <h2>${esc(rows[0]?.customer_name || customer)}</h2>
+          ${list(__("Invoices"), rows.filter(row => !row.is_return))}
+          ${list(__("Credit notes"), rows.filter(row => row.is_return))}`);
+      } catch {
+        host.html(`<button data-action="historical-back">${__("Back to customers")}</button>${this.message(__("Documents could not be loaded."))}`);
+      }
+    }
+
+    async historicalCredit(customer, invoice, originalSelection, sourceSelections = {}) {
+      const scheme = this.selected;
+      const {message: review} = await this.historicalCall("preview", {customer, invoice, original: originalSelection, sources: JSON.stringify(sourceSelections)});
+      if (scheme !== this.selected || this.tab !== "historical") return;
+      const dialog = new frappe.ui.Dialog({
+        title: __("{0} · Scheme eligibility", [invoice]),
+        size: "large",
+        fields: [{fieldtype: "HTML", fieldname: "items"}, ...(!review.reviewed
+          ? [{fieldtype: "Small Text", fieldname: "reason", label: __("Reason for adjustments")},
+            ...(review.rows.some(row => row.unresolved) ? [{fieldtype: "Check", fieldname: "zero_unresolved",
+              label: __("Approve zero deduction for unresolved items")}] : [])] : [])],
+        ...(review.reviewed ? {} : {
+          primary_action_label: __("Submit review"),
+          primary_action: async values => {
+            if (scheme !== this.selected) return;
+            const excluded = dialog.fields_dict.items.$wrapper.find("input[data-item]:enabled:not(:checked)").toArray().map(input => input.dataset.item);
+            dialog.get_primary_btn().prop("disabled", true);
+            try {
+              await this.historicalCall("approve", {customer, invoice, token: review.token, excluded: JSON.stringify(excluded), reason: values.reason,
+                original: originalSelection, sources: JSON.stringify(sourceSelections), zero_unresolved: values.zero_unresolved}, "POST");
+              dialog.hide();
+              await this.loadScheme();
+              if (this.tab === "historical") this.historicalDocuments(customer);
+            } finally {
+              dialog.get_primary_btn().prop("disabled", false);
+            }
+          },
+        }),
+      });
+      const original = review.original ? `<p>${__("Original invoice")} <a href="/desk/sales-invoice/${encodeURIComponent(review.original)}">${esc(review.original)}</a></p>` : "";
+      const picker = review.original_options?.length ? `<label>${esc(__("Choose original invoice"))}
+        <select class="sw-history-origin"><option value="">${esc(__("Select an approved invoice"))}</option>
+        ${review.original_options.map(value => `<option value="${esc(value)}"${review.original === value ? " selected" : ""}>${esc(value)}</option>`).join("")}
+        </select></label>` : "";
+      const audit = review.reviewed ? `<p>${esc(__("Reviewed by {0} · {1}", [review.approved_by, review.approved_at]))}</p>
+        ${review.reason ? `<p>${esc(review.reason)}</p>` : ""}` : "";
+      dialog.fields_dict.items.$wrapper.html(original + picker + audit + this.table(
+        [__("Item"), __("Amount"), __("Counts toward scheme")],
+        review.rows.map(row => [
+          `${row.line}. ${esc(row.code)}${row.unresolved ? `<div>${esc(__("Original item or quantity needs review"))}</div>` : ""}`,
+          this.money(row.amount),
+          `<input type="checkbox" aria-label="${esc(__("Include item {0}, row {1}", [row.code, row.line]))}"
+            data-item="${esc(row.item)}"${row.included ? " checked" : ""}${review.reviewed || !row.selectable ? " disabled" : ""}>
+          ${!review.reviewed && row.source_options?.length > 1 ? `<select data-source="${esc(row.item)}" aria-label="${esc(__("Original invoice item"))}">
+            <option value="">${esc(__("Select original item"))}</option>
+            ${row.source_options.map(option => `<option value="${esc(option.value)}"${row.source === option.value ? " selected" : ""}>${esc(option.label)}</option>`).join("")}
+            </select>` : ""}`,
+        ])
+      ));
+      const wrapper = dialog.fields_dict.items.$wrapper;
+      wrapper.on("change", ".sw-history-origin", event => {
+        dialog.hide();
+        this.historicalCredit(customer, invoice, event.currentTarget.value);
+      });
+      wrapper.on("change", "[data-source]", event => {
+        dialog.hide();
+        this.historicalCredit(customer, invoice, originalSelection,
+          {...sourceSelections, [event.currentTarget.dataset.source]: event.currentTarget.value});
+      });
+      dialog.show();
     }
 
     table(headers, rows) {

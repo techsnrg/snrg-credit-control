@@ -1,0 +1,68 @@
+{
+  "doctype": "DocType",
+  "name": "SNRG Historical Scheme Review",
+  "module": "Snrg Credit Control",
+  "engine": "InnoDB",
+  "permissions": [],
+  "field_order": [
+    "scheme",
+    "invoice",
+    "customer",
+    "approved_by",
+    "eligibility",
+    "reason"
+  ],
+  "fields": [
+    {
+      "fieldname": "scheme",
+      "label": "Scheme",
+      "fieldtype": "Link",
+      "read_only": 1,
+      "reqd": 1,
+      "search_index": 1,
+      "options": "SNRG Scheme"
+    },
+    {
+      "fieldname": "invoice",
+      "label": "Invoice or Credit Note",
+      "fieldtype": "Data",
+      "read_only": 1,
+      "reqd": 1,
+      "search_index": 1
+    },
+    {
+      "fieldname": "customer",
+      "label": "Customer",
+      "fieldtype": "Link",
+      "read_only": 1,
+      "reqd": 1,
+      "search_index": 1,
+      "options": "Customer"
+    },
+    {
+      "fieldname": "approved_by",
+      "label": "Approved By",
+      "fieldtype": "Link",
+      "read_only": 1,
+      "reqd": 1,
+      "search_index": 0,
+      "options": "User"
+    },
+    {
+      "fieldname": "eligibility",
+      "label": "Reviewed Items",
+      "fieldtype": "Long Text",
+      "read_only": 1,
+      "reqd": 1,
+      "search_index": 0
+    },
+    {
+      "fieldname": "reason",
+      "label": "Reason",
+      "fieldtype": "Small Text",
+      "read_only": 1,
+      "reqd": 0,
+      "search_index": 0
+    }
+  ]
+}

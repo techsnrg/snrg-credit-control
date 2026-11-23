@@ -188,12 +188,100 @@
     }
   }
 
+  async function loadHistoricalReview(frm, panel) {
+    if (frm.doctype !== "Sales Invoice" || frm.doc.docstatus !== 1 || frm.doc.is_return || !canHonour()) return;
+    const invoice = frm.doc.name;
+    const api = "snrg_credit_control.scheme_historical_review.";
+    const section = $("<section>", { class: "mb-4 historical-scheme-review" }).appendTo(panel);
+    const request = (method, args, type = "GET") => frappe.call({
+      method: api + method, type, args: { invoice, ...args },
+    });
+    const { message: context } = await request("invoice_context");
+    if (!section[0].isConnected || frm.doc.name !== invoice) return;
+    if (!context) {
+      section.remove();
+      return;
+    }
+    $("<h5>").text(__("Historical scheme review")).appendTo(section);
+    const picker = $("<select>", { class: "form-control input-sm", "aria-label": __("Scheme") });
+    for (const scheme of context.schemes) $("<option>").val(scheme).text(scheme).appendTo(picker);
+    const requested = new URLSearchParams(window.location.search).get("historical_scheme");
+    if (context.schemes.includes(requested)) picker.val(requested);
+    $("<label>").addClass("mr-2").append(text(__("Scheme")), picker).appendTo(section);
+    const load = $("<button>", { type: "button", class: "btn btn-default btn-sm" }).appendTo(section);
+    const body = $("<div>", { class: "mt-3", "aria-live": "polite" }).appendTo(section);
+    const setLabel = () => load.text(context.reviewed.includes(picker.val())
+      ? __("View submitted review") : __("Populate scheme eligibility"))
+      .prop("disabled", !context.writable && !context.reviewed.includes(picker.val()));
+    picker.on("change", () => { body.empty(); setLabel(); });
+    setLabel();
+    load.on("click", async () => {
+      const scheme = picker.val();
+      const args = { scheme, customer: frm.doc.customer };
+      picker.prop("disabled", true);
+      load.prop("disabled", true);
+      body.empty().text(__("Loading item eligibility…"));
+      try {
+        const { message: review } = await request("preview", args);
+        if (!section[0].isConnected || frm.doc.name !== invoice) return;
+        body.empty();
+        if (review.reviewed) {
+          $("<p>", { class: "text-muted" }).text(__("Reviewed by {0} · {1}", [review.approved_by, review.approved_at])).appendTo(body);
+          if (review.reason) $("<p>").text(review.reason).appendTo(body);
+        }
+        const table = $("<table>", { class: "table table-sm" })
+          .appendTo($("<div>", { class: "table-responsive" }).appendTo(body));
+        const header = $("<tr>").appendTo($("<thead>").appendTo(table));
+        for (const label of [__("Item"), __("Eligible amount"), __("Include in scheme")])
+          $("<th>", { scope: "col" }).text(label).appendTo(header);
+        const rows = $("<tbody>").appendTo(table);
+        const choices = new Map();
+        for (const row of review.rows) {
+          const entry = $("<tr>").appendTo(rows);
+          $("<td>").text([row.line, row.code || __("No item code")].join(" · ")).appendTo(entry);
+          $("<td>").text(format_currency(row.amount, frappe.defaults.get_default("currency"))).appendTo(entry);
+          const choice = $("<input>", { type: "checkbox", "aria-label": __("Include item {0}, row {1}", [row.code, row.line]) })
+            .prop({ checked: row.included, disabled: review.reviewed || !row.selectable }).appendTo($("<td>").appendTo(entry));
+          if (row.selectable) choices.set(row.item, choice);
+        }
+        if (review.reviewed) return;
+        const reason = $("<textarea>", { class: "form-control", rows: 2, "aria-label": __("Reason for adjustments") });
+        $("<label>", { class: "d-block" }).append(text(__("Reason for adjustments")), reason).appendTo(body);
+        const submit = $("<button>", { type: "button", class: "btn btn-primary btn-sm" })
+          .text(__("Submit scheme review")).appendTo(body);
+        submit.on("click", async () => {
+          const excluded = [...choices].filter(([, choice]) => !choice.prop("checked")).map(([item]) => item);
+          if (excluded.length && !reason.val().trim()) {
+            frappe.msgprint(__("Enter a reason for the excluded items."));
+            reason.trigger("focus");
+            return;
+          }
+          submit.prop("disabled", true);
+          try {
+            await request("approve", { ...args, token: review.token, excluded: JSON.stringify(excluded), reason: reason.val() }, "POST");
+            context.reviewed.push(scheme);
+            frappe.show_alert({ message: __("Historical scheme review submitted"), indicator: "green" });
+            load.trigger("click");
+          } finally {
+            submit.prop("disabled", false);
+          }
+        });
+      } catch {
+        body.text(__("Could not load historical item eligibility. Try again."));
+      } finally {
+        picker.prop("disabled", false);
+        setLabel();
+      }
+    });
+  }
+
   function render(frm) {
     const panel = panelOf(frm);
     if (!panel?.length) return;
     panel.empty();
     frm.schemeLineEditors = [];
     const edit = editable(frm);
+    loadHistoricalReview(frm, panel);
     if (frm.doctype === "Sales Invoice" && frm.doc.docstatus === 1 && !frm.doc.is_return)
       $("<p>", { class: "text-muted" }).text(__("Eligibility at submission")).appendTo(panel);
     if (edit) $("<button>", { type: "button", class: "btn btn-default btn-sm mb-2" })
