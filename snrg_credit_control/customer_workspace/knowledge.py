@@ -47,6 +47,12 @@ def revision_body(name):
     return frappe.db.get_value(REVISION, name, "body") if name else ""
 
 
+def guide_name_for_code(code):
+    matches = frappe.get_all(GUIDE, filters={"title": ["like", code + " %"]},
+                             pluck="name", limit_page_length=2)
+    return matches[0] if len(matches) == 1 else None
+
+
 def summary(row):
     return {
         "name": row.name, "title": row.title, "department": row.department,
@@ -211,9 +217,14 @@ def clean_sections(value, guide=None):
 
 @frappe.whitelist()
 def read(name):
+    if isinstance(name, str) and re.fullmatch(r"KB-[0-9]{5}", name, re.IGNORECASE):
+        api.guard()
+        name = guide_name_for_code(name.upper()) or name
     guide = get_guide(name)
+    code = re.match(r"(KB-[0-9]{5}) ", guide.title)
     result = {
         **summary(guide), "body": revision_body(guide.published_revision),
+        "guide_code": code[1] if code and guide_name_for_code(code[1]) == guide.name else None,
         "can_edit": can_edit(guide),
         "sections": reader_sections(guide.name, guide.published_revision),
     }

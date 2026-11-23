@@ -206,8 +206,11 @@ export default {
         correctionOpen.value = false;
         correction.value = '';
         const url = new URL(window.location.href);
-        if (url.searchParams.get('guide') !== name) url.hash = '';
-        url.searchParams.set('guide', name);
+        const canonicalGuide = guide.value.guide_code || guide.value.name;
+        if (![name, guide.value.name, canonicalGuide].includes(url.searchParams.get('guide'))) {
+          url.hash = '';
+        }
+        url.searchParams.set('guide', canonicalGuide);
         history.replaceState(history.state, '', url);
         await nextTick();
         document.querySelector('#cw .knowledge-title')?.focus();
