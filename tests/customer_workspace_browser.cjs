@@ -44,6 +44,23 @@ const fs=require('node:fs');
   await page.addStyleTag({url:'http://workspace.test/app.css'});await page.addScriptTag({url:'http://workspace.test/app.js'});
   await page.evaluate(()=>window.snrgCustomerWorkspace.mount(document.getElementById('app')));
   await page.getByRole('heading',{name:/Good (morning|afternoon|evening), Nikhil/}).waitFor();
+  await page.evaluate(()=>{
+   const dock=document.createElement('div');
+   dock.id='desk-dock';
+   dock.innerHTML='<button class="sidebar-notification"><span>Desk notifications</span></button>';
+   dock.querySelector('button').addEventListener('click',()=>window.nativeBellClicks=(window.nativeBellClicks||0)+1);
+   document.body.prepend(dock);
+  });
+  const deskBell=page.getByText('Desk notifications',{exact:true});
+  await deskBell.click();
+  const inbox=page.getByRole('dialog',{name:'Notifications'});
+  await inbox.getByRole('link',{name:/Task updated/}).waitFor();
+  assert.equal(await page.evaluate(()=>window.nativeBellClicks||0),0);
+  await inbox.getByRole('button',{name:'Close',exact:true}).click();
+  await page.locator('#app').evaluate(host=>host.hidden=true);
+  await deskBell.click();
+  assert.equal(await page.evaluate(()=>window.nativeBellClicks),1);
+  await page.locator('#app').evaluate(host=>host.hidden=false);
   await page.addStyleTag({content:'.row{margin-inline:-15px}.row>*{padding-inline:15px}'});
   async function assertFieldsFit(drawer){
    assert.deepEqual(await drawer.evaluate(element=>{
