@@ -79,7 +79,8 @@ def bootstrap():
     from snrg_credit_control.customer_workspace.receivables import can_read, allowed_companies
     from snrg_credit_control.customer_workspace import payables
     from snrg_credit_control.customer_workspace.settings import allowed
-    return {"user": frappe.session.user, "can_team_activity": activity_allowed(), "is_manager": manager(), "today": today(), "employees": _directory(), "can_ar": can_read(), "can_ar_detail": bool(can_read() and frappe.db.exists("Report", "Accounts Receivable") and not frappe.get_doc("Report", "Accounts Receivable").disabled and frappe.get_doc("Report", "Accounts Receivable").is_permitted()), "can_transactions": allowed("Transactions"), "can_ap": payables.can_read(), "can_ap_detail": payables.can_read_detail(), "ap_companies": payables.allowed_companies(), "companies": allowed_companies(), **filter_options()}
+    from snrg_credit_control.customer_workspace.leads import allowed as leads_allowed
+    return {"user": frappe.session.user, "can_leads": leads_allowed(), "can_team_activity": activity_allowed(), "is_manager": manager(), "today": today(), "employees": _directory(), "can_ar": can_read(), "can_ar_detail": bool(can_read() and frappe.db.exists("Report", "Accounts Receivable") and not frappe.get_doc("Report", "Accounts Receivable").disabled and frappe.get_doc("Report", "Accounts Receivable").is_permitted()), "can_transactions": allowed("Transactions"), "can_ap": payables.can_read(), "can_ap_detail": payables.can_read_detail(), "ap_companies": payables.allowed_companies(), "companies": allowed_companies(), **filter_options()}
 
 
 @frappe.whitelist()
