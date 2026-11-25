@@ -4,7 +4,10 @@ import frappe
 
 def setup():
     from snrg_credit_control.customer_workspace.notifications import ensure_keys
+    from snrg_credit_control.customer_workspace.leads import install_fields
+
     ensure_keys()
+    install_fields()
     if not frappe.db.exists("Role", "Customer Workspace Manager"):
         frappe.get_doc({"doctype": "Role", "role_name": "Customer Workspace Manager", "desk_access": 1}).insert(ignore_permissions=True)
     if frappe.db.exists("Workspace", "Customer Relationships") and not frappe.db.exists("Workspace", "Teamspace"):
