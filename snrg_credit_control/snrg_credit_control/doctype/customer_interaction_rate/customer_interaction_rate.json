@@ -1,0 +1,15 @@
+{
+  "doctype": "DocType",
+  "name": "Customer Interaction Rate",
+  "module": "Snrg Credit Control",
+  "engine": "InnoDB",
+  "istable": 1,
+  "field_order": ["item", "rate", "currency", "uom"],
+  "fields": [
+    {"fieldname": "item", "label": "Item or description", "fieldtype": "Data", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "rate", "label": "Rate", "fieldtype": "Currency", "options": "currency", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "currency", "label": "Currency", "fieldtype": "Link", "options": "Currency", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "uom", "label": "UOM", "fieldtype": "Data", "default": "Nos", "reqd": 1, "in_list_view": 1}
+  ],
+  "permissions": []
+}

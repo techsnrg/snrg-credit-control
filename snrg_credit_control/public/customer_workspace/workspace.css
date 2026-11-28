@@ -757,3 +757,68 @@ body:has(#page-customer-workspace.snrg-customer-workspace-page:not(.hide):not(.h
  #cw .pdf-preview-layer.beside-task{inset-inline-end:0}
  #cw .pdf-preview-layer .workspace-pdf-preview{width:100%}
 }
+
+#cw .interaction-rate {
+  container: interaction-rate / inline-size;
+  margin-block: 16px;
+}
+
+#cw .interaction-rate > button {
+  border-color: var(--line);
+}
+
+#cw .interaction-rate-fields {
+  min-inline-size: 0;
+  margin: 12px 0 0;
+  padding: 10px 12px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+#cw .interaction-rate-fields legend {
+  float: none;
+  width: auto;
+  margin: 0;
+  padding-inline: 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+#cw .interaction-rate-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  align-items: end;
+}
+
+#cw .interaction-rate-row label {
+  min-inline-size: 0;
+  margin: 0;
+}
+
+#cw .interaction-rate-row .interaction-rate-item {
+  grid-column: 1 / -1;
+}
+
+@container interaction-rate (min-width: 440px) {
+  #cw .interaction-rate-row {
+    grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr)) 32px;
+  }
+
+  #cw .interaction-rate-row .interaction-rate-item {
+    grid-column: auto;
+  }
+}
+
+
+#cw .interaction-rate-row + .interaction-rate-row {
+  margin-block-start: 12px;
+  padding-block-start: 12px;
+  border-block-start: 1px solid var(--line);
+}
+
+#cw .interaction-rate-remove {
+  min-inline-size: 32px;
+  min-block-size: 36px;
+  justify-self: end;
+}

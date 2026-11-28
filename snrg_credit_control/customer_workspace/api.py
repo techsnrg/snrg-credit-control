@@ -145,7 +145,10 @@ def log_interaction(payload):
         frappe.throw(_("Choose an active internal team member as the speaker."))
     from snrg_credit_control.customer_workspace.rich_text import attach_files, uploads
     files = uploads(data.get("attachments"))
-    doc = frappe.get_doc({"doctype": INTERACTION, **party, "call_outcome": data.get("call_outcome") if data.get("channel", "Call") == "Call" else None, "summary_html": data.get("summary_html"), "summary": data["summary"].strip(), "channel": data.get("channel", "Call"), "contact_name": data.get("contact_name"), "spoken_by": spoken_by, "interaction_on": data.get("interaction_on") or now_datetime()})
+    from snrg_credit_control.customer_workspace.party_rates import RATE_TABLE, interaction_rows
+
+    rates = interaction_rows(data.get("rates"), data.get("rate"))
+    doc = frappe.get_doc({"doctype": INTERACTION, **party, RATE_TABLE: rates, "call_outcome": data.get("call_outcome") if data.get("channel", "Call") == "Call" else None, "summary_html": data.get("summary_html"), "summary": data["summary"].strip(), "channel": data.get("channel", "Call"), "contact_name": data.get("contact_name"), "spoken_by": spoken_by, "interaction_on": data.get("interaction_on") or now_datetime()})
     doc.flags.teamspace_uploads = files
     for employee in set(data.get("mentions") or []):
         doc.append("mentions", {"employee": employee})
