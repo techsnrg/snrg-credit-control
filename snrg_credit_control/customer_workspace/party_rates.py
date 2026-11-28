@@ -40,7 +40,7 @@ def interaction_values(rate):
     if not amount.is_finite() or not 0 <= amount < 10**12 or amount.as_tuple().exponent < -6:
         frappe.throw(_("Enter a non-negative rate with up to six decimal places."))
     item = str(rate.get("item") or "").strip()
-    unit = str(rate.get("unit") or "").strip()
+    unit = str(rate.get("unit", "Nos") or "").strip()
     currency = str(rate.get("currency") or "").strip().upper()
     if not item or not unit or len(item) > 140 or len(unit) > 140:
         frappe.throw(_("Enter an item or description and a unit, each up to 140 characters."))

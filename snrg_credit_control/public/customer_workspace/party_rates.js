@@ -76,7 +76,7 @@ export default {
       <p v-else-if="!rows.length">{{source==='quotation'?'No submitted quotations on this page.':'No rates logged yet.'}}</p>
       <div v-else class="ts-lead-rates">
         <table :aria-label="kind==='Supplier'?'Rates received':'Rates offered'">
-          <thead><tr><th>Date</th><th>Item</th><th>Rate</th><th>Unit</th><th v-if="source==='quotation'">Quantity</th>
+          <thead><tr><th>Date</th><th>Item</th><th>Rate</th><th>UOM</th><th v-if="source==='quotation'">Quantity</th>
             <th>{{source==='quotation'?'Quotation':'Logged by'}}</th></tr></thead>
           <tbody>
             <tr v-for="row in rows" :key="row.name">
