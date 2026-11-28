@@ -802,10 +802,23 @@ body:has(#page-customer-workspace.snrg-customer-workspace-page:not(.hide):not(.h
 
 @container interaction-rate (min-width: 440px) {
   #cw .interaction-rate-row {
-    grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr)) 32px;
   }
 
   #cw .interaction-rate-row .interaction-rate-item {
     grid-column: auto;
   }
+}
+
+
+#cw .interaction-rate-row + .interaction-rate-row {
+  margin-block-start: 12px;
+  padding-block-start: 12px;
+  border-block-start: 1px solid var(--line);
+}
+
+#cw .interaction-rate-remove {
+  min-inline-size: 32px;
+  min-block-size: 36px;
+  justify-self: end;
 }

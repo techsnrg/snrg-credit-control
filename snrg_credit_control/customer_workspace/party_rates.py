@@ -5,6 +5,7 @@ import frappe
 from frappe import _
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 from frappe.utils import cint
+from pypika import Order
 
 from snrg_credit_control.customer_workspace.api import INTERACTION, guard, party_values
 from snrg_credit_control.customer_workspace.settings import allowed
@@ -13,6 +14,8 @@ RATE = "custom_teamspace_rate_amount"
 CURRENCY = "custom_teamspace_rate_currency"
 ITEM = "custom_teamspace_rate_item"
 UNIT = "custom_teamspace_rate_unit"
+RATE_TABLE = "custom_teamspace_rates"
+RATE_ROW = "Customer Interaction Rate"
 QUOTATIONS = {
     "Customer": ("Quotation", "party_name"),
     "Supplier": ("Supplier Quotation", "supplier"),
@@ -25,6 +28,7 @@ def install_fields():
         dict(fieldname=UNIT, label="Rate unit", fieldtype="Data", insert_after=ITEM, read_only=1),
         dict(fieldname=CURRENCY, label="Rate currency", fieldtype="Link", options="Currency", insert_after=UNIT, read_only=1),
         dict(fieldname=RATE, label="Rate amount", fieldtype="Currency", options=CURRENCY, insert_after=CURRENCY, read_only=1),
+        dict(fieldname=RATE_TABLE, label="Rates", fieldtype="Table", options=RATE_ROW, insert_after=RATE, read_only=1),
     ]})
 
 
@@ -49,6 +53,55 @@ def interaction_values(rate):
     return {ITEM: item, UNIT: unit, CURRENCY: currency, RATE: amount}
 
 
+def interaction_rows(rows, legacy_rate=None):
+    if rows is None:
+        rows = [legacy_rate] if legacy_rate else []
+    if not isinstance(rows, list) or len(rows) > 100:
+        frappe.throw(_("Enter up to 100 rate rows per interaction."))
+    result = []
+    for row in rows:
+        values = interaction_values(row)
+        if not values:
+            frappe.throw(_("Complete each rate row or remove it."))
+        result.append({
+            "item": values[ITEM], "uom": values[UNIT],
+            "currency": values[CURRENCY], "rate": values[RATE],
+        })
+    return result
+
+
+def _logged_rates(kind, name, start):
+    parent = frappe.qb.DocType(INTERACTION)
+    child = frappe.qb.DocType(RATE_ROW)
+    linked = frappe.qb.from_(child).select(child.parent).where(
+        (child.parenttype == INTERACTION) & (child.parentfield == RATE_TABLE)
+    )
+    parents = (
+        frappe.qb.from_(parent)
+        .select(parent.name, parent.channel, parent.interaction_on.as_("date"), parent.spoken_by,
+                parent[ITEM].as_("item"), parent[UNIT].as_("unit"), parent[CURRENCY].as_("currency"), parent[RATE].as_("rate"))
+        .where((parent[kind.lower()] == name) & ((parent[CURRENCY] != "") | parent.name.isin(linked)))
+        .orderby(parent.interaction_on, parent.name, order=Order.desc).offset(start).limit(26)
+        .run(as_dict=True)
+    )
+    if not parents:
+        return [], False
+    rate_rows = frappe.get_all(RATE_ROW, filters={
+        "parent": ["in", [row.name for row in parents[:25]]],
+        "parenttype": INTERACTION, "parentfield": RATE_TABLE,
+    }, fields=["parent", "name", "item", "uom as unit", "currency", "rate"],
+        order_by="idx asc", limit_page_length=0)
+    by_parent = {}
+    for row in rate_rows:
+        by_parent.setdefault(row.parent, []).append(row)
+    rows = []
+    for parent_row in parents[:25]:
+        if parent_row.currency:
+            rows.append(parent_row)
+        rows.extend({**parent_row, **line} for line in by_parent.get(parent_row.name, []))
+    return rows, len(parents) > 25
+
+
 @frappe.whitelist(methods=["GET"])
 def list_rates(customer=None, supplier=None, source="interaction", start=0):
     guard()
@@ -58,13 +111,8 @@ def list_rates(customer=None, supplier=None, source="interaction", start=0):
     can_quote = bool(allowed("Transactions") and frappe.has_permission(doctype, "read"))
     start = max(0, cint(start))
     if source == "interaction":
-        rows = frappe.get_all(
-            INTERACTION, filters={kind.lower(): name, CURRENCY: ["!=", ""]},
-            fields=["name", "channel", "interaction_on as date", "spoken_by",
-                    f"{ITEM} as item", f"{UNIT} as unit", f"{CURRENCY} as currency", f"{RATE} as rate"],
-            order_by="interaction_on desc, name desc", start=start, limit_page_length=26,
-        )
-        return {"rows": rows[:25], "has_more": len(rows) > 25, "can_quote": can_quote}
+        rows, has_more = _logged_rates(kind, name, start)
+        return {"rows": rows, "has_more": has_more, "can_quote": can_quote}
     if source != "quotation":
         frappe.throw(_("Choose a valid rate source."))
     if not can_quote:
